@@ -18,6 +18,16 @@ Note: "casdey" is always written lowercase, including at the start of a sentence
 - Price (early flat rate, first outreach wave): £199/month.
 - Price (current offer, used from the automated outreach system onward): £250/mo GBP or €290/mo EUR after the free trial week; £225/mo GBP or €262/mo EUR on an annual plan.
 - Core validation rule: validate with real payments/commitments, not with polite interest. "Sounds useful" doesn't count — a deposit or explicit "I'll pay £X on launch" does.
+- See "Offer evolution (beta → V1 → V2)" below for how this price is wrapped for waitlist/beta contacts specifically, including a lifetime early-adopter discount.
+
+## Offer evolution (beta → V1 → V2)
+Dictated by Davide on 2026-08-13, to be reflected in both the cold-outreach templates and the waitlist/landing copy. Three phases, same underlying price (see above), different wrapper:
+
+1. **Beta / pre-launch (current phase, while the SaaS is being built).** Cold outreach and the waitlist offer: a free week of Premium once the software ships, after which the account drops to a **Free plan** (deliberately limited, not yet scoped/built). If a beta contact then chooses to upgrade to Premium, they get a **lifetime discount of £50/mo GBP or €59/mo EUR off the standard Premium price**, for as long as they stay subscribed. This lifetime discount is exclusive to people who joined during the waitlist/beta and V1 windows, not a standing offer. The outreach message in this phase must say explicitly that this isn't a sales pitch, casdey genuinely wants their feedback on the product.
+2. **V1 launch.** Same offer (free week → Free plan → lifetime discount if they upgrade), just reworded: outreach and copy switch from "coming soon" framing to "it's live now." Trigger to start building V2: the first paying clients land.
+3. **V2 launch.** The beta/lifetime-discount offer retires for new signups — existing early adopters who already locked in the lifetime discount keep it. Go-forward, the product is just Free vs Premium, no beta framing.
+
+The Free plan referenced above does not exist in the product yet; scoping and building it is separate work from the current SaaS build (see `web/SAAS_HANDOFF.md`).
 
 ## Data sensitivity — critical
 This product will handle real dental patient data — health-adjacent personal data. GDPR compliance is a hard requirement for the UK/Ireland market, not optional. Treat any data handling, storage, or processing decisions with this in mind by default, and flag anything that could create compliance risk.
@@ -40,16 +50,17 @@ We are running Stage 1 (outreach) and Stage 2 (build) in parallel: Davide made t
 - Independent practices are prioritized over small chains — they decide faster.
 
 ## Stage 2 progress — building
-- Landing page (`/`) and waitlist (`/waitlist`) are built and working locally, brand v2 applied, copy follows the free-first-week-only rule (no price shown, per the outreach copy's own no-price-in-first-touch logic). Not yet deployed publicly; `casdey.com` still points at GoDaddy, not Vercel.
-- Waitlist storage is a real Supabase (EU/Frankfurt) table, `waitlist_signups`, RLS on with only the server-side service role able to read/write. Verified end-to-end on 2026-08-13 with a real test signup (row written, both notification emails sent).
-- The SaaS product itself (patient import, dormant-patient detection, messaging, Stripe billing, auth) has not been started. That's the next piece of work — see "Open questions" below before it begins, since it touches real patient data and needs the integration/MVP-scope decisions made deliberately, not guessed.
-- GitHub repo: `07davidelongo-eng/casdey`, branch `main`. Not yet connected to Vercel.
+- Landing page (`/`) and waitlist (`/waitlist`) are built and **live in production** at `casdey.com`, brand v2 applied, copy follows the free-first-week-only rule (no price shown, per the outreach copy's own no-price-in-first-touch logic).
+- Waitlist storage is a real Supabase (EU/Frankfurt) table, `waitlist_signups`, RLS on with only the server-side service role able to read/write. Verified end-to-end on 2026-08-13 with a real test signup (row written, both notification emails sent), and again after the production deploy.
+- The SaaS product (`/app`) has a first working build: accounts (email/password + Google), a 7-day free trial with card taken at signup, CSV patient import (Dentally stubbed pending real credentials), dormant-patient detection, and email re-engagement campaigns. Full detail, verified checks, and the manual steps still needed (DB migration, Supabase Auth keys, Stripe webhook secret) are in `web/SAAS_HANDOFF.md`. It exists in the same deployed app as the marketing pages but is **deliberately kept inert in production**: `/app` and `/login` render but cannot authenticate anyone, because the production Vercel env only has the waitlist-safe vars set (see Infrastructure below), not `NEXT_PUBLIC_SUPABASE_*`, Stripe, `RESEND_API_KEY`, or `CRON_SECRET`. Confirmed on 2026-08-13: submitting the login form throws "Supabase Auth is not configured" and never resolves.
+- Two Claude Code sessions worked this in parallel deliberately (2026-08-13): one on marketing pages/deploy, one on the SaaS build. Both stayed additive (new files/routes only, zero edits to each other's files), which is what made same-repo, same-branch parallel work safe — no folder copies or extra branches needed.
+- GitHub repo: `07davidelongo-eng/casdey`, branch `main`, connected to Vercel.
 
 ## Outreach copy conventions
 - The key opener question: "of the day-to-day admin your practice software handles, what's the one thing it doesn't do well?"
 - Guarantee wording: "if it doesn't recover more than it costs, you don't pay."
 - Cold emails are sent in plain text — no logo, no image attachments (spam risk).
-- "casdey.com" is NOT included in the email signature yet. A website now exists (see `web/`) but is not yet publicly deployed, so there is still nothing live to point to. **TODO once it is deployed:** add the casdey.com link to the cold-outreach routine's email template (see `.claude/skills/cold-outreach/SKILL.md`).
+- `casdey.com` is now live (deployed 2026-08-13, see Infrastructure below). **TODO, not yet done:** add the casdey.com/waitlist link to the cold-outreach routine's email template (see `.claude/skills/cold-outreach/SKILL.md`), and fold in the beta offer from "Offer evolution" above (free week of Premium once the software ships → Free plan → lifetime £50/€59 discount if they upgrade), framed explicitly as feedback-seeking, not a sales pitch.
 - Supporting docs already created: a 4-email outreach sequence and a one-page Service Agreement (used once a prospect says they're interested, sent for signature).
 - **Never use em dashes (—) as punctuation** (as a substitute for commas/parentheses/asides) in any casdey copy — cold emails, follow-ups, this file, anything. Use commas or separate sentences instead. Normal hyphens in compound words (follow-up, list-building, drop-off) are fine and unaffected by this rule.
 - Email sign-off format: `Davide @casdey` (single line, no line break between name and company, no "Best,"/"Regards," preamble).
@@ -60,18 +71,21 @@ We are running Stage 1 (outreach) and Stage 2 (build) in parallel: Davide made t
 - Two users: davide@casdey.com (me) and abhi@casdey.com (business partner).
 - info@casdey.com is a shared Group (not an alias) — mail delivered to both our inboxes, both can send from it. Zoho treats it as a group, not a mailbox: it has no API/IMAP account of its own, so programmatic access goes through davide@casdey.com's account using send-as.
 - Google Workspace signup for casdey.com is still blocked (no P.IVA), but info@casdey.com does have a plain Google Account (likely a byproduct of the earlier interrupted signup attempt) — this is what the `gws` CLI and Google Sheets/Drive access authenticate as. A separate Google service account (`casdey-routine@casdey-gws-cli.iam.gserviceaccount.com`) exists for unattended Sheets access from the outreach Routine, see `.claude/skills/cold-outreach/SKILL.md`.
-- Stripe: connected in test mode only (account acct_1Tz17NDGwemFDmSP) — no live keys yet, no real charges possible. Not yet wired into the website or software.
+- Stripe: connected in test mode only (account acct_1Tz17NDGwemFDmSP) — no live keys yet, no real charges possible. Test-mode prices already created for all four plan variants (see `web/SAAS_HANDOFF.md`). Not yet wired into production (deliberately, see Stage 2 above).
 - GitHub: `07davidelongo-eng/casdey`, branch `main`.
-- Vercel: not yet set up. Plan is Root Directory `web`, `main` = production, other branches = preview URLs, so local (`localhost:3000`) → preview → production is the intended flow. `casdey.com` DNS still needs to move from GoDaddy once a Vercel project exists.
-- Supabase: project `casdey`, region `eu-central-1` (Frankfurt), used so far for the waitlist (`waitlist_signups` table). Free tier. Will likely also hold the SaaS's own data once that's built, given it needs the same EU-residency guarantee.
+- Vercel: set up 2026-08-13. Team/project both named `casdey`, Root Directory `web`, `main` = production. Deployed at `casdey.vercel.app` and at the custom domain `casdey.com` (see below). Production env vars are deliberately limited to the waitlist-safe set (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, the `ZOHO_*` vars, `WAITLIST_NOTIFY_TO`, `CASDEY_FROM_ADDRESS`, `NEXT_PUBLIC_SITE_URL`); Stripe, Supabase Auth (`NEXT_PUBLIC_SUPABASE_*`), `RESEND_API_KEY`, and `CRON_SECRET` are unset on purpose so `/app` stays inert until the SaaS is ready to go live. **The Vercel team is on a Pro Trial that expires ~14 days from 2026-08-13; a payment method needs adding before then or the project may lose service.**
+- `casdey.com`: DNS moved from GoDaddy's parked-page defaults to Vercel on 2026-08-13. Two records changed at GoDaddy (`A @ → 216.198.79.1`, `CNAME www → c7edcf5d9dc7d3ff.vercel-dns-017.com.`); the existing Zoho MX/SPF/DKIM records were left untouched and email still works. SSL is auto-provisioned by Vercel. DNS propagated within minutes for this test but can take up to 48h globally.
+- Supabase: project `casdey`, region `eu-central-1` (Frankfurt), used so far for the waitlist (`waitlist_signups` table). Free tier. Will also hold the SaaS's own data (10 tables from `web/supabase/migrations/0002_saas.sql`, not yet run in production) once the SaaS goes live, given it needs the same EU-residency guarantee.
 
 ## Legal/tax context (Italy)
 - No Partita IVA yet — first clients will be invoiced via prestazione occasionale.
 - Partita IVA to be registered once revenue is consistent (regime forfettario).
 
 ## Open questions before building the SaaS
-Raised 2026-08-13, not yet answered. Building the product itself (not just the marketing site) touches real dental patient data and billing, so these are worth deciding deliberately rather than defaulting:
-- MVP scope: does the first working version need a real practice-software integration (Dentally, SOE Exact, R4, Carestream, the four named on the landing page), or does it start with manual CSV/spreadsheet upload so it works for any practice regardless of software? This now also has to cover calendar write-access (to book appointments) and price-list read-access (to calculate revenue for the guarantee), not just read access to the patient list, since casdey's job extends through booking rather than stopping at alerting the practice.
-- Auth: Supabase Auth (same project as the waitlist DB) vs. a dedicated provider (Clerk, NextAuth, etc.)?
-- Billing flow: does Stripe capture a payment method at signup (charged automatically once the free week ends, matching the "profit or nothing" guarantee language), or stay card-free with manual invoicing after the trial (matching the no-P.IVA prestazione-occasionale reality for the first clients)?
-- How the free-first-week promise already made in outreach copy and on the waitlist page actually gets fulfilled operationally once real signups arrive before the product is fully ready.
+Raised 2026-08-13. Most were answered the same day and the first SaaS build reflects the answers (see `web/SAAS_HANDOFF.md` for the full assumption list):
+- MVP scope: **answered** — CSV/spreadsheet upload is the working, universal path; Dentally is stubbed (interface implemented, reports "not connected" until real API credentials exist), not a guess. Calendar write-access and price-list read-access for the booking/guarantee mechanics are **not yet built** — the current build stops at campaign emails, it does not book appointments or read a price list yet.
+- Auth: **answered** — Supabase Auth, same project as the waitlist DB (email/password + Google).
+- Billing flow: **answered** — Stripe captures a card at signup, 7-day free trial, charged automatically once it ends. Test-mode prices already created; not live yet (see Infrastructure above).
+- Messaging channel: **answered** (not originally asked, but assumed and worth recording) — email only in v1, no SMS/Twilio. The first campaign a practice sends requires explicit approval before it goes out.
+- Still open: how the free-first-week promise gets fulfilled operationally for any real signup that arrives before the product is solid. `web/SAAS_HANDOFF.md` calls this out explicitly: the gap stays manual, Davide handles it personally if someone signs up early.
+- Still open: the Free plan referenced in "Offer evolution" above (post-trial tier for beta/waitlist signups) has no scope yet — needs deciding before V1 launch messaging goes out for real.
