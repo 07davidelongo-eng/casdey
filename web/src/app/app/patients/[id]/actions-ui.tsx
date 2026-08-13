@@ -1,0 +1,98 @@
+"use client";
+
+import { useActionState, useState } from "react";
+
+import { Button, Card, CardTitle } from "@/components/app/ui";
+import {
+  deletePatientAction,
+  markRebookedAction,
+  type PatientActionState,
+} from "./actions";
+
+const INITIAL: PatientActionState = { error: null };
+
+export function PatientActions({
+  patientId,
+  name,
+  alreadyRebooked,
+}: {
+  patientId: string;
+  name: string;
+  alreadyRebooked: boolean;
+}) {
+  const [rebookState, rebookAction, rebooking] = useActionState(
+    markRebookedAction,
+    INITIAL,
+  );
+  const [deleteState, deleteAction, deleting] = useActionState(
+    deletePatientAction,
+    INITIAL,
+  );
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Card>
+        <CardTitle>Did they book again?</CardTitle>
+        <p className="mt-1 mb-4 text-[0.875rem] text-stone">
+          casdey cannot see your diary, so this is the one thing it has to be
+          told. It is what the rebooked count is built from.
+        </p>
+
+        {alreadyRebooked ? (
+          <p className="text-[0.9375rem] text-graphite">
+            Already recorded as rebooked.
+          </p>
+        ) : (
+          <form action={rebookAction}>
+            <input type="hidden" name="patientId" value={patientId} />
+            <Button type="submit" variant="quiet" disabled={rebooking}>
+              {rebooking ? "Saving" : "Mark as rebooked"}
+            </Button>
+          </form>
+        )}
+
+        {rebookState.error ? (
+          <p role="alert" className="notice notice-error mt-3">
+            {rebookState.error}
+          </p>
+        ) : null}
+      </Card>
+
+      <Card>
+        <CardTitle>Erase this patient</CardTitle>
+        <p className="mt-1 mb-4 text-[0.875rem] text-stone">
+          Deletes {name} and their whole history, permanently. Their address is
+          kept on the do-not-contact list so a future import cannot bring them
+          back.
+        </p>
+
+        {!confirming ? (
+          <Button variant="danger" onClick={() => setConfirming(true)}>
+            Erase permanently
+          </Button>
+        ) : (
+          <form action={deleteAction} className="flex flex-wrap gap-2">
+            <input type="hidden" name="patientId" value={patientId} />
+            <Button type="submit" variant="danger" disabled={deleting}>
+              {deleting ? "Erasing" : "Yes, erase for good"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </Button>
+          </form>
+        )}
+
+        {deleteState.error ? (
+          <p role="alert" className="notice notice-error mt-3">
+            {deleteState.error}
+          </p>
+        ) : null}
+      </Card>
+    </div>
+  );
+}

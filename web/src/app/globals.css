@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/*
+  casdey design tokens, v2.
+
+  v1 was grayscale with a single slate accent. It read cold and thin. v2 keeps
+  the warm neutral bones (Paper through Ink, which come from the logo file
+  itself) and grows a real colour system on top: a deep petrol ground for
+  full-bleed sections, a teal primary, two tints, and exactly one warm accent.
+
+  This page commits to a light appearance. The dark passages are dark by
+  design, not by system preference, which is what keeps the petrol bands
+  reading as deliberate rather than as a theme.
+*/
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals, carried over from the wordmark.
+     Paper is lifted a few points off the logo file's #F6F4F1: at full-page
+     scale that value turned everything beige and the white cards stopped
+     reading as raised. The warmth stays, the mud goes. */
+  --paper: #faf9f7;
+  --white: #ffffff;
+  --mist: #ece9e2;
+  --ash: #dbd7ce;
+  --stone: #8c887f;
+  --graphite: #46443e;
+  --ink: #0d0d0d;
+
+  /* Petrol: the dark ground */
+  --deep: #0c2e33;
+  --deep-raised: #14424a;
+  --deep-line: #1d545d;
+
+  /* Teal: the primary */
+  --teal: #1c6b62;
+  --teal-hover: #175a52;
+  --teal-bright: #2e9187; /* legible on --deep */
+  --sea: #8fc5bc;
+  --shallow: #e3efec;
+
+  /* The one warm accent. Marks the moment a dormant patient books again,
+     and nothing else. Never a button, never a background. */
+  --amber: #e0a44a;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* Layered and petrol-tinted rather than flat black at one opacity. */
+  --shadow-raised:
+    0 1px 2px rgba(12, 46, 51, 0.04), 0 4px 12px rgba(12, 46, 51, 0.05);
+  --shadow-float:
+    0 2px 4px rgba(12, 46, 51, 0.04), 0 12px 28px rgba(12, 46, 51, 0.08),
+    0 32px 64px rgba(12, 46, 51, 0.06);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-white: var(--white);
+  --color-mist: var(--mist);
+  --color-ash: var(--ash);
+  --color-stone: var(--stone);
+  --color-graphite: var(--graphite);
+  --color-ink: var(--ink);
+
+  --color-deep: var(--deep);
+  --color-deep-raised: var(--deep-raised);
+  --color-deep-line: var(--deep-line);
+
+  --color-teal: var(--teal);
+  --color-teal-hover: var(--teal-hover);
+  --color-teal-bright: var(--teal-bright);
+  --color-sea: var(--sea);
+  --color-shallow: var(--shallow);
+  --color-amber: var(--amber);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --shadow-raised: var(--shadow-raised);
+  --shadow-float: var(--shadow-float);
+
+  /* Four faces, one job each.
+     Raleway is the wordmark and nothing else, ever.
+     Familjen Grotesk carries headlines: cleaner and more present than Raleway
+     at display size, with enough character in its a/g/y that the pairing with
+     Inter reads as a decision.
+     Inter takes everything that gets read. JetBrains Mono marks the literal. */
+  --font-wordmark: var(--font-raleway);
+  --font-display: var(--font-familjen);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--teal);
+    color: var(--white);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  /* Focus on the petrol ground needs the lighter teal to stay visible. */
+  .on-deep :focus-visible {
+    outline-color: var(--teal-bright);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .wordmark {
+    font-family: var(--font-raleway), system-ui, sans-serif;
+    font-weight: 300;
+    letter-spacing: -0.005em;
+    text-transform: lowercase;
+  }
+
+  .display {
+    font-family: var(--font-familjen), system-ui, sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+  }
+
+  .label {
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-weight: 400;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1.5;
+  }
+
+  /* Only transform and opacity animate, with a spring-ish curve. */
+  .lift {
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-float);
+  }
+}

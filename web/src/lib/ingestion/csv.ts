@@ -1,0 +1,211 @@
+import type {
+  ColumnMapping,
+  DateFormat,
+  ParseResult,
+  RawPatient,
+} from "./types";
+
+/**
+ * Turning one row of a practice's export into a patient.
+ *
+ * Pure functions, no database, no framework. This is the code that decides what
+ * a patient's last visit date actually is, and every dormancy calculation and
+ * every campaign audience is built on top of it. It is unit tested in csv.test.ts
+ * for that reason.
+ */
+
+/** Deliberately permissive, matching the waitlist. Rejecting a real address costs a patient. */
+const EMAIL_RE = /^[^\s@]+@[^\s@,]+\.[^\s@,]{2,}$/;
+
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isRealDate(year: number, month: number, day: number): boolean {
+  if (year < 1900 || year > 2200) return false;
+  if (month < 1 || month > 12) return false;
+  if (day < 1) return false;
+
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const max = month === 2 && !leap ? 28 : DAYS_IN_MONTH[month - 1];
+  return day <= max;
+}
+
+function iso(year: number, month: number, day: number): string {
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+
+/**
+ * Parses a date in the format the practice told us their file uses.
+ *
+ * Returns null rather than throwing: a bad date is a skipped row with a
+ * readable reason, not a failed import.
+ */
+export function parseDate(
+  value: string,
+  format: DateFormat,
+): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  // Exports frequently carry a time, and sometimes a timezone. Everything after
+  // the date part is noise for our purposes: a visit is a day, not a moment.
+  const datePart = trimmed.split(/[T\s]/)[0];
+
+  if (format === "iso") {
+    const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(datePart);
+    if (!match) return null;
+    const [, y, m, d] = match;
+    const year = Number(y);
+    const month = Number(m);
+    const day = Number(d);
+    return isRealDate(year, month, day) ? iso(year, month, day) : null;
+  }
+
+  const match = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})$/.exec(datePart);
+  if (!match) return null;
+
+  const [, first, second, rawYear] = match;
+  const day = format === "dmy" ? Number(first) : Number(second);
+  const month = format === "dmy" ? Number(second) : Number(first);
+
+  // A two-digit year is ambiguous forever. Patient records are historical, so
+  // a year that would land in the future is read as the previous century.
+  let year = Number(rawYear);
+  if (rawYear.length === 2) {
+    const century = Math.floor(new Date().getFullYear() / 100) * 100;
+    year = century + year;
+    if (year > new Date().getFullYear()) year -= 100;
+  }
+
+  return isRealDate(year, month, day) ? iso(year, month, day) : null;
+}
+
+function cell(row: Record<string, string>, column?: string): string {
+  if (!column) return "";
+  return (row[column] ?? "").trim();
+}
+
+/** Splits "Jane Okafor" into parts. Last token is the surname, rest is the given name. */
+function splitName(full: string): { first: string | null; last: string | null } {
+  const parts = full.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: null, last: null };
+  if (parts.length === 1) return { first: parts[0], last: null };
+  return {
+    first: parts.slice(0, -1).join(" "),
+    last: parts[parts.length - 1],
+  };
+}
+
+export function normalizeRow(
+  row: Record<string, string>,
+  mapping: ColumnMapping,
+  dateFormat: DateFormat,
+  rowNumber: number,
+): ParseResult {
+  const issue = (field: string, reason: string): ParseResult => ({
+    ok: false,
+    issue: { row: rowNumber, field, reason },
+  });
+
+  const rawDate = cell(row, mapping.lastVisitAt);
+  if (!rawDate) return issue("lastVisitAt", "No last visit date");
+
+  const lastVisitAt = parseDate(rawDate, dateFormat);
+  if (!lastVisitAt) {
+    return issue("lastVisitAt", `Could not read "${rawDate}" as a date`);
+  }
+
+  // A visit that has not happened yet is a data error, not a dormant patient.
+  // Tomorrow is allowed, to absorb timezone drift in the export.
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  if (lastVisitAt > tomorrow) {
+    return issue("lastVisitAt", `Last visit is in the future (${lastVisitAt})`);
+  }
+
+  const rawEmail = cell(row, mapping.email).toLowerCase();
+  let email: string | null = null;
+  if (rawEmail) {
+    if (!EMAIL_RE.test(rawEmail) || rawEmail.length > 320) {
+      return issue("email", `"${rawEmail}" is not a usable email address`);
+    }
+    email = rawEmail;
+  }
+
+  const externalRef = cell(row, mapping.externalRef) || null;
+
+  // Without one of these there is no way to identify the patient on a repeat
+  // import, and no way to contact them. The row is not worth storing.
+  if (!email && !externalRef) {
+    return issue("email", "No email address and no patient reference");
+  }
+
+  let first: string | null = cell(row, mapping.firstName) || null;
+  let last: string | null = cell(row, mapping.lastName) || null;
+  if (!first && !last && mapping.fullName) {
+    const split = splitName(cell(row, mapping.fullName));
+    first = split.first;
+    last = split.last;
+  }
+
+  // At least one, because a patient who came once still counts as having come.
+  let visitCount = 1;
+  const rawVisits = cell(row, mapping.visitCount);
+  if (rawVisits) {
+    const parsed = Number.parseInt(rawVisits.replace(/[^\d-]/g, ""), 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      return issue("visitCount", `Could not read "${rawVisits}" as a number`);
+    }
+    visitCount = Math.max(1, parsed);
+  }
+
+  const patient: RawPatient = {
+    externalRef,
+    firstName: first ? first.slice(0, 120) : null,
+    lastName: last ? last.slice(0, 120) : null,
+    email,
+    phone: cell(row, mapping.phone).slice(0, 40) || null,
+    lastVisitAt,
+    visitCount,
+  };
+
+  return { ok: true, patient };
+}
+
+/**
+ * Best guess at which column is which, offered as a starting point in the UI.
+ * Always shown to the practice for confirmation, never applied silently.
+ */
+const HINTS: { field: keyof ColumnMapping; patterns: RegExp[] }[] = [
+  { field: "externalRef", patterns: [/^(patient\s*)?(id|ref|reference|number|no)$/i, /patient.*(id|ref)/i] },
+  { field: "firstName", patterns: [/^(first|given|fore)\s*name$/i, /^first$/i] },
+  { field: "lastName", patterns: [/^(last|sur|family)\s*name$/i, /^surname$/i, /^last$/i] },
+  { field: "fullName", patterns: [/^(full\s*)?name$/i, /^patient(\s*name)?$/i] },
+  { field: "email", patterns: [/e-?mail/i] },
+  { field: "phone", patterns: [/phone|mobile|tel/i] },
+  { field: "lastVisitAt", patterns: [/last.*(visit|appointment|seen)/i, /(visit|appointment).*date/i, /^date$/i] },
+  { field: "visitCount", patterns: [/visit.*(count|s\b)/i, /(number|no).*visits/i, /^visits$/i] },
+];
+
+export function guessMapping(headers: string[]): Partial<ColumnMapping> {
+  const guess: Partial<ColumnMapping> = {};
+  const taken = new Set<string>();
+
+  for (const { field, patterns } of HINTS) {
+    for (const pattern of patterns) {
+      const match = headers.find(
+        (header) => !taken.has(header) && pattern.test(header.trim()),
+      );
+      if (match) {
+        guess[field] = match;
+        taken.add(match);
+        break;
+      }
+    }
+  }
+
+  // Two name columns beat one combined column when both were matched.
+  if (guess.firstName && guess.lastName) delete guess.fullName;
+
+  return guess;
+}
