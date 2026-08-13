@@ -44,9 +44,9 @@ We are running Stage 1 (outreach) and Stage 2 (build) in parallel: Davide made t
 ## Stage 1 progress — outreach underway
 - A lead list of UK + EU dental practices exists in a Google Sheet ("Casdey-UK-Dental-Leads", owned by info@casdey.com), sourced from practice websites and directories (not guessed patterns), with owner/principal names researched for independents where confidently sourced.
 - Outreach is now a fully automated daily system (a Claude Routine, see `.claude/skills/cold-outreach/SKILL.md`), not a manual batch send: it sources leads, drafts, sends via Zoho, detects replies, and logs everything to the sheet's `Send Log` tab, unattended, once per day, capped at ~100 sends/run.
-- As of the last recorded batch (2026-08-13): 53 total sends across two batches, covering UK, Ireland, Netherlands, Germany, Portugal and Spain. Full batch-by-batch history is in `SKILL.md`, not duplicated here.
+- As of the last recorded batch (2026-08-13): 87 total sends across three batches, covering UK, Ireland, Netherlands, Germany, France, Belgium, Portugal and Spain. Full batch-by-batch history is in `SKILL.md`, not duplicated here.
 - Lead tracking uses these statuses: Not contacted / Contacted / Replied / Interested / Committed / Dead. Only "Committed" (a written "I'll pay £X") counts toward the 1-3 commitments the original plan called for, though building has now started regardless (see above).
-- Follow-up sequence per lead: send message → if no reply in 4-5 days → ONE follow-up → then stop. Follow-up *sending* is still manual-only by explicit choice; reply detection is automatic.
+- Follow-up sequence per lead: send message → if no reply in 4-5 days → ONE follow-up → then stop. As of 2026-08-13 (Davide's explicit go-ahead), follow-up sending is automatic too, same as reply detection.
 - Independent practices are prioritized over small chains — they decide faster.
 
 ## Stage 2 progress — building
@@ -60,7 +60,7 @@ We are running Stage 1 (outreach) and Stage 2 (build) in parallel: Davide made t
 - The key opener question: "of the day-to-day admin your practice software handles, what's the one thing it doesn't do well?"
 - Guarantee wording: "if it doesn't recover more than it costs, you don't pay."
 - Cold emails are sent in plain text — no logo, no image attachments (spam risk).
-- `casdey.com` is now live (deployed 2026-08-13, see Infrastructure below). **TODO, not yet done:** add the casdey.com/waitlist link to the cold-outreach routine's email template (see `.claude/skills/cold-outreach/SKILL.md`), and fold in the beta offer from "Offer evolution" above (free week of Premium once the software ships → Free plan → lifetime £50/€59 discount if they upgrade), framed explicitly as feedback-seeking, not a sales pitch.
+- `casdey.com` is now live (deployed 2026-08-13, see Infrastructure below). **Done:** the casdey.com/waitlist link and the beta offer from "Offer evolution" above (free week of Premium once the software ships → Free plan → lifetime £50/€59 discount if they upgrade, framed explicitly as feedback-seeking, not a sales pitch) are both folded into the cold-outreach routine's email template, see `.claude/skills/cold-outreach/SKILL.md`. Follow-up sending is now also automated (see Stage 1 above). The next copy flip, from "once the software ships" to "it's live now," is gated on V1 launch and not yet due.
 - Supporting docs already created: a 4-email outreach sequence and a one-page Service Agreement (used once a prospect says they're interested, sent for signature).
 - **Never use em dashes (—) as punctuation** (as a substitute for commas/parentheses/asides) in any casdey copy — cold emails, follow-ups, this file, anything. Use commas or separate sentences instead. Normal hyphens in compound words (follow-up, list-building, drop-off) are fine and unaffected by this rule.
 - Email sign-off format: `Davide @casdey` (single line, no line break between name and company, no "Best,"/"Regards," preamble).

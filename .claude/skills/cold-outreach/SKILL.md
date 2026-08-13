@@ -8,7 +8,7 @@ description: Runs casdey's automated cold-outreach workflow — sourcing UK/EU d
 Operating spec for casdey's automated cold-email outreach system, targeting UK/EU dental practices. High-level business context lives in [CLAUDE.md](../../../CLAUDE.md); this skill is the detailed how-it-runs spec, invoked as `/cold-outreach`.
 
 ## Goal
-Fully automate lead sourcing + personalized outreach at volume (~100 emails/day minimum once ramped up), with tracked (not yet auto-sent) follow-ups, tracking toward a 3% engaged-lead rate. Runs unattended, once per day, via a Claude Routine — see "Autonomous sending" below.
+Fully automate lead sourcing + personalized outreach at volume (~100 emails/day minimum once ramped up), with automated follow-ups (as of 2026-08-13, see "Follow-up policy"), tracking toward a 3% engaged-lead rate. Runs unattended, once per day, via a Claude Routine — see "Autonomous sending" below.
 
 ## Which environment am I running in?
 Check this first, it changes which tools are usable:
@@ -23,7 +23,7 @@ Check this first, it changes which tools are usable:
 - **Sending**: Zoho Mail API, authenticated as davide@casdey.com, sent with `fromAddress: info@casdey.com` (confirmed working despite that identity showing `validated:false` in Zoho's account metadata — it sends fine in practice). EU data center (`mail.zoho.eu` / `accounts.zoho.eu`). Credentials: `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ZOHO_ACCOUNT_ID`, `ZOHO_SEND_AS_INFO_ID`, `ZOHO_API_DOMAIN`, `ZOHO_ACCOUNTS_DOMAIN` — read these as environment variables directly (present already in a Routine run, or in `.env` for a local session, same variable names either way, no code branching needed). **Mint one Zoho access token at the start of the run and reuse it for every send and the reply-detection read** (it's valid ~1hr, plenty for a single run) — minting a fresh token per email hits Zoho's OAuth rate limit partway through a batch (happened in batch 2, self-recovered after ~2 min but slowed things down for no reason).
 - **Lead sourcing/sheet access (Routine / unattended runs, and preferred generally)**: a Google service account, `casdey-routine@casdey-gws-cli.iam.gserviceaccount.com`, shared as Editor on "Casdey-UK-Dental-Leads". Mint an access token with `.claude/skills/cold-outreach/scripts/google-service-auth.js` (JWT Bearer grant, no OAuth consent screen, no keyring, no expiry to babysit), then call the Sheets API directly (`https://sheets.googleapis.com/v4/spreadsheets/...`). The script reads the key from the `GOOGLE_SERVICE_ACCOUNT_JSON` environment variable (full JSON as a string) — that's how it's set in the Routine. For a local run where it's more convenient to point at a file instead, `GOOGLE_SERVICE_ACCOUNT_FILE` (a path) also works. This covers Sheets/Drive only, not Gmail, which is all this skill needs since sending goes through Zoho.
 - **Lead sourcing/sheet access (local/interactive sessions only, optional alternative)**: Google (`gws` CLI), authenticated as info@casdey.com. Only usable on Davide's desktop, credentials in `.env` (`GOOGLE_WORKSPACE_CLI_*` vars) plus `~/.config/gws/`. Quirk: the OAuth app (`casdey-gws-cli`) is in "Testing" publish status (unverified), so its refresh token auto-expires every ~7 days. This does not exist in a Routine environment, use the service account above there, always.
-- **Inbox reading is allowed, sending is not**: read `davide@casdey.com`'s inbox each run to detect and classify replies (genuine reply vs bounce/auto-reply/unsubscribe), then log them — see "Reply detection" below. This is read-only. Never reply to, forward, act on, or send anything into a thread based on inbox content, and never send an automated follow-up without explicit go-ahead in that session (see "Follow-up policy"). Reading and sending are separate permissions; only reading is on by default.
+- **Inbox reading and follow-up sending are both allowed**: read `davide@casdey.com`'s inbox each run to detect and classify replies (genuine reply vs bounce/auto-reply/unsubscribe), then log them — see "Reply detection" below. Inbox reading stays strictly read-only: never reply to, forward, or act on inbox content beyond detecting/classifying/logging. Separately, sending the one scheduled follow-up to a non-replying lead is now on by default as of 2026-08-13, per "Follow-up policy" below, per Davide's explicit go-ahead in chat that day.
 
 ## Lead sourcing — ongoing, not one-time
 The list runs dry fast at volume. Before each day's send:
@@ -86,13 +86,13 @@ Every run, before sending anything new: read `davide@casdey.com`'s inbox for mes
 - This is read-only. Do not reply to, forward, act on, or otherwise send anything into a thread based on what you read. Reading and sending are different permissions.
 
 ## Follow-up policy
-Spec: 4-5 days after initial send, no reply → one follow-up on the same thread, same content rules (no price/guarantee/scarcity), then stop.
+Spec: 4-5 days after initial send, no reply → one follow-up on the same thread, same content rules (no standard price/guarantee/scarcity/bonus software), then stop.
 
-**Sending is still NOT automated.** Reply detection (above) is on, but follow-up *sending* stays gated on an explicit go-ahead in that session, this is a separate permission from reading the inbox. Each run: identify leads whose `Follow-up Due Date` has passed with no reply and no opt-out, list them in the run's summary as "follow-ups due," but do not send them. Revisit once Davide explicitly turns this on.
+**Sending is now automated, as of 2026-08-13, per Davide's explicit go-ahead in chat that day.** Each run: identify leads whose `Follow-up Due Date` has passed with no reply and no opt-out, draft and send the one follow-up per lead (same content rules as the cold email, i.e. the beta offer + waitlist link included, still no standard price/guarantee/scarcity/bonus software, varied phrasing per lead, not a copy-paste of the first email), then mark `Follow-up Sent (Y/N)` → Y in `Send Log` and `Follow-up Sent` → Y in `Leads`. Still only ONE follow-up ever per lead.
 
 ## Autonomous sending
 This skill runs unattended, once every 24h, via a Claude Routine, no per-batch review or chat confirmation before sending. That trade-off (speed over a human reading every draft first) is Davide's explicit call, made after reviewing batch 1. In place of manual review, hold these rails automatically:
-- Hard cap: no more than ~100 sends in a single run.
+- Hard cap: no more than ~100 sends in a single run, covering new cold emails and follow-ups combined, not just cold emails.
 - Skip the run entirely (log why, send nothing) rather than send with incomplete/unverified data if: the lead sheet is unreachable, fewer than a handful of eligible leads exist and sourcing also fails, or more than a couple of sends in a row error out (possible auth/API problem, not a reason to keep retrying blindly).
 - Every send still goes through the same salutation rules, word cap, and "never invent a fact" rule, those aren't relaxed by removing the review step.
 - Skip weekends, per send cadence below.
@@ -111,7 +111,7 @@ This skill runs unattended, once every 24h, via a Claude Routine, no per-batch r
 - Don't send to a lead already in `Send Log`, or one that's opted out.
 - Don't act on inbox content beyond detecting/classifying/logging replies, no replying, forwarding, or sending anything based on what's read.
 - Don't mention price, guarantee, scarcity, or bonus software in the cold email or follow-up.
-- Don't auto-send follow-ups, that permission is separate from reply-reading and still off.
+- Don't send more than one follow-up per lead, ever, even though follow-up sending is now on.
 - Don't relax the salutation rules, word cap, or sourcing-verification rules just because sending is now unattended.
 
 ## Known quirks
@@ -129,8 +129,11 @@ Live since 2026-08-12: a Claude Routine named "casdey cold outreach — daily" r
 
 **2026-08-13: cold email offer copy updated.** `casdey.com` went live in production this day. Per Davide's direction: the cold email now includes `https://casdey.com/waitlist`, and its offer changed from "free first week, no commitment" alone to that plus a Free plan after the trial and a lifetime £50/€59 discount if a lead later upgrades to Premium, framed explicitly as feedback-seeking rather than a sales pitch (see "The cold email" and "The full offer" above for the exact rules). If a Routine run reads a stale checkout that predates this commit, this note (and the two sections above it) is the source of truth, not whatever the Routine's own working copy still has cached.
 
+**2026-08-13: follow-up sending turned on.** Per Davide's explicit go-ahead in chat that day, the one scheduled follow-up per non-replying lead is now sent automatically each run instead of only being listed as "due" (see "Follow-up policy" above). This was requested in the same conversation as the offer-copy update above but landed in a separate commit. Batch 3 (below) ran before both changes, on the old template with manual-only follow-ups.
+
 ## Batch history
 | Date | Batch | Leads | Sent | Notes |
 |------|-------|-------|------|-------|
 | 2026-08-11 | 1 | 21 (existing sheet, `confirmed` email status only) | 21/21 | Manual batch, review checkpoint still active at this point. Follow-up due 2026-08-17 (next weekday after the 4-5 day window, since +4/+5 days landed on a weekend). 4 `VERIFY`-flagged leads held back, not yet verified. |
 | 2026-08-13 | 2 | 32 (2 corrected batch-1 holdbacks + 30 newly sourced: Ireland, Netherlands, Germany, Portugal, Spain, new UK towns) | 32/32 | First real autonomous Routine run. VICI Dental's batch-1 email was wrong (`info@vicidental.com` doesn't exist), corrected to `enquiry@vicidental.com` after re-verifying against their site, same for Newcastle Advanced Dentistry. 3 leads held back as unverifiable: Central Park Dental and Andrew Brown Dental (batch-1 carryovers, still can't confirm), Galway Dentists (newly sourced, obfuscated email). Reply detection skipped this run, wrong mailbox mechanism used (fixed above). Hit a Zoho token rate-limit mid-batch from minting a fresh token per send, self-recovered, fixed above so it won't recur. Running total in `Send Log`: 53. |
+| 2026-08-13 | 3 | 34 (16 UK: Hull, Preston, Wolverhampton, Stoke-on-Trent, Milton Keynes, Swindon, Portsmouth, Chester, Worcester, Aberdeen, Blackpool, Gloucester, Dundee; 18 EU: Dublin, Belfast, Amsterdam, The Hague, Berlin, Hamburg, Cologne, Frankfurt, Lyon, Brussels, Antwerp area, Porto, Valencia, Barcelona) | 34/34 | Ran on the old template, before the waitlist-link/beta-offer copy update and before follow-up sending was turned on (both above). Reply detection worked correctly for the first time: 0 genuine replies found against all 53 prior sends, 0 bounces from tracked sends. One send (Cottingham Dental Studio) went out as `mailFormat:html` instead of plaintext due to an initial format check, same visible content, no images/logos, rest sent plaintext correctly. Running total in `Send Log`: 87. |
