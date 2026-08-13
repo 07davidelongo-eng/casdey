@@ -35,16 +35,20 @@ The list runs dry fast at volume. Before each day's send:
 - Covers UK **and** EU practices.
 
 ## The cold email
-First-touch email. The **only** offer element allowed in it: a free first week, no commitment. Never include price, guarantee, scarcity, or bonus software.
+First-touch email, sent during the pre-launch/beta phase while the SaaS is still being built (as of 2026-08-13). Offer elements now allowed in it (updated from Davide's direction that day): a free first week of the Premium plan once the software ships, dropping to a limited Free plan after that, and a lifetime discount of £50/mo GBP or €59/mo EUR off Premium if they later choose to upgrade, exclusive to people who join now during this window. Still never include the standard ongoing price, the "profit or nothing" guarantee wording, scarcity, or bonus software, those stay held back for the manual follow-through once someone replies positively (see "The full offer" below) — this update only changes what's allowed in the cold email itself.
+
+**TODO for a later update, not now**: once the SaaS actually launches, this offer's framing needs to switch from "once the software ships" to "it's live now." Don't make that change until explicitly told the software has launched.
 
 **Key points every cold email must hit** (any order/phrasing, no fixed template):
 1. Real pain point: lapsed/one-time patients who never rebooked = lost revenue
 2. What casdey does: reactivates those patients on the practice's behalf, no manual work, no ad spend
-3. The offer: free first week, no commitment
-4. Low-friction CTA: reply to learn more / start the free week
-5. A one-line opt-out ("let me know if you'd rather I not follow up again," varied per email) — for PECR/GDPR risk reduction, especially now covering EU.
+3. The offer: a free first week of Premium once the software ships, then a Free plan, then a lifetime £50/€59 discount if they choose to upgrade to Premium later, only available to people joining now
+4. Explicit feedback framing, stated plainly: this isn't a sales pitch, casdey genuinely wants their feedback on the product before it's finished
+5. The link: https://casdey.com/waitlist
+6. Low-friction CTA: reply to learn more / join the waitlist
+7. A one-line opt-out ("let me know if you'd rather I not follow up again," varied per email) — for PECR/GDPR risk reduction, especially now covering EU.
 
-Under ~120 words, professional tone, no superlatives, no price/guarantee language. Vary structure, opening line, and phrasing per lead, should not read as mail-merged. Use whatever specific detail is available (city, NHS vs private, chain vs independent) naturally.
+Under ~150 words (raised from ~120 to fit the extra offer detail without cramming, still tight). Professional tone, no superlatives, no standard-price/guarantee language. State the offer as one plain, clear idea rather than a bulleted pitch, don't stack it with other persuasion techniques on top (see the pushiness note from batch 1 feedback below, still fully in force), there is already more to say than before so keep everything else as minimal as it was. Vary structure, opening line, and phrasing per lead, should not read as mail-merged. Use whatever specific detail is available (city, NHS vs private, chain vs independent) naturally.
 
 **Tone note (from feedback on batch 1)**: those emails were too pushy and read as generated rather than human, even though the brevity landed well, keep that part. What made them pushy, avoid repeating:
 - Don't assert facts about the recipient's own business ("that's revenue you've already earned") — it's presumptuous, we don't actually know their numbers.
@@ -65,11 +69,12 @@ Under ~120 words, professional tone, no superlatives, no price/guarantee languag
 
 ## The full offer (reference only — NEVER put this in a cold email or follow-up)
 Everything below is held back for Davide/Abhi to walk a lead through manually once they reply positively:
-- Price after the trial week: £250/mo GBP or €290/mo EUR. Annual: £225/mo GBP or €262/mo EUR.
+- Standard ongoing price, after the beta discount period: £250/mo GBP or €290/mo EUR. Annual: £225/mo GBP or €262/mo EUR.
 - Guarantee ("Profit or nothing"): if casdey doesn't generate more revenue than the practice invested, 100% refund + free software until that condition is met.
 - Scarcity: 13 spots left before the Q3 window closes.
 - Bonus: software that generates the practice's own recontact-ready leads list.
-- **Fulfillment note**: the SaaS isn't built yet (still being built "in the upcoming days" as of Aug 2026). If a practice says yes to the free week before it's ready, Davide/Abhi handle that manually, explaining the situation and offering a discount or gift to make up for the delay. This skill only ever logs the reply as "Interested" and stops — it never promises or arranges the trial itself, and never sends anything beyond the cold email and its one follow-up.
+- **Fulfillment note**: the SaaS isn't built yet (still being built "in the upcoming days" as of Aug 2026). If a practice says yes to the free week before it's ready, Davide/Abhi handle that manually, honouring what's already stated in the cold email (free week of Premium once it ships, then Free plan, then lifetime £50/€59 discount if they upgrade). This skill only ever logs the reply as "Interested" and stops, it never promises anything beyond what's already in the cold email, and never sends anything beyond the cold email and its one follow-up.
+- **Offer window note**: the beta wrapper (free week, Free plan, lifetime discount) is specific to people who join during the waitlist/beta and V1 launch windows, not a standing offer. It retires for new leads once V2 ships; existing converts keep their lifetime discount. Not relevant to today's sends, keep this skill in sync if that transition is ever specified here.
 
 ## Reply detection (read-only)
 **Mechanism: the Zoho Mail API, same credentials as sending, not a Gmail connector.** `davide@casdey.com` is hosted on Zoho, not Google, despite the domain looking generic. If this environment has a "Gmail" connector available, it is not the right tool and is very likely wired to a personal account, not the business one, ignore it entirely for this. Use `GET /api/accounts/{ZOHO_ACCOUNT_ID}/messages/view` (or equivalent search) against `ZOHO_API_DOMAIN`, the same auth flow already used for sending. If for some reason Zoho message-reading isn't reachable this run, skip reply detection and say so plainly in the summary, don't substitute a different mailbox.
@@ -121,6 +126,8 @@ Live since 2026-08-12: a Claude Routine named "casdey cold outreach — daily" r
 **Don't git commit or push from inside the Routine.** Two runs in a row hit this: the Routine's GitHub integration returns a hard 403 ("Resource not accessible by integration") on every write path, direct push, branch creation, and the GitHub MCP write tools alike, not a transient error, a real permissions gap in the installed GitHub App (it needs contents:write / ref-creation on this repo, worth fixing in GitHub's App settings if Davide wants the Routine to ever open PRs, but not required for outreach itself). Rather than depend on that: **this file is read-only from the Routine's perspective.** The authoritative per-run record is the `Send Log` tab, not this file, log everything there as already specified, and don't attempt to update "Batch history" below or anything else in this repo. Batch history here gets updated manually/periodically instead.
 
 **2026-08-12, run 1: correctly stopped, nothing sent.** Routine was created before that day's skill edits (autonomous sending, reply detection, service account) were pushed, so it ran on the stale skill (review checkpoint still required, inbox reading still forbidden) against a prompt asking for the opposite, caught the contradiction, halted cleanly. Also couldn't find `.env`/`gws` (correct, neither exists in a Routine) and didn't yet know to read process env directly, fixed same day in "Which environment am I running in?" above.
+
+**2026-08-13: cold email offer copy updated.** `casdey.com` went live in production this day. Per Davide's direction: the cold email now includes `https://casdey.com/waitlist`, and its offer changed from "free first week, no commitment" alone to that plus a Free plan after the trial and a lifetime £50/€59 discount if a lead later upgrades to Premium, framed explicitly as feedback-seeking rather than a sales pitch (see "The cold email" and "The full offer" above for the exact rules). If a Routine run reads a stale checkout that predates this commit, this note (and the two sections above it) is the source of truth, not whatever the Routine's own working copy still has cached.
 
 ## Batch history
 | Date | Batch | Leads | Sent | Notes |
