@@ -5,10 +5,31 @@ import { WaitlistForm } from "@/components/waitlist-form";
 import { PatientTimeline } from "@/components/marks/patient-timeline";
 import { Container, Eyebrow } from "@/components/ui";
 
+// Without its own openGraph/twitter blocks, this page inherits the root
+// layout's, so a shared /waitlist link would preview with the homepage's URL
+// and copy. Set them explicitly here. This link is what the cold-outreach
+// emails point at, so the preview needs to be waitlist-specific.
+const waitlistTitle = "Join the casdey waitlist";
+const waitlistDescription =
+  "Practices on the casdey waitlist get first access and a free first week, with no card and no commitment.";
+
 export const metadata: Metadata = {
   title: "Join the waitlist",
-  description:
-    "Practices on the casdey waitlist get first access and a free first week, with no card and no commitment.",
+  description: waitlistDescription,
+  alternates: { canonical: "/waitlist" },
+  openGraph: {
+    type: "website",
+    siteName: "casdey",
+    title: waitlistTitle,
+    description: waitlistDescription,
+    url: "/waitlist",
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: waitlistTitle,
+    description: waitlistDescription,
+  },
 };
 
 const NEXT = [
