@@ -73,7 +73,7 @@ const QUESTIONS = [
   },
   {
     q: "What does it cost after the free week?",
-    a: "A flat monthly price. No per-patient fees, no commission on bookings, no setup charge. We walk you through the number before the free week ends, not after it. It is also the only spend, no ad budget needed, and if it does not recover more than it costs, you do not pay.",
+    a: "Your account drops to a Free plan, not a bill: you keep importing your list and seeing who has gone quiet at no cost. If you want casdey writing to them and booking the appointment, upgrade to Premium whenever you're ready, and joining the waitlist locks in a lifetime discount on that price for as long as you stay subscribed. Either way it is the only spend, no ad budget needed, and if it does not recover more than it costs, you do not pay.",
   },
   {
     q: "When does it launch?",
