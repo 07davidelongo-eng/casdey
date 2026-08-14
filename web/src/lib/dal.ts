@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { supabaseServer } from "./supabase-server";
-import { subscriptionAllowsAccess, type Practice } from "./types";
+import type { Practice } from "./types";
 
 /**
  * Data access layer.
@@ -123,16 +123,13 @@ export async function requirePractice(): Promise<PracticeContext> {
 }
 
 /**
- * For anything that costs money to run or touches patients. A practice whose
- * trial ended without a working card gets bounced to billing.
+ * Access to the app itself is never gated on paying: the Free plan is a real
+ * resting state, and a Free practice still imports its list and sees who has
+ * gone quiet. What Free cannot do is SEND, and that is checked at the send
+ * paths against `capabilities()` in ./plan.ts, not here. This alias remains so
+ * callers that mean "a practice must exist" read clearly.
  */
-export async function requireActivePractice(): Promise<PracticeContext> {
-  const context = await requirePractice();
-  if (!subscriptionAllowsAccess(context.practice.subscription_status)) {
-    redirect("/app/settings/billing?expired=1");
-  }
-  return context;
-}
+export const requireActivePractice = requirePractice;
 
 /** Owner-only actions: billing, deletion, processor agreement. */
 export async function requireOwner(): Promise<PracticeContext> {

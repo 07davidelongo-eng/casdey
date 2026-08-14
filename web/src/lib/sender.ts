@@ -3,7 +3,8 @@ import "server-only";
 import { supabaseAdmin } from "./supabase";
 import { emailProvider, unsubscribeUrl } from "./messaging";
 import { composeBody, contextFor, renderTemplate } from "./template";
-import { subscriptionAllowsSending, type Practice } from "./types";
+import { capabilities } from "./plan";
+import type { Practice } from "./types";
 
 /**
  * Drains the send queue.
@@ -81,8 +82,8 @@ export async function drainQueue(
       return (row as Practice) ?? null;
     });
 
-    if (!practice || !subscriptionAllowsSending(practice.subscription_status)) {
-      await hold(message.id, "Account is not active");
+    if (!practice || !capabilities(practice).canSendCampaigns) {
+      await hold(message.id, "Plan does not allow sending");
       report.skipped += 1;
       continue;
     }

@@ -183,9 +183,10 @@ async function syncSubscription(
     stripe_subscription_id: subscription.id,
     stripe_customer_id: customerId,
     subscription_status: mapStatus(subscription.status),
-    trial_ends_at: toIso(subscription.trial_end),
-    // As of API version 2026-07-29 the billing period lives on the
-    // subscription item, not on the subscription itself.
+    // trial_ends_at is deliberately not touched here: the free week is
+    // casdey-managed and pre-Stripe, so a subscription event must never
+    // overwrite it. As of API version 2026-07-29 the billing period lives on
+    // the subscription item, not on the subscription itself.
     current_period_end: toIso(item?.current_period_end),
     plan_currency: price?.currency === "gbp" ? "gbp" : "eur",
     plan_interval: price?.recurring?.interval === "year" ? "year" : "month",

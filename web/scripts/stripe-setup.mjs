@@ -124,12 +124,45 @@ async function ensurePrice(product, spec) {
   return price;
 }
 
+// The lifetime early-adopter discount, one coupon per currency because a
+// fixed-amount Stripe coupon is single-currency. `duration: forever` is what
+// makes it lifetime: once applied to a subscription it never stops.
+const COUPONS = [
+  { id: "casdey_early_gbp", amount_off: 5_000, currency: "gbp", envVar: "STRIPE_COUPON_GBP", label: "£50/mo off, forever (early adopter)" },
+  { id: "casdey_early_eur", amount_off: 5_900, currency: "eur", envVar: "STRIPE_COUPON_EUR", label: "€59/mo off, forever (early adopter)" },
+];
+
+async function ensureCoupon(spec) {
+  try {
+    const existing = await stripe.coupons.retrieve(spec.id);
+    console.log(`coupon    ${existing.id}  ${spec.label} (exists)`);
+    return existing;
+  } catch (error) {
+    if (error?.code !== "resource_missing") throw error;
+  }
+  // Coupon ids are chosen by us, so they are stable across runs.
+  const coupon = await stripe.coupons.create({
+    id: spec.id,
+    amount_off: spec.amount_off,
+    currency: spec.currency,
+    duration: "forever",
+    name: spec.label,
+  });
+  console.log(`coupon    ${coupon.id}  ${spec.label} (created)`);
+  return coupon;
+}
+
 const product = await ensureProduct();
 const lines = [];
 
 for (const spec of AMOUNTS) {
   const price = await ensurePrice(product, spec);
   lines.push(`${spec.envVar}=${price.id}`);
+}
+
+for (const spec of COUPONS) {
+  const coupon = await ensureCoupon(spec);
+  lines.push(`${spec.envVar}=${coupon.id}`);
 }
 
 console.log("\nAdd these to web/.env.local:\n");

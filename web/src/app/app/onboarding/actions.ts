@@ -7,6 +7,11 @@ import { getPracticeContext, requireSession } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { COUNTRIES, timezoneFor } from "@/lib/countries";
+import {
+  TRIAL_DAYS,
+  earlyAdopterProgramActive,
+  trialEnabledForNewSignups,
+} from "@/lib/plan";
 
 export type OnboardingState = { error: string | null };
 
@@ -77,15 +82,33 @@ export async function createPracticeAction(
   // getPracticeContext() here would return null: it is wrapped in React
   // `cache`, and it was already called (and memoised) earlier in this request.
   if (typeof practiceId === "string") {
+    // Start the free week and flag the early-adopter discount, both governed by
+    // the V1 flags. No card is taken: the trial is casdey's to give, and the
+    // account simply drops to Free when it ends. In V2 (trial flag off) a new
+    // practice starts on Free straight away.
+    const trialEnabled = trialEnabledForNewSignups();
+    const trialEndsAt = trialEnabled
+      ? new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString()
+      : null;
+
+    await supabaseAdmin()
+      .from("practices")
+      .update({
+        trial_ends_at: trialEndsAt,
+        early_adopter: earlyAdopterProgramActive(),
+      })
+      .eq("id", practiceId);
+
     await recordAudit({
       practiceId,
       actorId: session.userId,
       actorEmail: session.email,
       action: "practice.created",
-      meta: { country },
+      meta: { country, trial: trialEnabled },
     });
   }
 
-  // Next stop is the card, which is what starts the free week.
-  redirect("/app/settings/billing?welcome=1");
+  // Straight into the product. The free week is already running; upgrading to
+  // Premium happens later, from billing, when they hit the Free plan's limits.
+  redirect("/app?welcome=1");
 }

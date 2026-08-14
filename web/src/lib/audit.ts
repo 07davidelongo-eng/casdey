@@ -17,6 +17,7 @@ import { supabaseAdmin } from "./supabase";
 export type AuditAction =
   | "practice.created"
   | "practice.updated"
+  | "practice.services_updated"
   | "processing.agreed"
   | "patients.imported"
   | "patient.deleted"

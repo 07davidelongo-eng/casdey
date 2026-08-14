@@ -1,30 +1,22 @@
 import Link from "next/link";
 
 import type { Practice } from "@/lib/types";
+import { effectivePlan, trialDaysLeft } from "@/lib/plan";
 
 /**
- * Says where the account stands, and only when that is worth a row of screen.
- * An account in good standing gets no banner at all.
+ * A one-line status strip, shown only when there is something worth saying. A
+ * practice comfortably inside its free week, or paid up on Premium, gets no
+ * banner at all.
  *
  * Tone rule from the brand guide: state the position, offer the fix, get out of
- * the way. No urgency theatre on a billing message.
+ * the way. No urgency theatre.
  */
-
-function daysUntil(iso: string | null): number | null {
-  if (!iso) return null;
-  const ms = new Date(iso).getTime() - Date.now();
-  if (Number.isNaN(ms)) return null;
-  return Math.max(0, Math.ceil(ms / 86_400_000));
-}
-
 export function BillingBanner({ practice }: { practice: Practice }) {
-  const { subscription_status: status } = practice;
+  const plan = effectivePlan(practice);
 
-  if (status === "active") return null;
-
-  if (status === "trialing") {
-    const left = daysUntil(practice.trial_ends_at);
-    // Quiet for most of the week, then worth saying.
+  if (plan === "trial") {
+    const left = trialDaysLeft(practice);
+    // Quiet for most of the week, then a gentle nudge near the end.
     if (left === null || left > 3) return null;
     return (
       <Banner tone="info">
@@ -33,14 +25,16 @@ export function BillingBanner({ practice }: { practice: Practice }) {
           <span className="literal font-medium">
             {left} {left === 1 ? "day" : "days"}
           </span>
-          . Your card is on file, so nothing breaks.
+          . After that you keep everything except sending, unless you go
+          Premium.
         </span>
-        <BannerLink href="/app/settings/billing">Billing</BannerLink>
+        <BannerLink href="/app/settings/billing">See Premium</BannerLink>
       </Banner>
     );
   }
 
-  if (status === "past_due") {
+  if (plan === "premium") {
+    if (practice.subscription_status !== "past_due") return null;
     return (
       <Banner tone="warn">
         <span>
@@ -52,22 +46,16 @@ export function BillingBanner({ practice }: { practice: Practice }) {
     );
   }
 
-  if (status === "canceled" || status === "incomplete" || status === "none") {
-    return (
-      <Banner tone="warn">
-        <span>
-          {status === "none"
-            ? "Start your free week to import patients and send."
-            : "This account is not active. Your data is here, sending is off."}
-        </span>
-        <BannerLink href="/app/settings/billing">
-          {status === "none" ? "Start free week" : "Reactivate"}
-        </BannerLink>
-      </Banner>
-    );
-  }
-
-  return null;
+  // Free.
+  return (
+    <Banner tone="info">
+      <span>
+        You are on the Free plan. Import and see who is dormant as much as you
+        like. Sending is Premium.
+      </span>
+      <BannerLink href="/app/settings/billing">Go Premium</BannerLink>
+    </Banner>
+  );
 }
 
 function Banner({

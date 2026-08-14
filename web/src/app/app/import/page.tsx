@@ -1,9 +1,9 @@
 import { requirePractice } from "@/lib/dal";
 import { ImportWizard } from "@/components/app/import-wizard";
 import { ProcessingAgreement } from "./agreement";
-import { Card, Notice, PageHeader, formatDate } from "@/components/app/ui";
+import { Card, PageHeader, formatDate } from "@/components/app/ui";
 import { dentallySource } from "@/lib/ingestion/dentally";
-import { subscriptionAllowsAccess, type ImportRun } from "@/lib/types";
+import type { ImportRun } from "@/lib/types";
 
 export const metadata = { title: "Import patients" };
 
@@ -18,7 +18,6 @@ export default async function ImportPage() {
     .limit(10);
 
   const runs = (data ?? []) as ImportRun[];
-  const canImport = subscriptionAllowsAccess(practice.subscription_status);
 
   return (
     <>
@@ -28,12 +27,10 @@ export default async function ImportPage() {
         lede="casdey reads a CSV export from any practice software. Your list stays in the EU and is never shared with anyone."
       />
 
-      {!canImport ? (
-        <Notice tone="warn">
-          Importing needs an active account. Start your free week from the
-          billing page.
-        </Notice>
-      ) : !practice.processing_agreed_at ? (
+      {/* Importing and seeing who is dormant is open to every plan, including
+          Free. Sending is where Premium is required, and that gate lives on the
+          campaigns side. */}
+      {!practice.processing_agreed_at ? (
         <ProcessingAgreement
           practiceName={practice.name}
           canAgree={role === "owner"}

@@ -4,6 +4,7 @@ import { useActionState, useId } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import type { Practice } from "@/lib/types";
+import { currencySymbol, practiceCurrency } from "@/lib/money";
 import { saveSettingsAction, type SettingsState } from "./actions";
 
 const INITIAL: SettingsState = { error: null, saved: false };
@@ -18,6 +19,12 @@ export function SettingsForm({
   const id = useId();
   const [state, action, pending] = useActionState(saveSettingsAction, INITIAL);
   const disabled = readOnly || pending;
+
+  const symbol = currencySymbol(practiceCurrency(practice));
+  const appointmentValue =
+    practice.appointment_value_minor != null
+      ? String(practice.appointment_value_minor / 100)
+      : "";
 
   return (
     <form action={action} className="space-y-6">
@@ -132,6 +139,43 @@ export function SettingsForm({
               <span className="text-[0.9375rem] text-graphite">times</span>
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card>
+        <CardTitle>What a returning patient is worth</CardTitle>
+        <p className="mb-5 text-[0.875rem] text-stone">
+          The typical value of one recovered appointment. casdey multiplies it
+          by the patients it books back in to estimate the revenue on your
+          dashboard, and it is what the profit-or-nothing guarantee is measured
+          against. An average is fine, you can change it whenever.
+        </p>
+
+        <div className="max-w-[16rem]">
+          <label htmlFor={`${id}-value`} className="field-label">
+            Value of a recovered appointment
+          </label>
+          <div className="flex items-center gap-3">
+            <span className="literal text-[1.0625rem] text-graphite">
+              {symbol}
+            </span>
+            <input
+              id={`${id}-value`}
+              name="appointmentValue"
+              type="number"
+              min={0}
+              max={1000000}
+              step="0.01"
+              inputMode="decimal"
+              defaultValue={appointmentValue}
+              placeholder="120"
+              disabled={disabled}
+              className="field literal"
+            />
+          </div>
+          <p className="field-hint">
+            Leave it blank if you would rather not estimate revenue yet.
+          </p>
         </div>
       </Card>
 

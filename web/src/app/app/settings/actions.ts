@@ -32,6 +32,16 @@ const Schema = z.object({
     .int()
     .min(1)
     .max(1000, "A thousand a day is the ceiling."),
+  // Entered in major units (whole pounds/euros and pence/cents), blank allowed.
+  // "" means "not set" and is stored as null, not zero.
+  appointmentValue: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : Number(v)))
+    .refine(
+      (v) => v === null || (Number.isFinite(v) && v >= 0 && v <= 1_000_000),
+      "Enter the value as a number, like 120.",
+    ),
 });
 
 export async function saveSettingsAction(
@@ -47,6 +57,7 @@ export async function saveSettingsAction(
     dormantAfterMonths: formData.get("dormantAfterMonths"),
     maxVisits: formData.get("maxVisits"),
     dailySendCap: formData.get("dailySendCap"),
+    appointmentValue: formData.get("appointmentValue"),
   });
 
   if (!parsed.success) {
@@ -58,6 +69,12 @@ export async function saveSettingsAction(
 
   const value = parsed.data;
 
+  // Kept in minor units in the database; entered in whole currency in the form.
+  const appointmentValueMinor =
+    value.appointmentValue === null
+      ? null
+      : Math.round(value.appointmentValue * 100);
+
   const { error } = await supabaseAdmin()
     .from("practices")
     .update({
@@ -67,6 +84,7 @@ export async function saveSettingsAction(
       dormant_after_months: value.dormantAfterMonths,
       max_visits: value.maxVisits,
       daily_send_cap: value.dailySendCap,
+      appointment_value_minor: appointmentValueMinor,
     })
     .eq("id", practice.id);
 

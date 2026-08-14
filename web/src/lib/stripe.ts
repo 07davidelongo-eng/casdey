@@ -5,16 +5,16 @@ import Stripe from "stripe";
 import type { Currency } from "./countries";
 
 /**
- * Stripe wiring.
+ * Stripe wiring: the paid Premium tier.
  *
- * The offer, from the outreach material: a free first week, then £250/mo or
- * €290/mo, or £225/mo and €262/mo when billed annually. The card is taken at
- * signup and charged automatically when the week ends, so nobody has to
- * remember to come back and pay.
+ * Premium is £250/mo or €290/mo, or £225/mo and €262/mo billed annually. It is
+ * a real subscription entered when a practice upgrades from the Free plan; the
+ * free week that precedes Free is casdey's to give and never touches Stripe
+ * (see src/lib/plan.ts). Practices flagged early_adopter carry a lifetime
+ * discount coupon on that subscription.
  *
- * None of these numbers appear in public marketing copy. The landing page and
- * the waitlist deliberately show the free week and no price. They are shown
- * here because this is where somebody is actually deciding to pay.
+ * None of these numbers appear in public marketing copy. They are shown in the
+ * app, at the point somebody is actually deciding to pay.
  */
 
 let client: Stripe | null = null;
@@ -35,8 +35,6 @@ export function stripeClient(): Stripe {
   });
   return client;
 }
-
-export const TRIAL_DAYS = 7;
 
 export type PlanInterval = "month" | "year";
 
@@ -111,4 +109,15 @@ export function priceIdFor(plan: Plan): string {
 
 export function isStripeConfigured(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY);
+}
+
+/**
+ * The lifetime early-adopter discount coupon for a currency, or undefined if
+ * none is configured. Fixed-amount coupons are single-currency in Stripe, so
+ * there is one per currency (£50 off, €59 off), created by scripts/stripe-setup.mjs.
+ */
+export function couponIdFor(currency: Currency): string | undefined {
+  return currency === "gbp"
+    ? process.env.STRIPE_COUPON_GBP || undefined
+    : process.env.STRIPE_COUPON_EUR || undefined;
 }

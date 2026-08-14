@@ -1,6 +1,12 @@
 import { requirePractice } from "@/lib/dal";
 import { currencyFor } from "@/lib/countries";
-import { TRIAL_DAYS, isStripeConfigured, plansFor } from "@/lib/stripe";
+import {
+  earlyAdopterProgramActive,
+  effectivePlan,
+  planLabel,
+  trialDaysLeft,
+} from "@/lib/plan";
+import { isStripeConfigured, plansFor } from "@/lib/stripe";
 import {
   Button,
   Card,
@@ -18,116 +24,117 @@ export default async function BillingPage(
   const params = await props.searchParams;
   const { practice, role } = await requirePractice();
 
-  const status = practice.subscription_status;
+  const plan = effectivePlan(practice);
   const currency = currencyFor(practice.country);
   const plans = plansFor(currency);
-  const subscribed = status !== "none" && status !== "canceled";
-
-  const errorMessage =
-    typeof params.error === "string" ? params.error : null;
+  const daysLeft = trialDaysLeft(practice);
+  const discounted = practice.early_adopter && earlyAdopterProgramActive();
+  const errorMessage = typeof params.error === "string" ? params.error : null;
 
   return (
-    <div className="max-w-[42rem] space-y-6">
+    <div className="max-w-[44rem] space-y-6">
       {params.welcome ? (
         <Notice>
-          Practice created. One step left: add a card to start your free week.
-          Nothing is charged for {TRIAL_DAYS} days.
+          You are set up and your free week has started. Everything is unlocked,
+          no card needed.
         </Notice>
       ) : null}
-
+      {params.upgraded ? (
+        <Notice>Welcome to Premium. Sending is on.</Notice>
+      ) : null}
       {params.cancelled ? (
-        <Notice>
-          Payment was not set up, so nothing has changed. You can start the free
-          week whenever you are ready.
-        </Notice>
+        <Notice>Checkout was cancelled, so nothing changed.</Notice>
       ) : null}
-
-      {params.expired ? (
-        <Notice tone="warn">
-          That part of casdey needs an active account. Your data is untouched.
-        </Notice>
-      ) : null}
-
       {errorMessage ? <Notice tone="error">{errorMessage}</Notice> : null}
 
       {!isStripeConfigured() ? (
         <Notice tone="error">
-          Stripe is not configured on this environment, so checkout will not
-          open. Set STRIPE_SECRET_KEY and the four price ids in the environment.
+          Stripe is not configured on this environment, so upgrading will not
+          open. Set STRIPE_SECRET_KEY and the price ids in the environment.
         </Notice>
       ) : null}
 
+      {/* Current standing */}
       <Card>
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <CardTitle>Your plan</CardTitle>
-          <StatusPill status={status} />
+          <PlanPill plan={planLabel(plan)} />
         </div>
 
-        {status === "trialing" ? (
+        {plan === "trial" ? (
           <p className="text-[0.9375rem] text-graphite">
-            Your free week runs until{" "}
-            <span className="literal text-ink">
-              {formatDate(practice.trial_ends_at)}
-            </span>
-            . After that your card is charged automatically. Cancel before then
-            and you pay nothing.
+            You are on the free week{" "}
+            {daysLeft !== null ? (
+              <>
+                with{" "}
+                <span className="literal text-ink">
+                  {daysLeft} {daysLeft === 1 ? "day" : "days"}
+                </span>{" "}
+                left
+              </>
+            ) : null}
+            . Everything works, including sending. When it ends you drop to the
+            Free plan, and nothing is charged.
           </p>
-        ) : null}
-
-        {status === "active" ? (
+        ) : plan === "free" ? (
           <p className="text-[0.9375rem] text-graphite">
-            Next payment{" "}
-            <span className="literal text-ink">
-              {formatDate(practice.current_period_end)}
-            </span>
-            .
+            You are on the Free plan. You can import your list and see who has
+            gone quiet, but sending campaigns is a Premium feature. Nothing is
+            charged on Free.
           </p>
-        ) : null}
-
-        {status === "past_due" ? (
+        ) : (
           <p className="text-[0.9375rem] text-graphite">
-            The last payment did not go through. Sending is paused until the
-            card is updated. Nothing has been deleted.
+            {practice.subscription_status === "past_due"
+              ? "Your last payment did not go through. Sending is paused until the card is updated."
+              : "Premium is active. Sending is on."}
+            {practice.current_period_end ? (
+              <>
+                {" "}
+                Next payment{" "}
+                <span className="literal text-ink">
+                  {formatDate(practice.current_period_end)}
+                </span>
+                .
+              </>
+            ) : null}
           </p>
-        ) : null}
+        )}
 
-        {status === "none" ? (
-          <p className="text-[0.9375rem] text-graphite">
-            No card on file yet. The first {TRIAL_DAYS} days are free, and you
-            can cancel inside that week without paying.
-          </p>
-        ) : null}
-
-        {status === "canceled" ? (
-          <p className="text-[0.9375rem] text-graphite">
-            This account is not active. Your patients and campaigns are still
-            here, sending is off.
-          </p>
-        ) : null}
-
-        {subscribed && role === "owner" ? (
+        {plan === "premium" && role === "owner" ? (
           <form action="/api/stripe/portal" method="post" className="mt-5">
             <Button type="submit" variant="quiet">
               Manage billing
             </Button>
             <p className="field-hint">
-              Change your card, download invoices, or cancel. Opens Stripe.
+              Change your card, see invoices, or cancel. Opens Stripe.
             </p>
           </form>
         ) : null}
       </Card>
 
-      {!subscribed ? (
+      {/* Upgrade path, shown to anyone not already on Premium */}
+      {plan !== "premium" ? (
         <div>
           <h2 className="display mb-1 text-[1.25rem]">
-            Start your free week
+            {plan === "trial" ? "Stay on Premium" : "Upgrade to Premium"}
           </h2>
           <p className="mb-4 text-[0.9375rem] text-graphite">
-            Billed in {currency === "gbp" ? "pounds" : "euros"}, because your
-            practice is registered in{" "}
-            {currency === "gbp" ? "the UK" : "the EU"}. Nothing is charged for{" "}
-            {TRIAL_DAYS} days.
+            Premium is where casdey actually sends: it works the quiet half of
+            your list for you, start to finish. Billed in{" "}
+            {currency === "gbp" ? "pounds" : "euros"}.
           </p>
+
+          {discounted ? (
+            <div className="mb-4">
+              <Notice>
+                As an early adopter you keep{" "}
+                <span className="literal">
+                  {currency === "gbp" ? "£50" : "€59"}
+                </span>{" "}
+                a month off, for as long as you stay subscribed.
+              </Notice>
+            </div>
+          ) : null}
 
           {role !== "owner" ? (
             <Notice tone="warn">
@@ -135,38 +142,36 @@ export default async function BillingPage(
             </Notice>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              {plans.map((plan) => (
+              {plans.map((p) => (
                 <form
-                  key={plan.envVar}
+                  key={p.envVar}
                   action="/api/stripe/checkout"
                   method="post"
                   className="card flex flex-col p-6"
                 >
-                  <input
-                    type="hidden"
-                    name="interval"
-                    value={plan.interval}
-                  />
+                  <input type="hidden" name="interval" value={p.interval} />
                   <p className="label text-stone">
-                    {plan.interval === "year" ? "Annual" : "Monthly"}
+                    {p.interval === "year" ? "Annual" : "Monthly"}
                   </p>
                   <p className="literal mt-2 text-[2rem] leading-none font-medium text-ink">
-                    {plan.monthlyDisplay}
+                    {p.monthlyDisplay}
                     <span className="text-[0.875rem] font-normal text-stone">
                       {" "}
                       /mo
                     </span>
                   </p>
                   <p className="mt-2 mb-5 flex-1 text-[0.875rem] text-stone">
-                    {plan.interval === "year"
-                      ? `Paid once a year, ${plan.chargeDisplay}.`
-                      : "Paid monthly, cancel any time."}
+                    {discounted
+                      ? `Before your ${currency === "gbp" ? "£50" : "€59"} discount.`
+                      : p.interval === "year"
+                        ? `Paid once a year, ${p.chargeDisplay}.`
+                        : "Paid monthly, cancel any time."}
                   </p>
                   <Button
                     type="submit"
-                    variant={plan.interval === "year" ? "quiet" : "primary"}
+                    variant={p.interval === "year" ? "quiet" : "primary"}
                   >
-                    Start free week
+                    Go Premium
                   </Button>
                 </form>
               ))}
@@ -183,10 +188,8 @@ export default async function BillingPage(
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  if (status === "active") return <Pill tone="teal">Active</Pill>;
-  if (status === "trialing") return <Pill tone="teal">Free week</Pill>;
-  if (status === "past_due") return <Pill>Payment failed</Pill>;
-  if (status === "canceled") return <Pill>Cancelled</Pill>;
-  return <Pill>Not started</Pill>;
+function PlanPill({ plan }: { plan: string }) {
+  if (plan === "Premium") return <Pill tone="teal">Premium</Pill>;
+  if (plan === "Free week") return <Pill tone="teal">Free week</Pill>;
+  return <Pill>Free</Pill>;
 }

@@ -1,121 +1,158 @@
 # casdey SaaS — build handoff
 
-What was built this session, what is verified, and the exact manual steps left
-before the product runs end to end. The full design rationale is in the plan at
-`.claude/plans/claude-so-this-session-melodic-wren.md`.
+What the product is, how the offer works in code, what's verified, and the
+exact steps left to go live. Design rationale for the original build is in the
+plan at `.claude/plans/claude-so-this-session-melodic-wren.md`.
 
 ## What it is
 
 The product the marketing site promises, built into the same Next.js app under
-`/app`: accounts (email/password + Google), a 7-day free trial with a card taken
-at signup, patient CSV import, dormant-patient detection, re-engagement email
-campaigns, and the GDPR controls that patient data requires. Marketing pages
-(`/`, `/waitlist`, `/privacy`) were not touched, so a parallel design session
-cannot collide with this work.
+`/app`: accounts (email/password + Google), patient CSV import, dormant-patient
+detection, re-engagement email campaigns, Stripe-billed Premium, and the GDPR
+controls patient data requires. All additive: new routes/files only, so the
+landing and waitlist pages are untouched.
 
-## Assumptions taken (the four open questions went unanswered)
+## Deployment state (as of 2026-08-14)
 
-1. **Messaging is email, sent by casdey.** No SMS/Twilio in v1. The first
-   campaign a practice sends passes an explicit approval screen.
-2. **Dentally is stubbed**, not fake. The CSV adapter fully works; the Dentally
-   adapter implements the same interface and reports "not connected" until
-   credentials exist (`DENTALLY_API_KEY`, `DENTALLY_API_BASE`).
-3. **Zero edits to existing files.** Everything is new files, incl. a separate
-   `src/styles/product.css`.
-4. **Stripe prices created in test mode via API** (done — see below).
+- **Landing + waitlist are LIVE** at https://casdey.com (Vercel, `main`, DNS
+  moved off GoDaddy; Zoho email untouched). Vercel is now on a **paid** plan
+  (card added), so the trial-expiry risk is gone.
+- **The SaaS ships but is inert in production.** `/app` and `/login` exist in
+  the deployed code, but production env vars are the waitlist-safe set only, so
+  Supabase Auth / Stripe / sending are unconfigured and the app can't
+  authenticate anyone. Going live is purely: add the env vars in Vercel (below)
+  — no redeploy-from-scratch.
+- **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Frankfurt)
+  backs both the waitlist and the SaaS. Migrations `0002_saas.sql` and
+  `0003_offer_model.sql` are **applied** (run directly via `pg`, since the
+  earlier SQL-editor attempts only ever applied fragments — that saga is
+  resolved).
 
-If any of these is wrong, say so; each changes real work.
+## The offer model (implemented) — see `src/lib/plan.ts`
 
-## Verified this session
+Trial → Free → Premium, per Davide's "Offer evolution" in CLAUDE.md:
 
-- `npx tsc --noEmit` — clean
-- `npm run lint` — clean
-- `npm run test` (vitest) — **38/38 pass**, covering dormancy rules + CSV date/
-  column parsing (the two places a silent bug emails the wrong patients)
-- `npm run build` — succeeds, all 30 routes registered
-- HTTP smoke test (production server): `/`, `/privacy`, `/terms/processing`,
-  `/login`, `/u/<token>` all 200; `/app/*` correctly 307-redirects to `/login`
-  when signed out. Login page + mode toggle + processing-terms page render with
-  brand styling, zero console errors.
+- **Free week (trial):** a new signup in the V1/waitlist window gets 7 days of
+  full Premium, **no card taken**. Set at onboarding (`trial_ends_at`), managed
+  by casdey, never by Stripe.
+- **Free plan:** when the week ends the account drops to Free. Free **can import
+  its list and see who's dormant** (the teaser) but **cannot send campaigns**
+  (the gated action). Nothing is charged on Free.
+- **Premium:** a real Stripe subscription entered by upgrading (card taken
+  then). £250/mo or €290/mo, £225/€262 annually. Early-adopter practices get a
+  **lifetime discount** (£50/€59 off, forever) applied automatically at
+  checkout via per-currency Stripe coupons.
+- **V2 later:** the free week retires for new signups; existing early adopters
+  keep their discount.
 
-## NOT verified (blocked on the manual steps below)
+Key design points:
+- **Plan is derived, never stored** — `effectivePlan(practice)` decides from
+  `subscription_status` + `trial_ends_at`. Same philosophy as dormancy: no
+  stale flags. `capabilities(practice)` is the single source of truth for
+  `canSendCampaigns`.
+- **Two levers are env flags, not code:** `CASDEY_TRIAL_ENABLED` and
+  `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` in
+  Vercel for V2). `early_adopter` is persisted per-practice so eligibility
+  survives into V2.
+- **The offer is expected to keep changing** — the model is centralized in
+  `plan.ts` for exactly that reason.
 
-The live interactive flow: real signup → Google OAuth → onboarding → Stripe
-checkout → import a CSV → dormant counts → build/approve a campaign → queue
-drains → unsubscribe. All the code is in place; it needs the credentials below
-to actually run.
+### Still an open product decision
+The Free plan's limits are currently: **import + view dormant = yes, send =
+no**, and nothing else restricted. That's a sensible default that creates the
+upgrade pull, but the exact shape ("A LOT of limitations" per Davide) is a
+product call — e.g. a patient-count cap, or capping the dormant list preview.
+Those are easy to add in `capabilities()` when decided.
 
-## Manual steps to finish P7 (in order)
+## Verified
 
-### 1. Run the database migration
-`web/supabase/migrations/0002_saas.sql` in the Supabase SQL editor (same EU
-project as the waitlist). Creates 10 tables, RLS policies, the atomic
-`create_practice()` function, and per-table `service_role`/`authenticated`
-grants (the README's `42501` gotcha is handled for every new table).
+- `npx tsc --noEmit`, `npm run lint`, `npm run build` — all clean
+- `npm run test` — **50/50 pass** (dormancy rules, CSV parsing, and the plan
+  model: trial/free/premium derivation + send gating)
+- The onboarding RPC path was exercised end-to-end against the live DB
+  (create_practice via the API, then cleaned up)
+- Login page + auth handshake render; `/app/*` correctly redirects to `/login`
 
-### 2. Add the browser-safe Supabase keys to `web/.env.local`
-```
-NEXT_PUBLIC_SUPABASE_URL=      # BARE project url, no /rest/v1 (the PGRST125 gotcha)
-NEXT_PUBLIC_SUPABASE_ANON_KEY= # anon / publishable key (RLS-bound, safe in browser)
-```
-The app is currently 100% service-role; these are what turn on Auth.
+### Not yet verified (blocked on env below)
+The upgrade-with-discount half of the loop, which needs real Stripe: Free
+send-gate → upgrade → send. Code is in place; needs the keys.
 
-### 3. Enable Google as an auth provider
-In Supabase → Authentication → Providers → Google: create an OAuth client in
-Google Cloud, paste client id/secret, and register the callback URL Supabase
-shows. Email/password works without this; the "Continue with Google" button
-needs it.
+The rest of the loop **was** walked end-to-end on 2026-08-14 (signup → free
+week → import → build a campaign → approve → real send attempt) with a fake
+12-patient CSV against the local dev server. Import and dormancy detection
+worked exactly as designed (8/12 correctly flagged dormant). The send itself
+surfaced the gap below.
 
-### 4. Stripe
-Prices were already created in **test mode** (account `acct_1Tz17NDGwemFDmSP`)
-and their ids are in `.env.local`:
-- £250/mo, £2,700/yr, €290/mo, €3,144/yr
-`STRIPE_SECRET_KEY` is copied from the repo-root `.env`. Still needed:
-```
-STRIPE_WEBHOOK_SECRET=   # from: stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-Re-run `node scripts/stripe-setup.mjs` any time; it is idempotent and refuses
-live keys.
+### Go-live blocker: campaign email has no per-practice sending identity yet
+`emailProvider()` in `src/lib/messaging.ts` picks Zoho whenever `RESEND_API_KEY`
+is unset, which is the case everywhere right now (local and prod). Zoho can
+only send as **casdey's own `info@casdey.com`**, not the practice, and per the
+code's own comment it **cannot set a reply-to at all** ("Zoho rejects any
+reply-to address it has not verified, which an arbitrary practice inbox never
+will be"). The campaign builder UI already warns about this before a practice
+approves a send. Practically: every patient email would look like it's from
+casdey, and every reply would land with casdey, not the dental practice — not
+acceptable for real practices.
 
-### 5. (optional) Resend + CRON_SECRET
-- `RESEND_API_KEY` — without it, patient email sends via Zoho, which cannot set
-  a per-practice reply-to (the practice address is written into the body
-  instead). With it + casdey.com verified in Resend, replies land in the
-  practice's own inbox.
-- `CRON_SECRET` — any long random string; guards `POST /api/cron/send`, which
-  drains the campaign queue. Locally:
-  `curl -X POST localhost:3000/api/cron/send -H "authorization: Bearer $CRON_SECRET"`
-  On Vercel add a cron entry hitting `/api/cron/send`.
+Confirmed live on 2026-08-14: approving a test campaign queued 8 real send
+attempts through the real Zoho account. Zoho rejected all 8 with `550 5.4.6
+Unusual sending activity detected`, its abuse/rate-limit trigger, almost
+certainly because this is the **same Zoho account the real cold-outreach
+automation sends cold emails from** — a second unrelated burst read as spam
+activity. No real person was contacted (test addresses were fake
+`@example.com`), but this shows the Zoho path is not just "worse," it's
+actively unreliable under any real sending volume once cold outreach is also
+running.
 
-### 6. Walk the flow
-`npm run dev`, then: sign up (email + Google) → onboarding → billing → Stripe
-test checkout with `4242 4242 4242 4242` → import a sample CSV → dashboard
-counts → build a campaign → approve → run the cron endpoint → click the
-unsubscribe link and confirm the patient is suppressed. Test the Stripe webhook
-with `customer.subscription.updated` and `invoice.payment_failed` explicitly —
-trial-end is the one thing that silently costs money if wrong.
+**Fix:** wire up Resend (`RESEND_API_KEY` + verified `casdey.com` sending
+domain) before any real practice sends a campaign. This is a go-live blocker,
+not a nice-to-have — flagging it here rather than leaving it as an easy-to-miss
+optional env var.
 
-## Architecture notes worth keeping
+## To go live / to test the full flow — env vars
 
-- **Two Supabase clients, never confused.** `supabaseAdmin()` (service role,
-  bypasses RLS) is for webhooks/cron/import only. `supabaseServer()` (cookie-
-  scoped, RLS applies) is every user-facing read/write. A cross-tenant patient
-  leak is the worst thing this app can do; RLS is the backstop.
-- **Auth lives in the DAL, not the layout** (`src/lib/dal.ts`). Next 16 layouts
-  don't re-render on navigation and can't gate child segments, so each page
-  calls `requirePractice()` / `requireActivePractice()` itself.
-- **Next 16 specifics:** middleware is `src/proxy.ts` (export `proxy`); all of
-  `cookies()`/`params`/`searchParams` are async.
-- **Dormancy is derived, never stored** (`src/lib/dormancy.ts`). Changing a
-  practice's window can't leave stale flags. The in-memory rule and the SQL
-  filter are kept side by side so they can't disagree.
-- **Every patient email carries a working unsubscribe link**, appended after the
-  editable template so a practice can't remove it. Suppression is checked at
-  queue time and again at send time.
+In `web/.env.local` (local) or Vercel (production):
+
+- **Supabase Auth:** `NEXT_PUBLIC_SUPABASE_URL` (bare project URL, not
+  `/rest/v1`), `NEXT_PUBLIC_SUPABASE_ANON_KEY`. *(Set locally already.)*
+- **Google OAuth:** create an OAuth client, paste into Supabase → Auth →
+  Providers → Google, register the callback URL. Email/password works without
+  it; the Google button needs it.
+- **Stripe:** `STRIPE_SECRET_KEY`, the four `STRIPE_PRICE_*`, and the two
+  `STRIPE_COUPON_*` ids. *(All set locally; run `node scripts/stripe-setup.mjs`
+  to (re)create products, prices, and coupons — idempotent, test-only.)*
+- **`STRIPE_WEBHOOK_SECRET`** from `stripe listen --forward-to
+  localhost:3000/api/stripe/webhook` (local) or the endpoint secret (prod).
+  Without it, an upgrade won't sync back to `subscription_status`.
+- **`RESEND_API_KEY`** (optional): without it, campaign email sends via Zoho,
+  which can't set a per-practice reply-to. With it + casdey.com verified,
+  replies land in the practice's own inbox.
+- **`CRON_SECRET`** guards `POST /api/cron/send` (drains the send queue). Add a
+  Vercel cron hitting that path.
+- **`ANTHROPIC_API_KEY`** (optional): enables "Draft with AI" on the campaign
+  form (`src/lib/ai.ts`). Without it, drafting reports "not switched on" and the
+  practice writes the message manually. `CASDEY_AI_MODEL` overrides the model
+  (default `claude-opus-5`).
+- **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
+  leave unset for V1; `"false"` for V2.
+
+## Local testing (current session)
+
+DB is migrated and ready; dev server runs on `:3000` (per `.claude/launch.json`;
+an earlier session used `:3002`, since killed); a confirmed test account
+`test@casdey.com` / `casdey-test-1234` exists (skips email confirmation). To
+see Import + Campaigns as a paid user without running Stripe, a practice's
+`trial_ends_at` can be extended or `subscription_status` set to `active`
+directly — but a fresh signup already lands in the 7-day trial with full access.
+
+`CRON_SECRET` in local `.env.local` was empty (fails closed by design, see
+`src/app/api/cron/send/route.ts`) and is now set to a random local-only value
+so `POST /api/cron/send` can be tested manually. `RESEND_API_KEY` is still
+unset locally, so draining the queue sends through the real Zoho account (see
+go-live blocker above) — be aware of that before running the drain again.
 
 ## Out of scope (deliberately)
 
-Real Dentally sync, SMS, the other three practice-software integrations, live
-Stripe keys, invoicing, and the Vercel deploy + DNS move. The trial-fulfilment
-gap stays manual: if a practice signs up before this is solid, Davide handles it
-personally.
+Real Dentally sync, SMS, the other practice-software integrations, live Stripe
+keys, invoicing. The Free plan's deeper limits (above) are a pending product
+decision, not built.

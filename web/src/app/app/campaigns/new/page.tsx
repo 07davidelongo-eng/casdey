@@ -2,6 +2,7 @@ import { requirePractice } from "@/lib/dal";
 import { ruleFor } from "@/lib/dormancy";
 import { buildAudience } from "@/lib/campaigns";
 import { emailProvider } from "@/lib/messaging";
+import { languageForCountry } from "@/lib/languages";
 import { PageHeader, Notice, ButtonLink } from "@/components/app/ui";
 import { CampaignForm } from "./form";
 
@@ -52,6 +53,7 @@ export default async function NewCampaignPage() {
             audienceCount={audience.length}
             dailyCap={practice.daily_send_cap}
             sample={audience[0] ?? null}
+            defaultLanguage={languageForCountry(practice.country)}
           />
         </>
       )}

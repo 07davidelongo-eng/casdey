@@ -19,6 +19,14 @@
 -- comments and enforced by the cleanup in 0003 (see settings/data in the app
 -- for the manual erasure path).
 
+-- The RLS helper functions below select from tables created later in this
+-- file. Postgres validates function bodies at creation time by default and
+-- would reject the forward reference. Turning the check off for this script
+-- lets it read top to bottom; the functions are only ever CALLED after the
+-- tables exist, so runtime behaviour is unchanged. Session-scoped, so it
+-- reverts on its own.
+set check_function_bodies = off;
+
 -- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
@@ -411,8 +419,11 @@ create table if not exists public.campaign_messages (
   error         text,
 
   -- One-click unsubscribe, no login. Random and per-message so a leaked link
-  -- cannot be used to enumerate anyone else.
-  unsubscribe_token text not null unique default encode(gen_random_bytes(24), 'hex'),
+  -- cannot be used to enumerate anyone else. Two v4 UUIDs concatenated (64 hex
+  -- chars, ~240 bits) rather than gen_random_bytes, which lives in the pgcrypto
+  -- extension and is not always on the inserting role's search path.
+  unsubscribe_token text not null unique
+    default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''),
 
   unique (campaign_id, patient_id)
 );

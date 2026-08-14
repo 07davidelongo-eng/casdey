@@ -54,6 +54,12 @@ export type Practice = {
   plan_interval: "month" | "year" | null;
   trial_ends_at: string | null;
   current_period_end: string | null;
+  /** Joined in the V1/waitlist window, so keeps the lifetime upgrade discount. */
+  early_adopter: boolean;
+  /** Typical value of a recovered appointment, in minor units of the billing
+   *  currency. Null until the practice sets it. Powers the revenue estimate and
+   *  the profit-or-nothing guarantee. See src/lib/money.ts. */
+  appointment_value_minor: number | null;
   processing_agreed_at: string | null;
   onboarded_at: string | null;
 };
@@ -84,6 +90,7 @@ export type Campaign = {
   status: CampaignStatus;
   subject: string;
   body: string;
+  language: string;
   audience: AudienceSnapshot;
   approved_at: string | null;
   approved_by: string | null;
@@ -101,6 +108,16 @@ export type AudienceSnapshot = {
   maxVisits: number;
   builtAt: string;
   patientCount: number;
+};
+
+export type PracticeService = {
+  id: string;
+  practice_id: string;
+  name: string;
+  price_minor: number;
+  position: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ImportRun = {
@@ -123,12 +140,6 @@ export type ImportIssue = {
   reason: string;
 };
 
-/** A practice is allowed to use the product while trialing or paid up. */
-export function subscriptionAllowsAccess(status: SubscriptionStatus): boolean {
-  return status === "trialing" || status === "active" || status === "past_due";
-}
-
-/** Sending is stricter than access: a lapsed account stops emailing patients. */
-export function subscriptionAllowsSending(status: SubscriptionStatus): boolean {
-  return status === "trialing" || status === "active";
-}
+// Access and sending used to be gated on subscription_status directly. They are
+// now decided by the plan model in ./plan.ts (trial / free / premium), because
+// Free is a real state a paid-up account can rest in, not an absence of access.
