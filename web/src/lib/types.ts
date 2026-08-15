@@ -83,6 +83,9 @@ export type Patient = {
   reactivated_at: string | null;
   consent_email: boolean;
   source: string;
+  /** True only for the one synthetic per-practice patient behind "send
+   *  yourself a test" (src/lib/self-test.ts). Never a real person. */
+  is_test: boolean;
   created_at: string;
   updated_at: string;
 };

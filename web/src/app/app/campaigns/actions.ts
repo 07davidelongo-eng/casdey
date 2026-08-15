@@ -11,6 +11,9 @@ import { ruleFor } from "@/lib/dormancy";
 import { audienceSnapshot, buildAudience, queueCampaign } from "@/lib/campaigns";
 import { capabilities } from "@/lib/plan";
 import { isLanguageCode } from "@/lib/languages";
+import { emailProvider, unsubscribeUrl } from "@/lib/messaging";
+import { composeBody, contextFor, renderTemplate } from "@/lib/template";
+import { ensureTestPatient } from "@/lib/self-test";
 
 export type CampaignState = { error: string | null };
 
@@ -84,6 +87,126 @@ export async function createCampaignAction(
   });
 
   redirect(`/app/campaigns/${data.id}`);
+}
+
+export type TestSendState = { error: string | null; sentTo: string | null };
+
+/**
+ * Roadmap #4: the practice can walk through the patient's side of a campaign
+ * before anyone real gets it. This sends the exact message a patient would
+ * get, through the exact same code the real sender uses (composeBody, the
+ * configured provider, a real unsubscribe token), to the signed-in user's own
+ * inbox. It rides on a synthetic patient row (see ./self-test.ts) rather than
+ * a real one, and never touches the send queue, so it cannot be mistaken for
+ * a real send and cannot count against anyone's daily cap.
+ *
+ * Available on a campaign in any status, not only drafts: re-checking what
+ * already went out is just as useful as previewing what is about to.
+ */
+export async function sendTestAction(
+  _previous: TestSendState,
+  formData: FormData,
+): Promise<TestSendState> {
+  const { practice, session } = await requireActivePractice();
+  const campaignId = String(formData.get("campaignId") ?? "");
+
+  if (!session.email) {
+    return {
+      error: "Your account has no email address to send the test to.",
+      sentTo: null,
+    };
+  }
+
+  const client = supabaseAdmin();
+
+  const { data: campaign } = await client
+    .from("campaigns")
+    .select("id, subject, body")
+    .eq("id", campaignId)
+    .eq("practice_id", practice.id)
+    .maybeSingle();
+
+  if (!campaign) {
+    return { error: "That campaign no longer exists.", sentTo: null };
+  }
+
+  let patient;
+  try {
+    patient = await ensureTestPatient(practice, session.email);
+  } catch (error) {
+    console.error("[campaign] test patient failed", error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "We could not prepare a test send. Try again.";
+    return { error: message, sentTo: null };
+  }
+
+  const { data: message, error: messageError } = await client
+    .from("campaign_messages")
+    .upsert(
+      {
+        practice_id: practice.id,
+        campaign_id: campaignId,
+        patient_id: patient.id,
+        to_email: session.email,
+        status: "queued",
+      },
+      { onConflict: "campaign_id,patient_id" },
+    )
+    .select("id, unsubscribe_token")
+    .single();
+
+  if (messageError || !message) {
+    console.error("[campaign] test message failed", messageError?.message);
+    return {
+      error: "We could not prepare a test send. Try again.",
+      sentTo: null,
+    };
+  }
+
+  const provider = emailProvider();
+  const context = contextFor(
+    { first_name: patient.first_name, last_visit_at: patient.last_visit_at },
+    practice,
+  );
+
+  try {
+    await provider.send({
+      to: session.email,
+      subject: `[Test] ${renderTemplate(campaign.subject, context)}`,
+      text: composeBody({
+        body: campaign.body,
+        context,
+        unsubscribeUrl: unsubscribeUrl(message.unsubscribe_token),
+        replyTo: practice.reply_to_email,
+        providerCanSetReplyTo: provider.canSetReplyTo,
+      }),
+      fromName: practice.sender_name ?? practice.name,
+      replyTo: practice.reply_to_email,
+    });
+  } catch (sendError) {
+    console.error("[campaign] test send failed", sendError);
+    return {
+      error: "The test message could not be sent. Try again shortly.",
+      sentTo: null,
+    };
+  }
+
+  await client
+    .from("campaign_messages")
+    .update({ status: "sent", sent_at: new Date().toISOString() })
+    .eq("id", message.id);
+
+  await recordAudit({
+    practiceId: practice.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "campaign.test_sent",
+    target: campaignId,
+  });
+
+  return { error: null, sentTo: session.email };
 }
 
 /**

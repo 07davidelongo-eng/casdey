@@ -29,7 +29,8 @@ export type AudienceMember = {
  * Everyone dormant, reachable, and not on the do-not-contact list.
  *
  * Uses the service-role client because it runs as a batch, with practice_id
- * pinned by the caller from a verified session.
+ * pinned by the caller from a verified session. Excludes the practice's own
+ * self-test patient (see ./self-test.ts): a real send must never write to it.
  */
 export async function buildAudience(
   practiceId: string,
@@ -42,6 +43,7 @@ export async function buildAudience(
     .from("patients")
     .select("id, email, first_name, last_visit_at")
     .eq("practice_id", practiceId)
+    .eq("is_test", false)
     .neq("status", "opted_out")
     .eq("consent_email", true)
     .not("email", "is", null)

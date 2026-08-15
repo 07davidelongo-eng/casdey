@@ -35,6 +35,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     .from("patients")
     .select("*")
     .eq("practice_id", practice.id)
+    .eq("is_test", false)
     .eq("status", "reactivated")
     .order("reactivated_at", { ascending: false })
     .limit(1);

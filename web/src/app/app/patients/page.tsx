@@ -43,7 +43,8 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
   let query = session.supabase
     .from("patients")
     .select("*", { count: "exact" })
-    .eq("practice_id", practice.id);
+    .eq("practice_id", practice.id)
+    .eq("is_test", false);
 
   if (filter === "dormant") {
     query = query

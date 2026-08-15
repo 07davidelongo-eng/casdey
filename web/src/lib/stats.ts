@@ -28,7 +28,10 @@ function base(supabase: SupabaseClient, practiceId: string) {
   return supabase
     .from("patients")
     .select("id", { count: "exact", head: true })
-    .eq("practice_id", practiceId);
+    .eq("practice_id", practiceId)
+    // The practice's own self-test patient (see ./self-test.ts) is not a real
+    // patient and must never count toward its own numbers.
+    .eq("is_test", false);
 }
 
 /**

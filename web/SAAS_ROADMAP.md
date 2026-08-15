@@ -71,11 +71,63 @@ subject to the existing production gate: `/app` stays inert live until
   SAAS_HANDOFF state - still EU, but the "stored in Frankfurt" marketing claim
   may need correcting.
 
-## 4. Client self-test of the outreach — `todo`
+## 4. Client self-test of the outreach — `done` (local), `needs Vercel env for prod`
 The practice can **test the outreach on themselves**: receive the email or
 WhatsApp message and walk through the patient's experience end to end (incl.
 reply → booking) before sending to real patients.
 - Depends on #6 (email) and #2 (WhatsApp) working. Medium.
+
+**Done 2026-08-15, email side only** (WhatsApp is still #2, `todo`, so there is
+no WhatsApp self-test yet; there is also still no in-product booking step for
+anyone to test, real or synthetic, that is the separate, still-open calendar
+-write-access item under "Guarantee mechanics" in CLAUDE.md — the testable
+surface today is receiving the email, replying to it, and the unsubscribe
+link).
+
+- A **"Send me a test"** button on the campaign draft/review page
+  (`src/app/app/campaigns/[id]/page.tsx`, new `test-send-form.tsx`, new
+  `sendTestAction` in `campaigns/actions.ts`). Sends the exact composed
+  message, same `renderTemplate`/`composeBody`/`emailProvider` code the real
+  sender uses, to the signed-in user's own email, with the practice's real
+  reply-to and a real working unsubscribe link. Only the subject gets a
+  "[Test] " prefix so it is never mistaken for a genuine patient reply; the
+  body is byte-for-byte what a patient would receive.
+- New `src/lib/self-test.ts` (`ensureTestPatient`): one reusable synthetic
+  patient per practice (upserted on a fixed `external_ref`, not a new row per
+  test), flagged with a new `patients.is_test` boolean so it can ride the real
+  send pipeline, which needs a real patient row to hang a `campaign_messages`
+  row off, without being a real person. Reset to a clean active/consenting
+  state on every test send, and any suppression left over from a previous
+  test's unsubscribe click is cleared first, so testing the unsubscribe flow
+  never permanently breaks the next test send.
+- New migration `0008_self_test.sql` (`patients.is_test boolean not null
+  default false`), applied to the live DB the same way as `0007`.
+- Excluded `is_test` patients everywhere a practice looks at its own real
+  numbers: `buildAudience` (so a real send can never write to it), dashboard
+  stats, the patient list, CSV export, the dashboard's "most recent return"
+  query, and the patient count on the data/privacy page's delete-everything
+  card.
+- New audit action `campaign.test_sent`.
+
+**Verified 2026-08-15**, end-to-end in-browser against the real (live
+Supabase) project: created a real draft campaign, sent a test, confirmed a
+clean server log (a real Resend round-trip, no errors), confirmed dashboard
+stats, the patient list and the CSV export were all unaffected by the
+synthetic patient, confirmed the audit log entry. Pulled the real unsubscribe
+token from the DB and used it for real: confirmed it named the practice
+correctly, confirmed clicking through flipped the test patient to opted-out
+and wrote a real suppression row, then sent another test and confirmed it
+silently reset the test patient and cleared the suppression, so retesting
+unsubscribe does not brick future tests. Deleted the throwaway draft campaign
+afterward to restore the practice's campaign list to its pre-test state; kept
+the synthetic test-patient row, since it is the feature's normal persistent
+artifact rather than test contamination. tsc / lint / test (70/70) / build all
+clean throughout.
+
+**Still open:** same Vercel production gate as the rest of `/app`. WhatsApp
+self-test waits on #2. Testing an actual reply → booking hand-off waits on the
+booking/calendar-write-access work under "Guarantee mechanics" in CLAUDE.md,
+which does not exist yet for real patients either.
 
 ## 5. Support chatbot for casdey itself — `todo`
 A support chat widget bottom-right of the app (like most SaaS today), for the
@@ -234,11 +286,14 @@ needs a real test-mode subscription actually running through the app.
 2. ~~**#3 Google login**~~ — done 2026-08-15.
 3. ~~**#7 price list + revenue**~~ — done 2026-08-14, foundation the guarantee (#8) needs.
 4. ~~**#8 guarantee**~~ — refund + eligibility gating, done (local) 2026-08-15.
-5. ~~**#1 AI message + language**~~ — reverted 2026-08-15 (language kept, AI dropped),
-   **#2 WhatsApp AI agent**, **#5 support chatbot**, **#4 self-test** — feature-add
-   track, sequence by appetite.
+5. ~~**#1 AI message + language**~~ — reverted 2026-08-15 (language kept, AI dropped).
+6. ~~**#4 self-test**~~ — email side done (local) 2026-08-15; WhatsApp side still
+   waits on #2.
+7. **#2 WhatsApp AI agent**, **#5 support chatbot** — feature-add track, sequence
+   by appetite.
 
-Status: **done** — #1 (language only), #3, #6 (local), #7, #8 (local). **todo** — #2, #4, #5.
+Status: **done** — #1 (language only), #3, #4 (local, email only), #6 (local), #7,
+#8 (local). **todo** — #2, #5.
 
 ## Open questions to pin down as we go
 - #2: which AI model/provider for the WhatsApp agent, and which WhatsApp

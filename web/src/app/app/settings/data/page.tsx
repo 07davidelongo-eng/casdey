@@ -23,6 +23,7 @@ const ACTION_LABEL: Record<string, string> = {
   "patients.purged": "All patient data deleted",
   "patients.exported": "Patient data exported",
   "campaign.created": "Campaign created",
+  "campaign.test_sent": "Sent a test of a campaign to yourself",
   "campaign.approved": "Campaign approved and started",
   "campaign.paused": "Campaign paused",
   "campaign.cancelled": "Campaign cancelled",
@@ -47,7 +48,8 @@ export default async function DataSettingsPage() {
   const { count: patientCount } = await session.supabase
     .from("patients")
     .select("id", { count: "exact", head: true })
-    .eq("practice_id", practice.id);
+    .eq("practice_id", practice.id)
+    .eq("is_test", false);
 
   return (
     <div className="max-w-[42rem] space-y-6">

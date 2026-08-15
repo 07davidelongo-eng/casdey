@@ -46,6 +46,7 @@ export async function GET(): Promise<Response> {
     .from("patients")
     .select("*")
     .eq("practice_id", practice.id)
+    .eq("is_test", false)
     .order("last_visit_at", { ascending: true });
 
   if (error) {

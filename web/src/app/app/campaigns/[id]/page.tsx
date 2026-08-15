@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requirePractice } from "@/lib/dal";
 import { CampaignPill } from "@/components/app/campaign-pill";
 import { CampaignControls } from "./controls";
+import { TestSendForm } from "./test-send-form";
 import {
   Card,
   CardTitle,
@@ -94,6 +95,10 @@ export default async function CampaignPage(
           added to every message.
         </p>
       </Card>
+
+      <div className="mt-6">
+        <TestSendForm campaignId={campaign.id} email={session.email} />
+      </div>
 
       <div className="mt-6">
         <CampaignControls

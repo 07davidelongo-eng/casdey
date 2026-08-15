@@ -24,6 +24,7 @@ export type AuditAction =
   | "patients.purged"
   | "patients.exported"
   | "campaign.created"
+  | "campaign.test_sent"
   | "campaign.approved"
   | "campaign.paused"
   | "campaign.cancelled"
