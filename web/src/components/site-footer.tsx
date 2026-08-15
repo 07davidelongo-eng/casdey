@@ -14,7 +14,8 @@ const COLUMNS = [
   {
     heading: "Get started",
     links: [
-      { href: "/waitlist", label: "Join the waitlist" },
+      { href: "/login?mode=signup", label: "Start your free week" },
+      { href: "/login", label: "Sign in" },
       { href: "mailto:info@casdey.com", label: "Talk to us" },
     ],
   },

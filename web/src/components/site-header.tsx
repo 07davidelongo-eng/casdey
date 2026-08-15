@@ -36,9 +36,17 @@ export function SiteHeader() {
             </ul>
           </nav>
 
-          <ButtonLink href="/waitlist" className="shrink-0 px-4 py-2.5">
-            Join the waitlist
-          </ButtonLink>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/login"
+              className="hidden px-3 py-2.5 text-[0.9375rem] text-graphite transition-colors duration-200 hover:text-ink sm:inline-block"
+            >
+              Sign in
+            </Link>
+            <ButtonLink href="/login?mode=signup" className="px-4 py-2.5">
+              Start free week
+            </ButtonLink>
+          </div>
         </div>
       </Container>
     </header>

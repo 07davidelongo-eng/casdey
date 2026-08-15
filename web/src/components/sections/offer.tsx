@@ -12,7 +12,7 @@ export function Offer() {
 
         <div className="mt-10 grid gap-5 sm:grid-cols-2">
           <Link
-            href="/waitlist"
+            href="/login?mode=signup"
             className="lift group flex min-h-[290px] flex-col justify-between rounded-[22px] bg-mist p-8 sm:p-10"
           >
             <div>
@@ -32,7 +32,7 @@ export function Offer() {
           </Link>
 
           <Link
-            href="/waitlist"
+            href="/login?mode=signup"
             className="lift group flex min-h-[290px] flex-col justify-between rounded-[22px] bg-teal p-8 sm:p-10"
           >
             <div>

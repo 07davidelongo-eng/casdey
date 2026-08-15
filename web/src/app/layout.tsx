@@ -39,7 +39,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 const description =
-  "casdey finds the patients who visited your practice once or twice and never rebooked, then re-engages them and books the appointment straight back into your calendar. No manual chasing, no ad spend.";
+  "casdey finds the patients who visited your practice once or twice and never rebooked, then writes to them in your name so the ones worth winning back reply straight to your front desk. No manual chasing, no ad spend.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://casdey.com"),

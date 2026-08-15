@@ -8,18 +8,18 @@ import { Container, Eyebrow, SectionHeading } from "../ui";
 const STEPS = [
   {
     n: "1",
-    title: "Connect your records",
-    body: "casdey reads your patient list from the software the practice already runs on, plus your calendar so it can book the patients who come back. Nothing clinical is ever in scope.",
+    title: "Bring in your list",
+    body: "casdey reads your patient list from a file your practice software exports. Nothing clinical is ever in scope, and you see the estimated value of the quiet part before anything is sent.",
   },
   {
     n: "2",
     title: "casdey finds them and writes",
-    body: "It picks out the patients who drifted, works out who is worth contacting, and sends each one a short message in your practice's name.",
+    body: "It picks out the patients who drifted, works out who is worth contacting, and sends each one a short message in your practice's name. You approve the first send before it goes out.",
   },
   {
     n: "3",
-    title: "casdey books them in",
-    body: "It handles the reply and puts the appointment straight into your calendar. You see who came back and what it was worth, and nothing else needs doing.",
+    title: "They reply to your front desk",
+    body: "Because it sends as your practice, a patient's reply to book lands in your reception inbox, not with us. You see who is being reached and what the list is worth.",
   },
 ];
 
@@ -32,7 +32,7 @@ export function HowItWorks() {
       <Container>
         <Eyebrow className="text-teal-bright">How it works</Eyebrow>
         <SectionHeading className="mt-4 max-w-2xl text-white">
-          Three steps, and all three are ours.
+          Three steps, and the one that eats your time is ours.
         </SectionHeading>
 
         <ol className="mt-14 grid gap-5 sm:grid-cols-3">

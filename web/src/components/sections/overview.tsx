@@ -14,8 +14,8 @@ const FEATURES = [
   },
   {
     Icon: IconTrend,
-    title: "Books them back in",
-    body: "casdey handles the reply and puts the appointment straight into your calendar. You see who came back, when, and what it was worth.",
+    title: "Shows the money on the table",
+    body: "casdey values the quiet list from your own treatment prices, so you see what it is worth before a single message goes out, then reply-to-book lands with your front desk.",
   },
 ];
 

@@ -8,7 +8,7 @@ const FACTS = [
   },
   {
     value: "Calendar-only",
-    label: "The one thing casdey can write to, to book a patient back in. Patient records stay read-only, always.",
+    label: "The only thing casdey will ever write to, and only to book a patient back in. Patient records stay read-only, always.",
   },
   {
     value: "Zero",
@@ -27,9 +27,8 @@ export function PatientData() {
           </SectionHeading>
           <p className="mt-6 text-[1.0625rem] leading-relaxed text-graphite text-pretty">
             casdey handles health-adjacent personal data, so compliance is not
-            something we intend to bolt on later. These are the rules the
-            product is being built around. We would rather you hold us to them
-            now than find out afterwards.
+            something bolted on later. These are the rules casdey is built on.
+            We would rather you hold us to them now than find out afterwards.
           </p>
         </div>
 
@@ -53,8 +52,9 @@ export function PatientData() {
           </div>
           <p className="text-[0.9375rem] leading-relaxed text-graphite">
             You stay the data controller and casdey acts as your processor,
-            under a written agreement. Calendar write-access is scoped to
-            creating bookings, nothing else. An opt-out is permanent, and
+            under a written agreement. When casdey books a patient in, that
+            calendar access is scoped to creating bookings, nothing else. An
+            opt-out is permanent, and
             ending the contract deletes the records. UK GDPR, EU GDPR and
             PECR all apply, and we will send you the detail before you commit
             to anything.

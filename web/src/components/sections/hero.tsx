@@ -1,6 +1,5 @@
-import { HeroEmailCapture } from "../hero-email-capture";
 import { HeroMockup } from "../marks/hero-mockup";
-import { Container } from "../ui";
+import { ButtonLink, Container } from "../ui";
 
 const SOFTWARE = ["SOE Exact", "Dentally", "R4", "Carestream"];
 
@@ -26,13 +25,18 @@ export function Hero() {
             </h1>
 
             <p className="mt-7 max-w-lg text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-              casdey finds the patients your practice has not seen in years,
-              writes to them in your name, and books them straight back onto
-              your calendar. No chasing, no ad spend.
+              casdey finds the patients your practice has not seen in years and
+              writes to them in your name, so the ones worth winning back reply
+              straight to your front desk. No chasing, no ad spend.
             </p>
 
-            <div className="mt-9">
-              <HeroEmailCapture />
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <ButtonLink href="/login?mode=signup">
+                Start your free week
+              </ButtonLink>
+              <ButtonLink href="/#how-it-works" variant="quiet">
+                See how it works
+              </ButtonLink>
             </div>
 
             <p className="label mt-4 text-stone">
@@ -47,7 +51,7 @@ export function Hero() {
 
         <div className="mt-20 flex flex-col gap-5 border-t border-ash/70 pt-8 sm:flex-row sm:items-center sm:gap-10">
           <p className="label shrink-0 text-stone">
-            being built to connect with
+            works with any practice software
           </p>
           <ul className="flex flex-wrap items-center gap-x-9 gap-y-3">
             {SOFTWARE.map((name) => (

@@ -12,14 +12,14 @@ export function CtaBand() {
                 Ready to work the quiet half of your list?
               </h2>
               <p className="mt-5 max-w-md text-[0.9375rem] leading-relaxed text-sea">
-                Join the waitlist and you get first access, a free first week,
-                and a say in what casdey does next.
+                Start with a free week, no card. Import your list and see casdey
+                find who has gone quiet before you decide anything.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3 lg:justify-end">
-              <ButtonLink href="/waitlist" variant="brightOnDeep">
-                Join the waitlist
+              <ButtonLink href="/login?mode=signup" variant="brightOnDeep">
+                Start your free week
               </ButtonLink>
               <ButtonLink href="/#how-it-works" variant="onDeep">
                 How it works

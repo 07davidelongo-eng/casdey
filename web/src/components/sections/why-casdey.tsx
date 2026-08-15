@@ -66,10 +66,10 @@ export function WhyCasdey() {
             </h3>
             <Flow />
             <p className="max-w-md text-[0.9375rem] leading-relaxed text-graphite">
-              casdey reads your records, decides who is worth contacting,
-              writes to them, and books the appointment once they say yes.
-              The practice only hears about it once it is already on the
-              calendar.
+              casdey reads your records, decides who is worth contacting, and
+              writes to each one in your name. When a patient says yes, the
+              reply lands with your front desk, so the only thing your team
+              touches is the booking itself.
             </p>
           </div>
 
