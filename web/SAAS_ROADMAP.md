@@ -115,20 +115,90 @@ foundation-then-AI in two sessions.
   types, and replying to it rides the exact same webhook → AI loop →
   hand-off path a real patient's reply would.
 - Verified: `tsc`/`lint`/`test`/`next build` all clean throughout
-  (`signature.test.ts` added, 7/7 passing). Not yet exercised end-to-end
-  against a real Twilio number (Sandbox or production) — that needs Davide to
-  create the Twilio account, which is the external step below.
+  (`signature.test.ts` added, 7/7 passing).
 
-**Still open, not solvable in code:** production sending needs Davide to
-create a Twilio account, request WhatsApp Business API access, complete Meta
+**E2E test attempted 2026-08-15, blocked by Twilio trial limits (not a code
+bug).** Davide created the Twilio account (free trial, no card) and joined
+the WhatsApp Sandbox from his own phone. Set up a local e2e test: real
+`ANTHROPIC_API_KEY` created (new "casdey" Anthropic Console org), dev server
++ a cloudflared quick tunnel for the inbound webhook's public URL. Found:
+  - The Sandbox's **Sandbox settings** page (where the inbound webhook URL is
+    configured) crashes with a client-side error and bounces to Twilio's
+    "Upgrade your account" screen — reproduced 5+ times across fresh tabs and
+    URL paths, so this reads as Twilio gating custom webhook config behind an
+    upgraded (payment-method-on-file) account, not a transient bug.
+  - The **Content Template API** is explicitly blocked on trial: `GET
+    /v1/Content` returns `20003 "This feature is not available on a Trial
+    account."` Since `sendWhatsAppMessage`'s template path
+    (`src/lib/whatsapp/twilio.ts`) needs a Content SID, and the freeform path
+    also got rejected with `21654 "ContentSid Required"` even inside a fresh
+    24h session window (confirmed via the Messages API log: a "join
+    twilio-trial" and its auto-reply, both delivered/read), **no outbound
+    send succeeds through our own code on this trial account at all** —
+    template or freeform.
+  - Confirmed via Twilio's own "Try out WhatsApp" console widget (not our
+    code) that the Sandbox number itself is alive and reachable (2 join
+    events + 2 auto-replies, both "Read") — so this is specifically an
+    API/account-tier limitation, not a dead sandbox.
+  - Local env now has a real `ANTHROPIC_API_KEY` (`web/.env.local`, org
+    "casdey", $0 credits — needs funds added before real use).
+
+**Free local integration test, same day, after Davide flagged that
+upgrading Twilio has a real upfront cost (a forced balance top-up, not just
+a card on file) and asked whether that was actually the best next step.**
+Decided to hold off on Twilio spend and instead derisk everything on our
+side of the Twilio boundary for $0: crafted a correctly-signed fake Twilio
+webhook POST (reproducing `verifyTwilioSignature`'s exact HMAC algorithm) and
+sent it straight to the local `/api/whatsapp/webhook`, using a synthetic
+patient/conversation on the existing `test@casdey.com` practice with a
+clearly-fake phone number — no real Twilio traffic at all. Confirmed working
+end-to-end:
+  - Signature verification, idempotency, conversation lookup by phone all
+    correct.
+  - Inbound message correctly persisted to `whatsapp_messages`.
+  - The AI reply path is correctly reached and calls the real Claude API —
+    caught and fixed a **real bug in the process**: the first
+    `ANTHROPIC_API_KEY` was subtly mistyped (an `O`/`0` misread from a
+    screenshot), so the first test correctly surfaced `401 invalid API key`.
+    Recreated the key and read it back via the OS clipboard instead of
+    visual transcription; the retest then got a clean `400 credit balance
+    too low` (the org has $0 credits — an orthogonal, expected block, not a
+    bug) — proving the request reaches Anthropic correctly and fails only on
+    funding.
+  - The STOP opt-out path (no AI call involved) verified fully: conversation
+    → `opted_out`, a `whatsapp_suppressions` row created, patient →
+    `opted_out`, all in one webhook call.
+  - All synthetic test data (patient, conversation, messages, suppression)
+    deleted afterward; `practices.whatsapp_enabled` reverted to its prior
+    `false`. No residue left in the live Supabase project.
+
+Net effect: everything on casdey's side of the Twilio boundary (webhook
+security, conversation state, AI call, opt-out) is now verified correct, at
+zero cost. What's left unverified is exactly the Twilio send step itself
+(outbound template/freeform message actually reaching a phone), which
+remains blocked on the trial-account limits above until Davide chooses to
+upgrade Twilio (or registers a production sender).
+
+**Still open, not solvable in code:** production sending needs Davide to add
+a payment method to the Twilio trial account (unlocks Content Templates and
+the Sandbox settings custom-webhook page — still free unless usage exceeds
+trial credit) and/or request WhatsApp Business API access, complete Meta
 Business verification for the casdey WhatsApp sender, and get at least one
 message template approved by Meta (review can take hours to a few days).
-Testable in the meantime via Twilio's WhatsApp Sandbox, which works without
-that approval. Same production gate as the rest of `/app`: inert until
-`TWILIO_*` and `ANTHROPIC_API_KEY` are set on Vercel, deliberately not done
-yet. WhatsApp self-test rode by #4 is now unblocked by this; the still-open
-half of #4 (an in-product booking step to test reply → booking end to end)
-remains open, unrelated to WhatsApp specifically.
+Same production gate as the rest of `/app`: inert until `TWILIO_*` and
+`ANTHROPIC_API_KEY` are set on Vercel, deliberately not done yet. WhatsApp
+self-test riding #4 remains blocked on the same Twilio account-tier issue,
+not on the self-test code itself; the still-open half of #4 (an in-product
+booking step to test reply → booking end to end) remains open too, unrelated
+to WhatsApp specifically.
+
+**Timing decision, 2026-08-15:** Davide is deliberately deferring the Twilio
+upgrade (the payment-method top-up above) until he decides to publish V1.
+Until then, WhatsApp stays exactly where the free local test left it:
+everything on casdey's side of the Twilio boundary verified working, actual
+outbound sending (and therefore #4's WhatsApp half) still blocked on the
+trial account. No further Twilio work is expected in the meantime; revisit
+this item when the V1-publish decision is made, not before.
 
 ## 3. Google sign-in — `done`
 Wire up the Google login button (already stubbed). Needs a Google OAuth client
