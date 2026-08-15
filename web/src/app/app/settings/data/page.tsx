@@ -29,6 +29,7 @@ const ACTION_LABEL: Record<string, string> = {
   "patient.unsubscribed": "A patient unsubscribed",
   "billing.started": "Billing set up",
   "billing.updated": "Billing changed",
+  "guarantee.claimed": "Guarantee refund claimed",
 };
 
 export default async function DataSettingsPage() {
@@ -54,7 +55,7 @@ export default async function DataSettingsPage() {
         <CardTitle>Where your patient data lives</CardTitle>
         <ul className="mt-4 space-y-2.5 text-[0.9375rem] text-graphite">
           <li>
-            Stored in Frankfurt, in the EU, encrypted at rest and in transit.
+            Stored in Ireland, in the EU, encrypted at rest and in transit.
           </li>
           <li>
             {practice.name} is the data controller. casdey is the processor, and

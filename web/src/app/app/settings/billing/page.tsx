@@ -7,6 +7,8 @@ import {
   trialDaysLeft,
 } from "@/lib/plan";
 import { isStripeConfigured, plansFor } from "@/lib/stripe";
+import { loadGuaranteeStatus } from "@/lib/guarantee-data";
+import { formatMoney, practiceCurrency } from "@/lib/money";
 import {
   Button,
   Card,
@@ -15,6 +17,7 @@ import {
   Pill,
   formatDate,
 } from "@/components/app/ui";
+import { GuaranteeClaimForm } from "./guarantee-claim-form";
 
 export const metadata = { title: "Billing" };
 
@@ -22,7 +25,7 @@ export default async function BillingPage(
   props: PageProps<"/app/settings/billing">,
 ) {
   const params = await props.searchParams;
-  const { practice, role } = await requirePractice();
+  const { practice, role, session } = await requirePractice();
 
   const plan = effectivePlan(practice);
   const currency = currencyFor(practice.country);
@@ -30,6 +33,8 @@ export default async function BillingPage(
   const daysLeft = trialDaysLeft(practice);
   const discounted = practice.early_adopter && earlyAdopterProgramActive();
   const errorMessage = typeof params.error === "string" ? params.error : null;
+  const guarantee = await loadGuaranteeStatus(session.supabase, practice);
+  const guaranteeCurrency = practiceCurrency(practice);
 
   return (
     <div className="max-w-[44rem] space-y-6">
@@ -44,6 +49,11 @@ export default async function BillingPage(
       ) : null}
       {params.cancelled ? (
         <Notice>Checkout was cancelled, so nothing changed.</Notice>
+      ) : null}
+      {params.refunded ? (
+        <Notice>
+          Refunded. It can take a few days to show up, depending on your bank.
+        </Notice>
       ) : null}
       {errorMessage ? <Notice tone="error">{errorMessage}</Notice> : null}
 
@@ -111,6 +121,82 @@ export default async function BillingPage(
           </form>
         ) : null}
       </Card>
+
+      {/* The guarantee, once there is anything to say about it. Silent for
+          anyone who has never paid: there is nothing to guarantee yet. */}
+      {!(guarantee.state === "not_started" && guarantee.reason === "not_premium") ? (
+        <Card>
+          <CardTitle>The profit-or-nothing guarantee</CardTitle>
+
+          {guarantee.state === "not_started" ? (
+            <p className="text-[0.9375rem] text-graphite">
+              Your 30-day guarantee starts the moment you launch your first
+              campaign. Nothing to do until then.
+            </p>
+          ) : guarantee.state === "running" ? (
+            <>
+              <p className="text-[0.9375rem] text-graphite">
+                <span className="literal text-ink">
+                  {guarantee.daysLeft} {guarantee.daysLeft === 1 ? "day" : "days"}
+                </span>{" "}
+                left on your guarantee window. So far,{" "}
+                {formatMoney(guarantee.revenueRecoveredMinor, guaranteeCurrency)}{" "}
+                recovered against{" "}
+                {formatMoney(guarantee.paidMinor, guaranteeCurrency)} paid.
+              </p>
+              <p className="mt-2 text-[0.8125rem] text-stone">
+                Window ends{" "}
+                <span className="literal">{formatDate(guarantee.window.end)}</span>.
+                If it has not paid off by then, you can claim a full refund of
+                what you paid during this window.
+              </p>
+            </>
+          ) : guarantee.state === "met" ? (
+            <p className="text-[0.9375rem] text-graphite">
+              casdey earned its keep:{" "}
+              {formatMoney(guarantee.revenueRecoveredMinor, guaranteeCurrency)}{" "}
+              recovered against{" "}
+              {formatMoney(guarantee.paidMinor, guaranteeCurrency)} paid during
+              your guarantee window. Nothing to claim.
+            </p>
+          ) : guarantee.state === "claimable" ? (
+            <>
+              <p className="text-[0.9375rem] text-graphite">
+                Your guarantee window closed with{" "}
+                {formatMoney(guarantee.revenueRecoveredMinor, guaranteeCurrency)}{" "}
+                recovered against{" "}
+                {formatMoney(guarantee.paidMinor, guaranteeCurrency)} paid. That
+                does not clear the bar, so you are owed a full refund of what
+                you paid during this window.
+              </p>
+              <div className="mt-4">
+                <GuaranteeClaimForm />
+              </div>
+            </>
+          ) : guarantee.claim.status === "refunded" ? (
+            <p className="text-[0.9375rem] text-graphite">
+              Refunded{" "}
+              <span className="literal text-ink">
+                {formatMoney(guarantee.claim.refunded_minor, guaranteeCurrency)}
+              </span>{" "}
+              on{" "}
+              <span className="literal">
+                {formatDate(guarantee.claim.created_at)}
+              </span>
+              .
+            </p>
+          ) : (
+            <p className="text-[0.9375rem] text-graphite">
+              You claimed your refund on{" "}
+              <span className="literal">
+                {formatDate(guarantee.claim.created_at)}
+              </span>
+              . It has not gone through yet; we have been told and are sorting
+              it out directly.
+            </p>
+          )}
+        </Card>
+      ) : null}
 
       {/* Upgrade path, shown to anyone not already on Premium */}
       {plan !== "premium" ? (

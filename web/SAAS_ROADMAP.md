@@ -9,37 +9,33 @@ Status key: `todo` / `in progress` / `done`. Update as we go.
 
 ---
 
-## 1. AI-assisted message writing + language selection — `built, needs key`
-The campaign message should be creatable two ways: **manually** (as today) or
-**with AI**, inside the platform. Keep the current default template as the
-manual default. Add a **language selector** for the message.
+## 1. AI-assisted message writing + language selection — `reverted, language kept`
+Originally scoped as manual template **or** AI drafting, plus a language
+selector. Built 2026-08-14, then reverted the same window: Davide decided
+against embedding AI drafting for a task this small, since it's a standing
+cost (`ANTHROPIC_API_KEY` usage) for a feature nobody's asked for yet.
 
-**Built 2026-08-14:**
-- New campaign form has a "Start from the template / Draft with AI" toggle and a
-  **language selector** (7 markets: en/nl/de/fr/es/pt/it), defaulted from the
-  practice's country (`src/lib/languages.ts`). Manual template stays the default.
-- "Draft with AI" calls `generateDraftAction` → `src/lib/ai.ts`
-  (`generateCampaignDraft`), which uses `@anthropic-ai/sdk`, structured output
-  (`output_config.format` json_schema) at `effort: low`, a system prompt encoding
-  casdey's copy rules (no em dashes, plain text, one ask, merge fields left in,
-  no unsubscribe line), and writes in the selected language. Returns subject +
-  body, fills the editable fields.
-- `campaigns.language` column added (migration `0006`, applied to live DB) and
-  stored on create; `Campaign.language` type added.
-- Verified: tsc / lint / test (59/59) / build clean; toggle, language select, and
-  the AI panel render; the click→server-action path works end to end (confirmed
-  in-browser — with no key it returns the graceful "not switched on" message).
+**Reverted 2026-08-15:**
+- Removed the "Start from the template / Draft with AI" toggle, the guidance
+  textarea, and `draftWithAi` from `web/src/app/app/campaigns/new/form.tsx` —
+  the form is manual-template-only again, as it was before this item started.
+- Removed `generateDraftAction` from `web/src/app/app/campaigns/actions.ts`.
+- Deleted `web/src/lib/ai.ts` and the `@anthropic-ai/sdk` dependency
+  (`web/package.json`, lockfile updated).
+- Removed the `ANTHROPIC_API_KEY` / `CASDEY_AI_MODEL` section from
+  `SAAS_HANDOFF.md`.
+- Verified: tsc / lint / test (59/59) all clean after the revert.
 
-**Blocked on you (like #6):** the live AI call needs `ANTHROPIC_API_KEY` in the
-app env (`web/.env.local` locally, Vercel for prod). Model defaults to
-`claude-opus-5`; override with `CASDEY_AI_MODEL` (e.g. a cheaper Haiku/Sonnet)
-once volume and cost are known. No key = drafting is unavailable and the practice
-just writes manually; nothing else breaks.
+**Kept, because Davide explicitly asked to keep them:**
+- The **language selector** on the new-campaign form (7 markets, defaulted
+  from the practice's country, `web/src/lib/languages.ts`) — the practice
+  still picks a language, they just also write the message themselves in it.
+- `campaigns.language` column (migration `0006`) and the `Campaign.language`
+  type — unaffected, still applied to the live DB.
+- Item #7 (price list + revenue) — entirely separate, untouched by this revert.
 
-**Not yet built (possible follow-ups):** translating the *manual* default
-template into the 7 languages (today the manual default stays English; AI drafts
-in-language). Editing an existing campaign's language/AI-redraft (this is the
-new-campaign flow only).
+**Status: done** (as "not doing AI, language + pricing kept"). Not on the
+roadmap to revisit unless the cost/demand picture changes.
 
 ## 2. WhatsApp channel with a responsive AI agent — `todo`
 Add WhatsApp as a contact channel alongside email. Here the AI must be
@@ -49,10 +45,31 @@ back-and-forth with the patient, not a single templated send.
   webhook, conversation state, AI reply loop, booking hand-off.
 - Big; standalone channel work. Depends on send infra being solid (#6).
 
-## 3. Google sign-in — `todo`
+## 3. Google sign-in — `done`
 Wire up the Google login button (already stubbed). Needs a Google OAuth client
 configured in Supabase → Auth → Providers → Google + callback URL registered.
-- Small; already scoped in `SAAS_HANDOFF.md`.
+
+**Done 2026-08-15:** the app code was already fully wired (`auth-form.tsx`'s
+`signInWithOAuth`, `auth/callback/route.ts`'s code exchange) — nothing to
+build there. Completed the external config instead:
+- Created a Google Cloud project (`casdey`) and OAuth consent screen (External,
+  authorised domain `casdey.com`) under `info@casdey.com`.
+- Created an OAuth 2.0 Web client (`casdey web`) with JS origin
+  `https://casdey.com` and redirect URI
+  `https://lxnzktbnustbimhdoyyw.supabase.co/auth/v1/callback`.
+- Pasted the Client ID into Supabase → Auth → Providers → Google (Davide
+  pasted the Client Secret himself) and enabled the provider. Confirmed
+  "Enabled" in the Supabase dashboard afterward.
+
+**Known caveat:** the Google OAuth consent screen may still be in "Testing"
+mode (only added test users can complete sign-in) unless published separately
+- worth checking before relying on this for a real prospect. Also still
+subject to the existing production gate: `/app` stays inert live until
+`NEXT_PUBLIC_SUPABASE_*` etc. are set on Vercel.
+- Also flagged while in the Supabase dashboard: the project's DB region reads
+  **eu-west-1 (Ireland)**, not eu-central-1 (Frankfurt) as CLAUDE.md /
+  SAAS_HANDOFF state - still EU, but the "stored in Frankfurt" marketing claim
+  may need correcting.
 
 ## 4. Client self-test of the outreach — `todo`
 The practice can **test the outreach on themselves**: receive the email or
@@ -66,14 +83,40 @@ A support chat widget bottom-right of the app (like most SaaS today), for the
 patients).
 - Standalone; medium.
 
-## 6. Fix the send issue — `todo` (diagnosed)
-Campaign email currently sends through casdey's own Zoho account, which can't
+## 6. Fix the send issue — `done` (local), `needs Vercel env for prod`
+Campaign email used to send through casdey's own Zoho account, which can't
 set a per-practice reply-to and trips Zoho's abuse limits (it's the same
-account cold-outreach uses). Fix = wire up **Resend** (`RESEND_API_KEY` +
-verified casdey.com sending domain) so patients see the practice's name and
-replies land in the practice's inbox. Full detail in `SAAS_HANDOFF.md`
-("Go-live blocker").
-- Concrete, already diagnosed. **Blocks #4.** Good first pick.
+account cold-outreach uses). Fix: wire up **Resend**.
+
+**Done 2026-08-15:** the code side (`src/lib/messaging.ts`) was already built
+in an earlier session and switches to Resend automatically once
+`RESEND_API_KEY` is set - no code changes needed here, just the account/DNS
+side:
+- Created the Resend account (Davide, since account creation isn't something
+  the agent does) and a sending domain **`mail.casdey.com`** - a subdomain,
+  not the root `casdey.com`, so it doesn't touch Zoho's existing MX/SPF/DKIM
+  records for the team's own mail. Region: Ireland (eu-west-1), matching the
+  Supabase project.
+- Added the 3 DNS records Resend required (1 TXT for DKIM, 1 MX + 1 TXT for
+  SPF) directly in GoDaddy - verified existing Zoho records (`mx.zoho.eu`,
+  `zmail._domainkey`, `_dmarc`, etc.) were untouched afterward.
+- Domain verified within ~15 minutes of adding the records.
+- Created a Resend API key (`casdey-web-production`, Sending-access-only, not
+  Full access) and set `RESEND_API_KEY` + `CASDEY_SENDING_ADDRESS=no-reply@mail.casdey.com`
+  in `web/.env.local`. Also documented both in `.env.example`.
+- Verified locally: the "Replies will come to casdey rather than straight to
+  you" warning on `/app/campaigns/new` (which only renders when the provider
+  can't set a reply-to) is gone, confirming `emailProvider()` now picks
+  Resend over Zoho.
+
+**Still open:** add the same `RESEND_API_KEY` and `CASDEY_SENDING_ADDRESS` to
+**Vercel** production env vars before this is live for real practices - not
+done yet, deliberately, same reasoning as the rest of `/app` staying inert in
+prod (see CLAUDE.md Infrastructure section). No real send has been tested end
+-to-end yet (approving a campaign and letting it queue through Resend) - worth
+doing once there's a safe test address to send to.
+- No longer blocks #4 on the email side. #4 still needs #2 (WhatsApp) for
+  full parity, but email self-test is unblocked now.
 
 ## 7. Practice price list + revenue in the dashboard — `in progress`
 The practice's prices need to exist in the product, used for:
@@ -122,37 +165,83 @@ for #1.
 The data and the settings UI exist now; the message composer that reads them is
 #1's job. Feeds #8.
 
-## 8. Make the profit-or-nothing guarantee actually work — `todo`
-Two halves:
-  **(a) Refund mechanism.** If the guarantee is invoked, the refund actually
-      happens (Stripe refund path).
-  **(b) Eligibility / anti-abuse gating.** The practice must do the required
-      work before the guarantee clock starts, so they can't claim a refund
-      without genuinely running casdey:
-        1. Upgrade to Premium.
-        2. Fill in the patient list.
-        3. Actually start a campaign.
-      The **30-day guarantee window starts only when the campaign starts**
-      (that's when real work begins), not at signup or upgrade. At day 30, if
-      the required results aren't met, they can request the guarantee/refund.
-- Depends on #7 (need revenue-made to know if the guarantee threshold was hit)
-  and on live billing. Also needs the results threshold defined (open question).
-- Largest item; do after #7 and live Stripe.
+## 8. Make the profit-or-nothing guarantee actually work — `done` (local), `needs Vercel env + live Stripe for prod`
+Two halves, both built 2026-08-15:
+
+**(a) Eligibility / anti-abuse gating.** `src/lib/guarantee.ts` (pure, unit
+tested, 11 tests) + `src/lib/guarantee-data.ts` (the DB queries that feed it).
+Decisions locked with Davide before building:
+  - **Threshold:** estimated revenue recovered (the same `estimatedRecoveredMinor`
+    formula #7 already built) vs. what was actually paid to Stripe, both scoped
+    to the guarantee window. Revenue ≥ paid is "met", short of it is "claimable".
+  - **Window:** the practice's ONE lifetime guarantee window is the first
+    campaign started on or after the first real (non-trial) Premium payment,
+    run 30 days. Nothing during the free week counts. Because it is always the
+    *first* qualifying campaign, a practice can never re-arm a second window,
+    which is what makes (b) safe to be fully automatic.
+  - **Refund scope:** everything paid during that one window, not a single
+    invoice and not open-ended — confirmed explicitly with Davide.
+
+**(b) Refund mechanism.** `POST /api/guarantee/claim` — fully self-service,
+no human review: recomputes eligibility server-side from the database (never
+trusts the browser), then calls Stripe `refunds.create` directly. Safe to be
+automatic because of the one-lifetime-window guarantee above, and because
+`guarantee_claims.practice_id` is UNIQUE, which also doubles as the race guard
+against a doubled click.
+
+**New schema (migration `0007_guarantee.sql`, applied to the live DB):**
+  - `practices.premium_started_at` — set once by a new `invoice.paid` Stripe
+    webhook handler (never overwritten), which also writes `subscription_payments`
+    (one row per paid invoice, with whichever of `stripe_payment_intent_id` /
+    `stripe_charge_id` Stripe actually settled it against — the refund target).
+  - `guarantee_claims` — one row per claim (at most one per practice), records
+    the window, the figures, the Stripe refund id(s), and status
+    (`processing`/`refunded`/`failed`).
+
+**UI:** a "The profit-or-nothing guarantee" card on `/app/settings/billing`,
+above the upgrade path, showing not-started / running (with live so-far
+figures) / met / claimable (+ a two-step "Claim your refund" button,
+`guarantee-claim-form.tsx`) / claimed (refunded, or failed-and-being-sorted-out).
+
+**Verified 2026-08-15:** tsc / lint / test (70/70, 11 new) / build all clean.
+End-to-end in-browser against the real (local) Supabase project: temporarily
+back-dated a real practice's `premium_started_at` and a real campaign's
+`started_at` to exercise "running" then "claimable", clicked through the arm
+→ confirm → submit flow for real against the claim route, watched it
+correctly reject a deliberately-fake `payment_intent` id (Stripe test mode,
+so nothing could actually move), confirmed the failure path’s claim record,
+audit log entry, and "claimed" UI branch all matched, then deleted every row
+the test touched and restored the practice to its original state. No real
+Stripe payment/refund exists yet to test the success path against — that
+needs a real test-mode subscription actually running through the app.
+
+**Still open:**
+- Same as #6/#3: Vercel production env still deliberately lacks Stripe/Auth
+  vars, so this is inert in production until that gate lifts.
+- Never exercised the success path (a real refund actually completing) since
+  there is no live subscription to test against yet. Worth doing once a real
+  test-mode Premium subscription exists.
+- Whether the subscription itself should be cancelled automatically when a
+  guarantee refund fires, or left running for the practice to cancel
+  themselves — not asked, so left running (belt-and-braces: they can always
+  cancel from "Manage billing"). Revisit if it causes confusion in practice.
 
 ---
 
 ## Suggested sequencing (not locked)
-1. **#6 send fix** — unblocks everything channel-related and #4; already diagnosed.
-2. **#3 Google login** — small, closes a known gap.
-3. **#7 price list + revenue** — foundation the guarantee (#8) needs.
-4. **#8 guarantee** — refund + eligibility gating, after #7 + live billing.
-5. **#1 AI message + language**, **#2 WhatsApp AI agent**, **#5 support chatbot**,
-   **#4 self-test** — feature-add track, sequence by appetite.
+1. ~~**#6 send fix**~~ — done (local) 2026-08-15, unblocks email-side #4. Needs
+   `RESEND_API_KEY` on Vercel before it's live for real practices.
+2. ~~**#3 Google login**~~ — done 2026-08-15.
+3. ~~**#7 price list + revenue**~~ — done 2026-08-14, foundation the guarantee (#8) needs.
+4. ~~**#8 guarantee**~~ — refund + eligibility gating, done (local) 2026-08-15.
+5. ~~**#1 AI message + language**~~ — reverted 2026-08-15 (language kept, AI dropped),
+   **#2 WhatsApp AI agent**, **#5 support chatbot**, **#4 self-test** — feature-add
+   track, sequence by appetite.
+
+Status: **done** — #1 (language only), #3, #6 (local), #7, #8 (local). **todo** — #2, #4, #5.
 
 ## Open questions to pin down as we go
-- #8: what exactly are "the required results" that decide whether the guarantee
-  pays out? (revenue ≥ subscription cost, per CLAUDE.md, but confirm the number
-  and how partial months count.)
-- #1/#2: which AI model/provider for message generation and the WhatsApp agent.
-- #2: which WhatsApp Business API provider.
+- #2: which AI model/provider for the WhatsApp agent, and which WhatsApp
+  Business API provider.
 - #7: where do prices come from — manual entry, or read from practice software?
+  (Answered for now: manual entry via Settings → Service prices.)

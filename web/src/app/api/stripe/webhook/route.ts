@@ -32,6 +32,7 @@ const RELEVANT = new Set([
   "customer.subscription.updated",
   "customer.subscription.deleted",
   "invoice.payment_failed",
+  "invoice.paid",
 ]);
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -136,6 +137,89 @@ async function handle(event: Stripe.Event): Promise<void> {
         .in("subscription_status", ["active", "trialing"]);
       return;
     }
+
+    case "invoice.paid": {
+      // Re-fetched rather than trusting the webhook payload's own `payments`
+      // list, for the same reason checkout.session.completed re-fetches the
+      // subscription above: a guaranteed-fresh, guaranteed-populated object
+      // rather than whatever shape happened to arrive over the wire.
+      const invoice = await stripe.invoices.retrieve(event.data.object.id);
+      await recordInvoicePayment(invoice);
+      return;
+    }
+  }
+}
+
+/**
+ * Records what a paid invoice actually collected, and against which Stripe
+ * payment. This is the money half of the profit-or-nothing guarantee (see
+ * src/lib/guarantee.ts) — without a row here, there is nothing for a refund
+ * to point at.
+ */
+async function recordInvoicePayment(invoice: Stripe.Invoice): Promise<void> {
+  const customerId =
+    typeof invoice.customer === "string"
+      ? invoice.customer
+      : invoice.customer?.id;
+  if (!customerId) return;
+
+  const currency = invoice.currency === "gbp" ? "gbp" : "eur";
+  const paidAt = toIso(invoice.status_transitions?.paid_at) ?? toIso(invoice.created);
+
+  // Whichever of these Stripe actually settled the invoice with. See the
+  // InvoicePayment.Payment union in the Stripe SDK: exactly one is set.
+  const settlement = invoice.payments?.data[0]?.payment;
+  const paymentIntentId =
+    settlement?.type === "payment_intent"
+      ? typeof settlement.payment_intent === "string"
+        ? settlement.payment_intent
+        : settlement.payment_intent?.id
+      : null;
+  const chargeId =
+    settlement?.type === "charge"
+      ? typeof settlement.charge === "string"
+        ? settlement.charge
+        : settlement.charge?.id
+      : null;
+
+  const { data: practice, error: lookupError } = await supabaseAdmin()
+    .from("practices")
+    .select("id, premium_started_at")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(`practice lookup failed: ${lookupError.message}`);
+  }
+  if (!practice) return; // No practice on this customer yet; nothing to record against.
+
+  const { error: insertError } = await supabaseAdmin()
+    .from("subscription_payments")
+    .upsert(
+      {
+        practice_id: practice.id,
+        stripe_invoice_id: invoice.id,
+        stripe_payment_intent_id: paymentIntentId,
+        stripe_charge_id: chargeId,
+        amount_minor: invoice.amount_paid,
+        currency,
+        paid_at: paidAt ?? new Date().toISOString(),
+      },
+      { onConflict: "stripe_invoice_id", ignoreDuplicates: true },
+    );
+
+  if (insertError) {
+    throw new Error(`subscription_payments insert failed: ${insertError.message}`);
+  }
+
+  // Set once, never overwritten: the guarantee clock's earliest possible
+  // start is the first real payment, full stop.
+  if (!practice.premium_started_at) {
+    await supabaseAdmin()
+      .from("practices")
+      .update({ premium_started_at: paidAt ?? new Date().toISOString() })
+      .eq("id", practice.id)
+      .is("premium_started_at", null);
   }
 }
 

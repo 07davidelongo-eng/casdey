@@ -118,7 +118,7 @@ export default function ProcessingTermsPage() {
 
             <H2>Where it is held</H2>
             <P>
-              In the European Union, in Frankfurt, encrypted in transit and at
+              In the European Union, in Ireland, encrypted in transit and at
               rest. It is not transferred outside the UK or EEA.
             </P>
 

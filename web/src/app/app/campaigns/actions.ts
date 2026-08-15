@@ -4,13 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requirePractice, requireActivePractice } from "@/lib/dal";
+import { requireActivePractice } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { ruleFor } from "@/lib/dormancy";
 import { audienceSnapshot, buildAudience, queueCampaign } from "@/lib/campaigns";
 import { capabilities } from "@/lib/plan";
-import { generateCampaignDraft } from "@/lib/ai";
 import { isLanguageCode } from "@/lib/languages";
 
 export type CampaignState = { error: string | null };
@@ -28,40 +27,6 @@ const CreateSchema = z.object({
     .refine(isLanguageCode, "Pick a language casdey supports.")
     .default("en"),
 });
-
-export type DraftResult =
-  | { ok: true; subject: string; body: string }
-  | { ok: false; error: string };
-
-/**
- * Drafts a message with AI. Available to any signed-in practice: drafting is
- * part of building a campaign, which every plan can do. Sending is the gated
- * step, and that gate is on approval, not here.
- */
-export async function generateDraftAction(input: {
-  language: string;
-  guidance?: string;
-}): Promise<DraftResult> {
-  const { practice } = await requirePractice();
-
-  const language = isLanguageCode(input.language) ? input.language : "en";
-  const guidance =
-    typeof input.guidance === "string" ? input.guidance.slice(0, 2000) : undefined;
-
-  try {
-    const draft = await generateCampaignDraft({
-      practiceName: practice.name,
-      rule: ruleFor(practice),
-      language,
-      guidance,
-    });
-    return { ok: true, ...draft };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "The draft could not be generated.";
-    return { ok: false, error: message };
-  }
-}
 
 export async function createCampaignAction(
   _previous: CampaignState,

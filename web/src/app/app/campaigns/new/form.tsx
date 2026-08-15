@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId, useState, useTransition } from "react";
+import { useActionState, useId, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import {
@@ -12,15 +12,9 @@ import {
 } from "@/lib/template";
 import { monthsSince } from "@/lib/dormancy";
 import { LANGUAGES } from "@/lib/languages";
-import {
-  createCampaignAction,
-  generateDraftAction,
-  type CampaignState,
-} from "../actions";
+import { createCampaignAction, type CampaignState } from "../actions";
 
 const INITIAL: CampaignState = { error: null };
-
-type Mode = "template" | "ai";
 
 type Sample = {
   first_name: string | null;
@@ -57,24 +51,6 @@ export function CampaignForm({
   const [body, setBody] = useState(DEFAULT_BODY);
   const [language, setLanguage] = useState(defaultLanguage);
 
-  const [mode, setMode] = useState<Mode>("template");
-  const [guidance, setGuidance] = useState("");
-  const [aiError, setAiError] = useState<string | null>(null);
-  const [drafting, startDrafting] = useTransition();
-
-  function draftWithAi() {
-    setAiError(null);
-    startDrafting(async () => {
-      const result = await generateDraftAction({ language, guidance });
-      if (result.ok) {
-        setSubject(result.subject);
-        setBody(result.body);
-      } else {
-        setAiError(result.error);
-      }
-    });
-  }
-
   const context = {
     firstName: sample?.first_name ?? null,
     practiceName,
@@ -88,41 +64,13 @@ export function CampaignForm({
       <input type="hidden" name="language" value={language} />
 
       <Card>
-        <CardTitle>Write it yourself, or let casdey draft it</CardTitle>
+        <CardTitle>The language</CardTitle>
         <p className="mt-1 mb-5 text-[0.875rem] text-stone">
-          Start from our template and edit it, or have casdey write a first
-          draft you can change. Either way you review every word before anything
-          sends.
+          Start from our template below and edit it to fit. You review every
+          word before anything sends.
         </p>
 
-        <div className="mb-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("template")}
-            aria-pressed={mode === "template"}
-            className={`rounded-[10px] border px-4 py-2.5 text-left text-[0.9375rem] font-semibold transition-[transform,border-color] duration-200 hover:-translate-y-px ${
-              mode === "template"
-                ? "border-teal bg-shallow text-ink"
-                : "border-ash bg-white text-graphite"
-            }`}
-          >
-            Start from the template
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("ai")}
-            aria-pressed={mode === "ai"}
-            className={`rounded-[10px] border px-4 py-2.5 text-left text-[0.9375rem] font-semibold transition-[transform,border-color] duration-200 hover:-translate-y-px ${
-              mode === "ai"
-                ? "border-teal bg-shallow text-ink"
-                : "border-ash bg-white text-graphite"
-            }`}
-          >
-            Draft with AI
-          </button>
-        </div>
-
-        <div className="mb-5 max-w-[18rem]">
+        <div className="max-w-[18rem]">
           <label htmlFor={`${id}-language`} className="field-label">
             Language
           </label>
@@ -130,7 +78,7 @@ export function CampaignForm({
             id={`${id}-language`}
             value={language}
             onChange={(event) => setLanguage(event.target.value)}
-            disabled={pending || drafting}
+            disabled={pending}
             className="field"
           >
             {LANGUAGES.map((lang) => (
@@ -143,42 +91,6 @@ export function CampaignForm({
             The message goes out in this language. Defaulted from your country.
           </p>
         </div>
-
-        {mode === "ai" ? (
-          <div>
-            <label htmlFor={`${id}-guidance`} className="field-label">
-              What should it say? <span className="text-stone">(optional)</span>
-            </label>
-            <textarea
-              id={`${id}-guidance`}
-              value={guidance}
-              onChange={(event) => setGuidance(event.target.value)}
-              rows={3}
-              maxLength={2000}
-              disabled={pending || drafting}
-              placeholder="Tone, anything to mention, an offer. Leave blank for a general note."
-              className="field"
-            />
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="quiet"
-                onClick={draftWithAi}
-                disabled={drafting || pending}
-              >
-                {drafting ? "Drafting" : "Draft with AI"}
-              </Button>
-              <span className="text-[0.8125rem] text-stone">
-                Fills the subject and message below. Edit anything after.
-              </span>
-            </div>
-            {aiError ? (
-              <p role="alert" className="notice notice-error mt-4">
-                {aiError}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
       </Card>
 
       <Card>

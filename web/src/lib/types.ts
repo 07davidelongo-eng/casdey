@@ -54,6 +54,10 @@ export type Practice = {
   plan_interval: "month" | "year" | null;
   trial_ends_at: string | null;
   current_period_end: string | null;
+  /** When the first real (non-trial) Premium payment landed. Null until then.
+   *  The guarantee clock can only start on or after this date. See
+   *  src/lib/guarantee.ts. */
+  premium_started_at: string | null;
   /** Joined in the V1/waitlist window, so keeps the lifetime upgrade discount. */
   early_adopter: boolean;
   /** Typical value of a recovered appointment, in minor units of the billing
@@ -138,6 +142,37 @@ export type ImportIssue = {
   row: number;
   field: string;
   reason: string;
+};
+
+/** One successfully paid Stripe invoice. Written only by the invoice.paid
+ *  webhook handler. See src/lib/guarantee.ts. */
+export type SubscriptionPayment = {
+  id: string;
+  practice_id: string;
+  stripe_invoice_id: string;
+  stripe_payment_intent_id: string | null;
+  stripe_charge_id: string | null;
+  amount_minor: number;
+  currency: "gbp" | "eur";
+  paid_at: string;
+  refunded_minor: number;
+  created_at: string;
+};
+
+export type GuaranteeClaimStatus = "processing" | "refunded" | "failed";
+
+/** A profit-or-nothing guarantee claim. At most one per practice. */
+export type GuaranteeClaim = {
+  id: string;
+  practice_id: string;
+  window_start: string;
+  window_end: string;
+  revenue_recovered_minor: number;
+  paid_minor: number;
+  refunded_minor: number;
+  stripe_refund_ids: string[];
+  status: GuaranteeClaimStatus;
+  created_at: string;
 };
 
 // Access and sending used to be gated on subscription_status directly. They are

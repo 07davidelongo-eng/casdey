@@ -46,7 +46,7 @@ export function ProcessingAgreement({
         </Point>
         <Point>
           <strong className="font-semibold text-ink">It stays in the EU.</strong>{" "}
-          Stored in Frankfurt, encrypted, and never sold, shared or used to
+          Stored in Ireland, encrypted, and never sold, shared or used to
           train anything.
         </Point>
         <Point>

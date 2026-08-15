@@ -29,7 +29,8 @@ export type AuditAction =
   | "campaign.cancelled"
   | "patient.unsubscribed"
   | "billing.started"
-  | "billing.updated";
+  | "billing.updated"
+  | "guarantee.claimed";
 
 export async function recordAudit(entry: {
   practiceId: string;

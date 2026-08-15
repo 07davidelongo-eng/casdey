@@ -85,7 +85,7 @@ signup: an alert to `WAITLIST_NOTIFY_TO`, and a confirmation to the practice.
 
 ## Database
 
-Supabase, project `casdey`, region `eu-central-1` (Frankfurt). Apply
+Supabase, project `casdey`, region `eu-west-1` (Ireland). Apply
 `supabase/migrations/0001_waitlist.sql` in the SQL editor. It enables row level
 security with no policies, so only the service role can touch the table, and
 grants that role explicit `SELECT`/`INSERT` privileges (see the two gotchas

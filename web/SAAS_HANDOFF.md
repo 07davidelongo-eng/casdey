@@ -22,11 +22,11 @@ landing and waitlist pages are untouched.
   Supabase Auth / Stripe / sending are unconfigured and the app can't
   authenticate anyone. Going live is purely: add the env vars in Vercel (below)
   — no redeploy-from-scratch.
-- **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Frankfurt)
-  backs both the waitlist and the SaaS. Migrations `0002_saas.sql` and
-  `0003_offer_model.sql` are **applied** (run directly via `pg`, since the
-  earlier SQL-editor attempts only ever applied fragments — that saga is
-  resolved).
+- **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
+  eu-west-1 — corrected 2026-08-15, earlier docs said Frankfurt) backs both
+  the waitlist and the SaaS. Migrations through `0006` are **applied** (run
+  directly via `pg`, since the earlier SQL-editor attempts only ever applied
+  fragments — that saga is resolved).
 
 ## The offer model (implemented) — see `src/lib/plan.ts`
 
@@ -83,31 +83,33 @@ week → import → build a campaign → approve → real send attempt) with a f
 worked exactly as designed (8/12 correctly flagged dormant). The send itself
 surfaced the gap below.
 
-### Go-live blocker: campaign email has no per-practice sending identity yet
+### Go-live blocker: campaign email has no per-practice sending identity — fixed locally 2026-08-15
 `emailProvider()` in `src/lib/messaging.ts` picks Zoho whenever `RESEND_API_KEY`
-is unset, which is the case everywhere right now (local and prod). Zoho can
-only send as **casdey's own `info@casdey.com`**, not the practice, and per the
-code's own comment it **cannot set a reply-to at all** ("Zoho rejects any
-reply-to address it has not verified, which an arbitrary practice inbox never
-will be"). The campaign builder UI already warns about this before a practice
-approves a send. Practically: every patient email would look like it's from
-casdey, and every reply would land with casdey, not the dental practice — not
-acceptable for real practices.
+is unset. Zoho can only send as **casdey's own `info@casdey.com`**, not the
+practice, and per the code's own comment it **cannot set a reply-to at all**
+("Zoho rejects any reply-to address it has not verified, which an arbitrary
+practice inbox never will be").
 
 Confirmed live on 2026-08-14: approving a test campaign queued 8 real send
 attempts through the real Zoho account. Zoho rejected all 8 with `550 5.4.6
 Unusual sending activity detected`, its abuse/rate-limit trigger, almost
 certainly because this is the **same Zoho account the real cold-outreach
 automation sends cold emails from** — a second unrelated burst read as spam
-activity. No real person was contacted (test addresses were fake
-`@example.com`), but this shows the Zoho path is not just "worse," it's
-actively unreliable under any real sending volume once cold outreach is also
-running.
+activity.
 
-**Fix:** wire up Resend (`RESEND_API_KEY` + verified `casdey.com` sending
-domain) before any real practice sends a campaign. This is a go-live blocker,
-not a nice-to-have — flagging it here rather than leaving it as an easy-to-miss
-optional env var.
+**Fixed locally 2026-08-15:** created a Resend account, added `mail.casdey.com`
+as a verified sending domain (a subdomain, so Zoho's own MX/SPF/DKIM on the
+root `casdey.com` are untouched), added the required DNS records at GoDaddy,
+and set `RESEND_API_KEY` + `CASDEY_SENDING_ADDRESS=no-reply@mail.casdey.com`
+in `web/.env.local`. Confirmed locally: the campaign builder's "replies go to
+casdey" warning no longer renders, meaning `emailProvider()` now picks Resend.
+
+**Still open before real practices can send:** the same two env vars
+(`RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`) need adding to **Vercel**
+production — not done yet, deliberately, consistent with the rest of `/app`
+staying inert in prod (see Infrastructure below). Also, no real send has been
+approved end-to-end through Resend yet (only confirmed the provider switch,
+not an actual delivered email) — worth a real test send before relying on it.
 
 ## To go live / to test the full flow — env vars
 
@@ -123,16 +125,16 @@ In `web/.env.local` (local) or Vercel (production):
   to (re)create products, prices, and coupons — idempotent, test-only.)*
 - **`STRIPE_WEBHOOK_SECRET`** from `stripe listen --forward-to
   localhost:3000/api/stripe/webhook` (local) or the endpoint secret (prod).
-  Without it, an upgrade won't sync back to `subscription_status`.
+  Without it, an upgrade won't sync back to `subscription_status`. The prod
+  endpoint must have **`invoice.paid`** enabled alongside the subscription
+  events (added 2026-08-15 for the guarantee, see `SAAS_ROADMAP.md` #8) — without
+  it, `practices.premium_started_at` and `subscription_payments` never get
+  written, and the guarantee can never start or find anything to refund.
 - **`RESEND_API_KEY`** (optional): without it, campaign email sends via Zoho,
   which can't set a per-practice reply-to. With it + casdey.com verified,
   replies land in the practice's own inbox.
 - **`CRON_SECRET`** guards `POST /api/cron/send` (drains the send queue). Add a
   Vercel cron hitting that path.
-- **`ANTHROPIC_API_KEY`** (optional): enables "Draft with AI" on the campaign
-  form (`src/lib/ai.ts`). Without it, drafting reports "not switched on" and the
-  practice writes the message manually. `CASDEY_AI_MODEL` overrides the model
-  (default `claude-opus-5`).
 - **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
   leave unset for V1; `"false"` for V2.
 

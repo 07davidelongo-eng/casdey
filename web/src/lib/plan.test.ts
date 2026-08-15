@@ -25,6 +25,7 @@ function practice(overrides: Partial<Practice> = {}): Practice {
     plan_interval: null,
     trial_ends_at: null,
     current_period_end: null,
+    premium_started_at: null,
     early_adopter: true,
     appointment_value_minor: null,
     processing_agreed_at: null,
