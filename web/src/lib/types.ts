@@ -35,6 +35,18 @@ export type PatientEventType =
   | "rebooked"
   | "opted_out";
 
+/** A campaign's contact method. Email is a single templated send; WhatsApp is
+ *  a real back-and-forth held by src/lib/whatsapp/ai-agent.ts. */
+export type Channel = "email" | "whatsapp";
+
+export type WhatsAppConversationStatus =
+  | "active"
+  | "booking_requested"
+  | "opted_out"
+  | "closed";
+
+export type WhatsAppMessageDirection = "in" | "out";
+
 export type Practice = {
   id: string;
   created_at: string;
@@ -66,6 +78,12 @@ export type Practice = {
   appointment_value_minor: number | null;
   processing_agreed_at: string | null;
   onboarded_at: string | null;
+  /** Per-practice opt-in to the shared casdey WhatsApp sender. Off by
+   *  default: the number is shared across every practice. */
+  whatsapp_enabled: boolean;
+  /** Name of the Meta-approved template used for cold first contact. Null
+   *  blocks WhatsApp campaigns for this practice. See src/lib/whatsapp/. */
+  whatsapp_template_name: string | null;
 };
 
 export type Patient = {
@@ -82,6 +100,9 @@ export type Patient = {
   contacted_at: string | null;
   reactivated_at: string | null;
   consent_email: boolean;
+  /** The practice asserts it may WhatsApp this patient. Mirrors
+   *  consent_email but independent of it. */
+  consent_whatsapp: boolean;
   source: string;
   /** True only for the one synthetic per-practice patient behind "send
    *  yourself a test" (src/lib/self-test.ts). Never a real person. */
@@ -95,8 +116,15 @@ export type Campaign = {
   practice_id: string;
   name: string;
   status: CampaignStatus;
-  subject: string;
-  body: string;
+  channel: Channel;
+  /** Email only. Null for a WhatsApp campaign. */
+  subject: string | null;
+  /** Email only. Null for a WhatsApp campaign. */
+  body: string | null;
+  /** WhatsApp only. A snapshot of practices.whatsapp_template_name taken at
+   *  creation, so a campaign's record of what it sent can't drift if the
+   *  practice's template config changes later. Null for an email campaign. */
+  whatsapp_template_name: string | null;
   language: string;
   audience: AudienceSnapshot;
   approved_at: string | null;
@@ -181,3 +209,31 @@ export type GuaranteeClaim = {
 // Access and sending used to be gated on subscription_status directly. They are
 // now decided by the plan model in ./plan.ts (trial / free / premium), because
 // Free is a real state a paid-up account can rest in, not an absence of access.
+
+/** One WhatsApp conversation thread with a patient. Unlike email's
+ *  campaign_messages (one row per send), this is a running thread the AI
+ *  agent (src/lib/whatsapp/ai-agent.ts) replies within. */
+export type WhatsAppConversation = {
+  id: string;
+  practice_id: string;
+  patient_id: string;
+  phone: string;
+  status: WhatsAppConversationStatus;
+  ai_turns_count: number;
+  last_inbound_at: string | null;
+  last_outbound_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** One inbound or outbound message in a WhatsApp conversation. */
+export type WhatsAppMessage = {
+  id: string;
+  conversation_id: string;
+  practice_id: string;
+  direction: WhatsAppMessageDirection;
+  body: string;
+  provider_message_id: string | null;
+  ai_generated: boolean;
+  created_at: string;
+};

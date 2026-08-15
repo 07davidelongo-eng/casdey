@@ -29,6 +29,7 @@ export type AuditAction =
   | "campaign.paused"
   | "campaign.cancelled"
   | "patient.unsubscribed"
+  | "whatsapp.settings_updated"
   | "billing.started"
   | "billing.updated"
   | "guarantee.claimed";

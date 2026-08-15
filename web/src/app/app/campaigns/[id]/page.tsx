@@ -5,6 +5,7 @@ import { requirePractice } from "@/lib/dal";
 import { CampaignPill } from "@/components/app/campaign-pill";
 import { CampaignControls } from "./controls";
 import { TestSendForm } from "./test-send-form";
+import { WhatsAppTestForm } from "./whatsapp-test-form";
 import {
   Card,
   CardTitle,
@@ -29,6 +30,7 @@ export default async function CampaignPage(
 
   if (!data) notFound();
   const campaign = data as Campaign;
+  const isWhatsApp = campaign.channel === "whatsapp";
 
   const { data: messages } = await session.supabase
     .from("campaign_messages")
@@ -68,7 +70,7 @@ export default async function CampaignPage(
         />
       </div>
 
-      {campaign.status !== "draft" ? (
+      {campaign.status !== "draft" && !isWhatsApp ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <Stat label="Sent" value={sent} tone="teal" />
           <Stat label="Still queued" value={queued} />
@@ -81,29 +83,46 @@ export default async function CampaignPage(
       ) : null}
 
       <Card>
-        <CardTitle>The message</CardTitle>
+        <CardTitle>{isWhatsApp ? "The opening template" : "The message"}</CardTitle>
         <div className="mt-4 rounded-[14px] border border-ash bg-paper p-5">
-          <p className="mb-4 border-b border-ash pb-3 text-[0.9375rem] font-semibold text-ink">
-            {campaign.subject}
-          </p>
-          <pre className="font-[family-name:var(--font-inter)] text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-graphite">
-            {campaign.body}
-          </pre>
+          {isWhatsApp ? (
+            <p className="literal text-[0.875rem] text-graphite">
+              Template: {campaign.whatsapp_template_name ?? "not configured"}
+            </p>
+          ) : (
+            <>
+              <p className="mb-4 border-b border-ash pb-3 text-[0.9375rem] font-semibold text-ink">
+                {campaign.subject}
+              </p>
+              <pre className="font-[family-name:var(--font-inter)] text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-graphite">
+                {campaign.body}
+              </pre>
+            </>
+          )}
         </div>
         <p className="field-hint">
-          Merge fields are filled in per patient, and the unsubscribe line is
-          added to every message.
+          {isWhatsApp
+            ? "Once a patient replies, casdey's assistant carries the conversation from here and hands off the moment they show interest in booking."
+            : "Merge fields are filled in per patient, and the unsubscribe line is added to every message."}
         </p>
       </Card>
 
       <div className="mt-6">
-        <TestSendForm campaignId={campaign.id} email={session.email} />
+        {isWhatsApp ? (
+          <WhatsAppTestForm
+            campaignId={campaign.id}
+            whatsappEnabled={practice.whatsapp_enabled}
+          />
+        ) : (
+          <TestSendForm campaignId={campaign.id} email={session.email} />
+        )}
       </div>
 
       <div className="mt-6">
         <CampaignControls
           campaignId={campaign.id}
           status={campaign.status}
+          channel={campaign.channel}
           audienceCount={campaign.audience?.patientCount ?? 0}
           dailyCap={practice.daily_send_cap}
         />

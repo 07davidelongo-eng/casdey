@@ -30,6 +30,8 @@ function practice(overrides: Partial<Practice> = {}): Practice {
     appointment_value_minor: null,
     processing_agreed_at: null,
     onboarded_at: null,
+    whatsapp_enabled: false,
+    whatsapp_template_name: null,
     ...overrides,
   };
 }

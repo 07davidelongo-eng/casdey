@@ -28,6 +28,7 @@ function patient(overrides: Partial<Patient> = {}): Patient {
     contacted_at: null,
     reactivated_at: null,
     consent_email: true,
+    consent_whatsapp: true,
     source: "csv",
     is_test: false,
     created_at: "2026-01-01T00:00:00Z",

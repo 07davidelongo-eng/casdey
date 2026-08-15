@@ -5,8 +5,14 @@ import { requirePractice } from "@/lib/dal";
 import { isDormant, monthsSince, ruleFor } from "@/lib/dormancy";
 import { PatientTimeline } from "@/components/app/patient-timeline";
 import { PatientActions } from "./actions-ui";
+import { WhatsAppConversationCard } from "./whatsapp-conversation";
 import { Card, Pill, formatDate, patientName } from "@/components/app/ui";
-import type { Patient, PatientEventType } from "@/lib/types";
+import type {
+  Patient,
+  PatientEventType,
+  WhatsAppConversation,
+  WhatsAppMessage,
+} from "@/lib/types";
 
 type PatientEvent = {
   id: string;
@@ -50,6 +56,26 @@ export default async function PatientPage(
   const events = (eventRows ?? []) as PatientEvent[];
   const away = monthsSince(patient.last_visit_at);
   const dormant = isDormant(patient, ruleFor(practice));
+
+  const { data: conversationRow } = await session.supabase
+    .from("whatsapp_conversations")
+    .select("*")
+    .eq("patient_id", patient.id)
+    .eq("practice_id", practice.id)
+    .maybeSingle();
+
+  const conversation = conversationRow as WhatsAppConversation | null;
+
+  let whatsappMessages: WhatsAppMessage[] = [];
+  if (conversation) {
+    const { data: messageRows } = await session.supabase
+      .from("whatsapp_messages")
+      .select("*")
+      .eq("conversation_id", conversation.id)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    whatsappMessages = (messageRows ?? []) as WhatsAppMessage[];
+  }
 
   return (
     <div className="max-w-[46rem]">
@@ -102,6 +128,15 @@ export default async function PatientPage(
           </p>
         ) : null}
       </Card>
+
+      {conversation ? (
+        <div className="mt-6">
+          <WhatsAppConversationCard
+            status={conversation.status}
+            messages={whatsappMessages}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-6">
         <PatientActions

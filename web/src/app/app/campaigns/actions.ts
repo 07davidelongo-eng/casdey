@@ -13,23 +13,37 @@ import { capabilities } from "@/lib/plan";
 import { isLanguageCode } from "@/lib/languages";
 import { emailProvider, unsubscribeUrl } from "@/lib/messaging";
 import { composeBody, contextFor, renderTemplate } from "@/lib/template";
-import { ensureTestPatient } from "@/lib/self-test";
+import { ensureTestPatient, ensureTestWhatsAppPatient } from "@/lib/self-test";
+import { sendWhatsAppCampaign } from "@/lib/whatsapp/campaign-send";
+import { whatsappProvider } from "@/lib/whatsapp/send";
+import type { Channel } from "@/lib/types";
 
 export type CampaignState = { error: string | null };
 
-const CreateSchema = z.object({
-  name: z.string().trim().min(2, "Give the campaign a name.").max(120),
-  subject: z.string().trim().min(3, "Write a subject line.").max(200),
-  body: z
-    .string()
-    .trim()
-    .min(20, "The message is too short to send to a patient.")
-    .max(5000),
-  language: z
-    .string()
-    .refine(isLanguageCode, "Pick a language casdey supports.")
-    .default("en"),
-});
+const CreateSchema = z.discriminatedUnion("channel", [
+  z.object({
+    channel: z.literal("email"),
+    name: z.string().trim().min(2, "Give the campaign a name.").max(120),
+    subject: z.string().trim().min(3, "Write a subject line.").max(200),
+    body: z
+      .string()
+      .trim()
+      .min(20, "The message is too short to send to a patient.")
+      .max(5000),
+    language: z
+      .string()
+      .refine(isLanguageCode, "Pick a language casdey supports.")
+      .default("en"),
+  }),
+  z.object({
+    channel: z.literal("whatsapp"),
+    name: z.string().trim().min(2, "Give the campaign a name.").max(120),
+    language: z
+      .string()
+      .refine(isLanguageCode, "Pick a language casdey supports.")
+      .default("en"),
+  }),
+]);
 
 export async function createCampaignAction(
   _previous: CampaignState,
@@ -37,7 +51,10 @@ export async function createCampaignAction(
 ): Promise<CampaignState> {
   const { practice, session } = await requireActivePractice();
 
+  const channel = formData.get("channel") === "whatsapp" ? "whatsapp" : "email";
+
   const parsed = CreateSchema.safeParse({
+    channel,
     name: formData.get("name"),
     subject: formData.get("subject"),
     body: formData.get("body"),
@@ -48,27 +65,58 @@ export async function createCampaignAction(
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
 
-  const audience = await buildAudience(practice.id, ruleFor(practice));
+  if (parsed.data.channel === "whatsapp") {
+    if (!practice.whatsapp_enabled) {
+      return {
+        error:
+          "WhatsApp is not turned on for this practice yet. Turn it on from Settings first.",
+      };
+    }
+    if (!practice.whatsapp_template_name) {
+      return {
+        error:
+          "No approved WhatsApp template is configured yet. Add one from Settings before creating a WhatsApp campaign.",
+      };
+    }
+  }
+
+  const audience = await buildAudience(practice.id, ruleFor(practice), parsed.data.channel);
 
   if (audience.length === 0) {
     return {
       error:
-        "Nobody matches right now. Either no patient has gone quiet, or none of them have an email address on file.",
+        parsed.data.channel === "whatsapp"
+          ? "Nobody matches right now. Either no patient has gone quiet, or none of them have a phone number on file."
+          : "Nobody matches right now. Either no patient has gone quiet, or none of them have an email address on file.",
     };
   }
 
   const { data, error } = await supabaseAdmin()
     .from("campaigns")
-    .insert({
-      practice_id: practice.id,
-      created_by: session.userId,
-      name: parsed.data.name,
-      subject: parsed.data.subject,
-      body: parsed.data.body,
-      language: parsed.data.language,
-      status: "draft",
-      audience: audienceSnapshot(practice, audience.length),
-    })
+    .insert(
+      parsed.data.channel === "whatsapp"
+        ? {
+            practice_id: practice.id,
+            created_by: session.userId,
+            name: parsed.data.name,
+            channel: "whatsapp",
+            whatsapp_template_name: practice.whatsapp_template_name,
+            language: parsed.data.language,
+            status: "draft",
+            audience: audienceSnapshot(practice, audience.length),
+          }
+        : {
+            practice_id: practice.id,
+            created_by: session.userId,
+            name: parsed.data.name,
+            channel: "email",
+            subject: parsed.data.subject,
+            body: parsed.data.body,
+            language: parsed.data.language,
+            status: "draft",
+            audience: audienceSnapshot(practice, audience.length),
+          },
+    )
     .select("id")
     .single();
 
@@ -83,7 +131,7 @@ export async function createCampaignAction(
     actorEmail: session.email,
     action: "campaign.created",
     target: data.id as string,
-    meta: { audience: audience.length },
+    meta: { audience: audience.length, channel: parsed.data.channel },
   });
 
   redirect(`/app/campaigns/${data.id}`);
@@ -121,13 +169,19 @@ export async function sendTestAction(
 
   const { data: campaign } = await client
     .from("campaigns")
-    .select("id, subject, body")
+    .select("id, channel, subject, body")
     .eq("id", campaignId)
     .eq("practice_id", practice.id)
     .maybeSingle();
 
   if (!campaign) {
     return { error: "That campaign no longer exists.", sentTo: null };
+  }
+  if (campaign.channel !== "email") {
+    return {
+      error: "This is a WhatsApp campaign. Use the WhatsApp test below instead.",
+      sentTo: null,
+    };
   }
 
   let patient;
@@ -209,10 +263,131 @@ export async function sendTestAction(
   return { error: null, sentTo: session.email };
 }
 
+export type WhatsAppTestState = { error: string | null; sentTo: string | null };
+
+/**
+ * The WhatsApp side of roadmap #4. Same intent as sendTestAction above, but
+ * WhatsApp has no single obvious "my own address" to default to (unlike
+ * email, where the signed-in user's own inbox is right there), so the
+ * practice types a number. It rides on ensureTestWhatsAppPatient (see
+ * ./self-test.ts) and the real template configured for this campaign, so
+ * once the practice replies, it goes through the exact same webhook -> AI
+ * loop -> hand-off path a real patient's reply would.
+ */
+export async function sendWhatsAppTestAction(
+  _previous: WhatsAppTestState,
+  formData: FormData,
+): Promise<WhatsAppTestState> {
+  const { practice, session } = await requireActivePractice();
+  const campaignId = String(formData.get("campaignId") ?? "");
+  const phone = String(formData.get("phone") ?? "").trim();
+
+  if (!practice.whatsapp_enabled) {
+    return { error: "WhatsApp is not turned on for this practice.", sentTo: null };
+  }
+  if (!phone) {
+    return { error: "Enter a WhatsApp number to send the test to.", sentTo: null };
+  }
+
+  const client = supabaseAdmin();
+
+  const { data: campaign } = await client
+    .from("campaigns")
+    .select("id, channel, whatsapp_template_name")
+    .eq("id", campaignId)
+    .eq("practice_id", practice.id)
+    .maybeSingle();
+
+  if (!campaign) {
+    return { error: "That campaign no longer exists.", sentTo: null };
+  }
+  if (campaign.channel !== "whatsapp" || !campaign.whatsapp_template_name) {
+    return { error: "This is not a WhatsApp campaign.", sentTo: null };
+  }
+
+  let patient;
+  try {
+    patient = await ensureTestWhatsAppPatient(practice, phone);
+  } catch (error) {
+    console.error("[campaign] whatsapp test patient failed", error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "We could not prepare a test send. Try again.";
+    return { error: message, sentTo: null };
+  }
+
+  const { data: conversation, error: conversationError } = await client
+    .from("whatsapp_conversations")
+    .upsert(
+      {
+        practice_id: practice.id,
+        patient_id: patient.id,
+        phone,
+        status: "active",
+      },
+      { onConflict: "practice_id,patient_id" },
+    )
+    .select("id")
+    .single();
+
+  if (conversationError || !conversation) {
+    console.error(
+      "[campaign] whatsapp test conversation failed",
+      conversationError?.message,
+    );
+    return { error: "We could not prepare a test send. Try again.", sentTo: null };
+  }
+
+  try {
+    const result = await whatsappProvider().sendTemplate({
+      to: phone,
+      templateSid: campaign.whatsapp_template_name,
+      params: { "1": practice.name },
+    });
+
+    await client.from("whatsapp_messages").insert({
+      conversation_id: conversation.id,
+      practice_id: practice.id,
+      direction: "out",
+      body: `[Test] [template ${campaign.whatsapp_template_name}: ${practice.name}]`,
+      provider_message_id: result.providerMessageId,
+      ai_generated: false,
+    });
+
+    await client
+      .from("whatsapp_conversations")
+      .update({ last_outbound_at: new Date().toISOString() })
+      .eq("id", conversation.id);
+  } catch (sendError) {
+    console.error("[campaign] whatsapp test send failed", sendError);
+    return {
+      error: "The test message could not be sent. Try again shortly.",
+      sentTo: null,
+    };
+  }
+
+  await recordAudit({
+    practiceId: practice.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "campaign.test_sent",
+    target: campaignId,
+    meta: { channel: "whatsapp" },
+  });
+
+  return { error: null, sentTo: phone };
+}
+
 /**
  * Approval is the point of no return, so it is a deliberate, separate act by a
  * person at the practice. Nothing casdey does sends a patient an email that
  * somebody there has not read first.
+ *
+ * Email and WhatsApp diverge here: email queues (see ../lib/campaigns.ts) and
+ * a cron drains it over days; WhatsApp has no queue and sends its whole batch
+ * of template messages synchronously (see ../lib/whatsapp/campaign-send.ts),
+ * so it goes straight to "sent" rather than "sending".
  */
 export async function approveCampaignAction(
   _previous: CampaignState,
@@ -232,7 +407,7 @@ export async function approveCampaignAction(
 
   const { data: campaign } = await client
     .from("campaigns")
-    .select("id, status")
+    .select("id, status, channel, whatsapp_template_name")
     .eq("id", campaignId)
     .eq("practice_id", practice.id)
     .maybeSingle();
@@ -242,9 +417,68 @@ export async function approveCampaignAction(
     return { error: "That campaign has already been approved." };
   }
 
+  const channel = (campaign.channel ?? "email") as Channel;
+
+  if (channel === "whatsapp") {
+    if (!practice.whatsapp_enabled) {
+      return { error: "WhatsApp has been turned off for this practice since this was drafted." };
+    }
+    if (!campaign.whatsapp_template_name) {
+      return { error: "This campaign has no WhatsApp template configured." };
+    }
+
+    const audience = await buildAudience(practice.id, ruleFor(practice), "whatsapp");
+    if (audience.length === 0) {
+      return { error: "Nobody matches any more, so there is nothing to send." };
+    }
+
+    let report;
+    try {
+      report = await sendWhatsAppCampaign({
+        practice,
+        audience,
+        templateSid: campaign.whatsapp_template_name,
+      });
+    } catch (error) {
+      console.error("[campaign] whatsapp send failed", error);
+      return { error: "We could not send that campaign. Try again." };
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await client
+      .from("campaigns")
+      .update({
+        status: "sent",
+        approved_at: now,
+        approved_by: session.userId,
+        started_at: now,
+        completed_at: now,
+        audience: audienceSnapshot(practice, audience.length),
+      })
+      .eq("id", campaignId)
+      .eq("practice_id", practice.id);
+
+    if (error) {
+      console.error("[campaign] approve failed", error.message);
+      return { error: "We could not start that campaign. Try again." };
+    }
+
+    await recordAudit({
+      practiceId: practice.id,
+      actorId: session.userId,
+      actorEmail: session.email,
+      action: "campaign.approved",
+      target: campaignId,
+      meta: { channel: "whatsapp", sent: report.sent, failed: report.failed },
+    });
+
+    revalidatePath("/app", "layout");
+    return { error: null };
+  }
+
   // Rebuilt now rather than reusing the count from when the draft was written:
   // patients may have been imported, deleted or unsubscribed since.
-  const audience = await buildAudience(practice.id, ruleFor(practice));
+  const audience = await buildAudience(practice.id, ruleFor(practice), "email");
   if (audience.length === 0) {
     return { error: "Nobody matches any more, so there is nothing to send." };
   }

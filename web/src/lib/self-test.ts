@@ -20,6 +20,7 @@ import type { Practice } from "./types";
  */
 
 const TEST_EXTERNAL_REF = "__self_test__";
+const TEST_WHATSAPP_EXTERNAL_REF = "__self_test_whatsapp__";
 
 export type TestPatient = {
   id: string;
@@ -81,6 +82,71 @@ export async function ensureTestPatient(
     .delete()
     .eq("practice_id", practice.id)
     .eq("email", email.toLowerCase());
+
+  return data as TestPatient;
+}
+
+/**
+ * The WhatsApp counterpart to ensureTestPatient. A separate synthetic row
+ * (its own fixed external_ref), not a reuse of the email one: the phone
+ * number a practice tests with is typed fresh each time rather than read off
+ * the signed-in session, and keeping the rows apart means a WhatsApp test
+ * can never overwrite the email test patient's address, or vice versa.
+ */
+export async function ensureTestWhatsAppPatient(
+  practice: Practice,
+  phone: string,
+): Promise<TestPatient> {
+  const client = supabaseAdmin();
+
+  const lastVisit = new Date();
+  lastVisit.setUTCMonth(
+    lastVisit.getUTCMonth() - (practice.dormant_after_months + 1),
+  );
+
+  const { data, error } = await client
+    .from("patients")
+    .upsert(
+      {
+        practice_id: practice.id,
+        external_ref: TEST_WHATSAPP_EXTERNAL_REF,
+        first_name: null,
+        last_name: null,
+        phone,
+        last_visit_at: lastVisit.toISOString().slice(0, 10),
+        visit_count: 1,
+        // Reset on every test, same reasoning as ensureTestPatient: an
+        // earlier test of the STOP opt-out must not silently suppress the
+        // next one.
+        status: "active",
+        consent_whatsapp: true,
+        is_test: true,
+        source: "test",
+      },
+      { onConflict: "practice_id,external_ref" },
+    )
+    .select("id, first_name, last_visit_at")
+    .single();
+
+  if (error || !data) {
+    // The one realistic way this upsert can fail on its own conflict target:
+    // the tester's number is already on file as an actual patient's number
+    // (the practice owner is, unusually, also their own patient).
+    if (error?.code === "23505") {
+      throw new Error(
+        "That number is already on your patient list, so a test cannot use it. Try a different number you have access to.",
+      );
+    }
+    throw new Error(`could not prepare test patient: ${error?.message}`);
+  }
+
+  // A previous test may have exercised the STOP opt-out on purpose. Clear it
+  // so this send is not quietly suppressed by the practice's own trial.
+  await client
+    .from("whatsapp_suppressions")
+    .delete()
+    .eq("practice_id", practice.id)
+    .eq("phone", phone);
 
   return data as TestPatient;
 }

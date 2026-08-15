@@ -11,7 +11,14 @@ export const metadata = { title: "New campaign" };
 export default async function NewCampaignPage() {
   const { practice } = await requirePractice();
 
-  const audience = await buildAudience(practice.id, ruleFor(practice));
+  // Both channels' counts are computed up front (rather than fetched again
+  // when the practice flips the channel selector) so switching channels in
+  // the form is instant: no round trip needed, just two numbers already on
+  // the page. Audience lists this size make two queries an easy trade.
+  const [emailAudience, whatsappAudience] = await Promise.all([
+    buildAudience(practice.id, ruleFor(practice), "email"),
+    buildAudience(practice.id, ruleFor(practice), "whatsapp"),
+  ]);
   const provider = emailProvider();
 
   return (
@@ -19,12 +26,10 @@ export default async function NewCampaignPage() {
       <PageHeader
         eyebrow="New campaign"
         title="Write to the ones who stopped coming"
-        lede={`${audience.length} ${
-          audience.length === 1 ? "patient matches" : "patients match"
-        } your rule right now: no visit for ${practice.dormant_after_months} months, at most ${practice.max_visits} on record, and an email address on file.`}
+        lede={`${emailAudience.length} by email and ${whatsappAudience.length} by WhatsApp match your rule right now: no visit for ${practice.dormant_after_months} months, at most ${practice.max_visits} on record.`}
       />
 
-      {audience.length === 0 ? (
+      {emailAudience.length === 0 && whatsappAudience.length === 0 ? (
         <Notice tone="warn">
           <span>
             Nobody matches yet, so there is nothing to send. Import your patient
@@ -50,10 +55,13 @@ export default async function NewCampaignPage() {
           <CampaignForm
             practiceName={practice.name}
             replyTo={practice.reply_to_email ?? practice.contact_email}
-            audienceCount={audience.length}
+            emailAudienceCount={emailAudience.length}
+            whatsappAudienceCount={whatsappAudience.length}
             dailyCap={practice.daily_send_cap}
-            sample={audience[0] ?? null}
+            emailSample={emailAudience[0] ?? null}
             defaultLanguage={languageForCountry(practice.country)}
+            whatsappEnabled={practice.whatsapp_enabled}
+            whatsappTemplateName={practice.whatsapp_template_name}
           />
         </>
       )}

@@ -37,13 +37,98 @@ cost (`ANTHROPIC_API_KEY` usage) for a feature nobody's asked for yet.
 **Status: done** (as "not doing AI, language + pricing kept"). Not on the
 roadmap to revisit unless the cost/demand picture changes.
 
-## 2. WhatsApp channel with a responsive AI agent — `todo`
+## 2. WhatsApp channel with a responsive AI agent — `done` (local), `needs Twilio/Meta setup + Vercel env for prod`
 Add WhatsApp as a contact channel alongside email. Here the AI must be
 **responsive and personalized**, behaving like a chatbot: it holds a real
 back-and-forth with the patient, not a single templated send.
 - Touches: WhatsApp Business API (provider TBD, e.g. Twilio/360dialog), inbound
   webhook, conversation state, AI reply loop, booking hand-off.
 - Big; standalone channel work. Depends on send infra being solid (#6).
+
+**Done 2026-08-15.** Decisions locked with Davide before building: Twilio
+(his call, "recommend one"), Claude Haiku for the AI reply loop (a real
+per-use cost accepted deliberately, unlike #1's dropped AI drafting, because
+a live conversation cannot be pre-templated), one shared casdey WhatsApp
+number for every practice (mirrors the shared `mail.casdey.com` email
+domain, not a number per practice), and a full build in one pass rather than
+foundation-then-AI in two sessions.
+
+- **Schema** (`supabase/migrations/0009_whatsapp_channel.sql`, applied to the
+  live project): widened `campaigns.channel` to allow `'whatsapp'`, added
+  `patients.consent_whatsapp`, `practices.whatsapp_enabled` /
+  `whatsapp_template_name`, and four new tables —
+  `whatsapp_conversations` (one thread per patient), `whatsapp_messages`
+  (every inbound/outbound message), `whatsapp_suppressions` (the WhatsApp
+  do-not-contact list, phone-keyed), `whatsapp_events` (inbound-webhook
+  idempotency, mirrors `stripe_events`). `campaigns.subject`/`body` are now
+  nullable with a check constraint requiring the right fields per channel;
+  `campaigns.whatsapp_template_name` freezes the template used, same
+  reasoning as the `audience` snapshot.
+- **Twilio integration** (`src/lib/whatsapp/`): `twilio.ts` sends via raw
+  fetch (no SDK, matching how Resend is called), `signature.ts` implements
+  Twilio's request-signing algorithm kept free of `"server-only"` so it is
+  unit tested directly (`signature.test.ts`, 7 cases), `send.ts` is the
+  provider abstraction (`whatsappProvider()`, template vs freeform send,
+  falls back to a "disabled" stub when unconfigured, same pattern as
+  `emailProvider()`).
+- **Audience + campaigns**: `buildAudience()` in `src/lib/campaigns.ts` takes
+  a `channel` argument and filters on `consent_whatsapp`/`phone` instead of
+  email's fields. WhatsApp campaigns skip the email drip queue entirely —
+  `src/lib/whatsapp/campaign-send.ts` sends the whole batch of template
+  messages synchronously on approval (a dormant list's volume does not need
+  email's day-offset pacing, and a template send is a one-shot opener, not a
+  resend-with-backoff shape). The campaign UI
+  (`src/app/app/campaigns/new/form.tsx`) gained a channel selector that
+  swaps the whole email-specific editor for a read-only template summary,
+  since Meta requires exact pre-approved wording for first contact.
+- **Inbound webhook** (`src/app/api/whatsapp/webhook/route.ts`): same three
+  rules as the Stripe webhook (signature verification, idempotency via
+  `whatsapp_events`, never 500 on our own errors). Routes an inbound message
+  to the most recently active conversation for that phone number (documented
+  edge case: the shared number means two different practices' patients
+  sharing one real phone number would collide — accepted at current scale).
+  STOP-style keywords are handled here directly, not by the AI, mirroring
+  email's unsubscribe link: suppression, patient status, conversation status,
+  and the audit log all update before any model is called.
+- **AI reply loop** (`src/lib/whatsapp/ai-agent.ts`): raw fetch to the
+  Anthropic Messages API (Claude Haiku), a system prompt scoped to
+  re-engagement only (no clinical advice, no invented appointment times), and
+  one tool (`mark_booking_requested`) the model calls on clear booking
+  intent. Two cost/runaway guardrails: conversation history sent to the
+  model is capped, and each conversation gets a hard cap on total AI replies
+  (`WHATSAPP_AI_MAX_TURNS`, persisted on `whatsapp_conversations` so it
+  survives across webhook calls) past which the conversation closes and a
+  human takes over.
+- **Hand-off**: no new booking/calendar infrastructure needed. A
+  `booking_requested` conversation shows a transcript and a banner on the
+  patient page (`src/app/app/patients/[id]/whatsapp-conversation.tsx`) right
+  next to the **existing** "Mark as rebooked" button
+  (`src/app/app/patients/[id]/actions.ts`, unchanged) — the same manual,
+  staff-confirmed write the guarantee's revenue calculation already keys off.
+- **Settings** (`src/app/app/settings/whatsapp/`): an on/off toggle per
+  practice and a field for the approved template's Twilio Content SID,
+  following the same page/form/actions shape as Settings → Service prices.
+- **Self-test**: `ensureTestWhatsAppPatient()` in `src/lib/self-test.ts`
+  mirrors the email self-test's synthetic-patient pattern with its own fixed
+  `external_ref`. A "Send me a test" form on the WhatsApp campaign review
+  page sends the real approved template to a phone number the practice
+  types, and replying to it rides the exact same webhook → AI loop →
+  hand-off path a real patient's reply would.
+- Verified: `tsc`/`lint`/`test`/`next build` all clean throughout
+  (`signature.test.ts` added, 7/7 passing). Not yet exercised end-to-end
+  against a real Twilio number (Sandbox or production) — that needs Davide to
+  create the Twilio account, which is the external step below.
+
+**Still open, not solvable in code:** production sending needs Davide to
+create a Twilio account, request WhatsApp Business API access, complete Meta
+Business verification for the casdey WhatsApp sender, and get at least one
+message template approved by Meta (review can take hours to a few days).
+Testable in the meantime via Twilio's WhatsApp Sandbox, which works without
+that approval. Same production gate as the rest of `/app`: inert until
+`TWILIO_*` and `ANTHROPIC_API_KEY` are set on Vercel, deliberately not done
+yet. WhatsApp self-test rode by #4 is now unblocked by this; the still-open
+half of #4 (an in-product booking step to test reply → booking end to end)
+remains open, unrelated to WhatsApp specifically.
 
 ## 3. Google sign-in — `done`
 Wire up the Google login button (already stubbed). Needs a Google OAuth client
@@ -77,12 +162,14 @@ WhatsApp message and walk through the patient's experience end to end (incl.
 reply → booking) before sending to real patients.
 - Depends on #6 (email) and #2 (WhatsApp) working. Medium.
 
-**Done 2026-08-15, email side only** (WhatsApp is still #2, `todo`, so there is
-no WhatsApp self-test yet; there is also still no in-product booking step for
-anyone to test, real or synthetic, that is the separate, still-open calendar
--write-access item under "Guarantee mechanics" in CLAUDE.md — the testable
-surface today is receiving the email, replying to it, and the unsubscribe
-link).
+**Done 2026-08-15, email side only.** WhatsApp self-test was added when #2
+shipped later the same day (`ensureTestWhatsAppPatient` in `src/lib/self-test.ts`,
+the "Send me a test" form on a WhatsApp campaign's review page) — see #2 below
+for detail. There is still no in-product booking step for anyone to test,
+real or synthetic, on either channel: that is the separate, still-open
+calendar-write-access item under "Guarantee mechanics" in CLAUDE.md — the
+testable surface today is receiving the message, replying to it, and the
+unsubscribe/opt-out.
 
 - A **"Send me a test"** button on the campaign draft/review page
   (`src/app/app/campaigns/[id]/page.tsx`, new `test-send-form.tsx`, new
@@ -124,10 +211,10 @@ the synthetic test-patient row, since it is the feature's normal persistent
 artifact rather than test contamination. tsc / lint / test (70/70) / build all
 clean throughout.
 
-**Still open:** same Vercel production gate as the rest of `/app`. WhatsApp
-self-test waits on #2. Testing an actual reply → booking hand-off waits on the
-booking/calendar-write-access work under "Guarantee mechanics" in CLAUDE.md,
-which does not exist yet for real patients either.
+**Still open:** same Vercel production gate as the rest of `/app`. Testing an
+actual reply → booking hand-off waits on the booking/calendar-write-access
+work under "Guarantee mechanics" in CLAUDE.md, which does not exist yet for
+real patients on either channel.
 
 ## 5. Support chatbot for casdey itself — `done` (local)
 A support chat widget bottom-right of the app (like most SaaS today), for the
@@ -325,17 +412,21 @@ needs a real test-mode subscription actually running through the app.
 3. ~~**#7 price list + revenue**~~ — done 2026-08-14, foundation the guarantee (#8) needs.
 4. ~~**#8 guarantee**~~ — refund + eligibility gating, done (local) 2026-08-15.
 5. ~~**#1 AI message + language**~~ — reverted 2026-08-15 (language kept, AI dropped).
-6. ~~**#4 self-test**~~ — email side done (local) 2026-08-15; WhatsApp side still
-   waits on #2.
+6. ~~**#4 self-test**~~ — email side done (local) 2026-08-15; WhatsApp side done
+   the same day when #2 shipped.
 7. ~~**#5 support chatbot**~~ — curated (not AI), done (local) 2026-08-15.
-8. **#2 WhatsApp AI agent** — last one standing; the big one, needs a WhatsApp
-   Business API provider and an AI reply loop.
+8. ~~**#2 WhatsApp AI agent**~~ — the big one, done (local) 2026-08-15: Twilio,
+   Claude Haiku, one shared number. Needs Twilio/Meta setup + Vercel env to go
+   live for real.
 
-Status: **done** — #1 (language only), #3, #4 (local, email only), #5 (local),
-#6 (local), #7, #8 (local). **todo** — #2.
+Status: **done** — #1 (language only), #2 (local), #3, #4 (local, both
+channels), #5 (local), #6 (local), #7, #8 (local). Every item on this list has
+shipped at least locally; what remains is external setup (Vercel env vars,
+Twilio/Meta approval) rather than more building — see each item above for
+its specific gate.
 
 ## Open questions to pin down as we go
-- #2: which AI model/provider for the WhatsApp agent, and which WhatsApp
-  Business API provider.
+- #2: **answered** — Twilio for the WhatsApp Business API provider, Claude
+  Haiku for the AI reply loop, one shared casdey number for every practice.
 - #7: where do prices come from — manual entry, or read from practice software?
   (Answered for now: manual entry via Settings → Service prices.)

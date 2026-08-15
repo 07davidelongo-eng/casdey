@@ -2,7 +2,7 @@ import "server-only";
 
 import { supabaseAdmin } from "./supabase";
 import { dormancyCutoff, type DormancyRule } from "./dormancy";
-import type { Practice } from "./types";
+import type { Channel, Practice } from "./types";
 
 /**
  * Turning a dormancy rule into an actual list of people to write to, and then
@@ -20,36 +20,61 @@ import type { Practice } from "./types";
 
 export type AudienceMember = {
   id: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   first_name: string | null;
   last_visit_at: string | null;
 };
 
 /**
- * Everyone dormant, reachable, and not on the do-not-contact list.
+ * Everyone dormant, reachable on the given channel, and not on that channel's
+ * do-not-contact list.
  *
  * Uses the service-role client because it runs as a batch, with practice_id
  * pinned by the caller from a verified session. Excludes the practice's own
  * self-test patient (see ./self-test.ts): a real send must never write to it.
+ *
+ * Email and WhatsApp have independent consent flags and independent
+ * suppression lists (public.suppressions vs public.whatsapp_suppressions), so
+ * the same patient can be reachable on one channel and blocked on the other.
  */
 export async function buildAudience(
   practiceId: string,
   rule: DormancyRule,
+  channel: Channel = "email",
   now: Date = new Date(),
 ): Promise<AudienceMember[]> {
   const client = supabaseAdmin();
 
-  const { data, error } = await client
-    .from("patients")
-    .select("id, email, first_name, last_visit_at")
-    .eq("practice_id", practiceId)
-    .eq("is_test", false)
-    .neq("status", "opted_out")
-    .eq("consent_email", true)
-    .not("email", "is", null)
-    .lte("visit_count", rule.maxVisits)
-    .lte("last_visit_at", dormancyCutoff(rule, now))
-    .order("last_visit_at", { ascending: true });
+  // Built as two full, separate queries rather than one base query mutated
+  // by a conditional .eq()/.not() tail: chaining a reassigned builder through
+  // a ternary blows up Supabase's generated filter-builder type (TS2589,
+  // "Type instantiation is excessively deep") even though both branches are
+  // simple. Some duplication, but it type-checks.
+  const { data, error } =
+    channel === "whatsapp"
+      ? await client
+          .from("patients")
+          .select("id, email, phone, first_name, last_visit_at")
+          .eq("practice_id", practiceId)
+          .eq("is_test", false)
+          .neq("status", "opted_out")
+          .lte("visit_count", rule.maxVisits)
+          .lte("last_visit_at", dormancyCutoff(rule, now))
+          .eq("consent_whatsapp", true)
+          .not("phone", "is", null)
+          .order("last_visit_at", { ascending: true })
+      : await client
+          .from("patients")
+          .select("id, email, phone, first_name, last_visit_at")
+          .eq("practice_id", practiceId)
+          .eq("is_test", false)
+          .neq("status", "opted_out")
+          .lte("visit_count", rule.maxVisits)
+          .lte("last_visit_at", dormancyCutoff(rule, now))
+          .eq("consent_email", true)
+          .not("email", "is", null)
+          .order("last_visit_at", { ascending: true });
 
   if (error) {
     throw new Error(`audience query failed: ${error.code} ${error.message}`);
@@ -57,6 +82,16 @@ export async function buildAudience(
 
   const candidates = (data ?? []) as AudienceMember[];
   if (candidates.length === 0) return [];
+
+  if (channel === "whatsapp") {
+    const { data: suppressed } = await client
+      .from("whatsapp_suppressions")
+      .select("phone")
+      .eq("practice_id", practiceId);
+
+    const blocked = new Set((suppressed ?? []).map((row) => String(row.phone)));
+    return candidates.filter((patient) => !blocked.has(patient.phone ?? ""));
+  }
 
   const { data: suppressed } = await client
     .from("suppressions")
@@ -68,12 +103,15 @@ export async function buildAudience(
   );
 
   return candidates.filter(
-    (patient) => !blocked.has(patient.email.toLowerCase()),
+    (patient) => !blocked.has((patient.email ?? "").toLowerCase()),
   );
 }
 
 /**
- * Writes the queue.
+ * Writes the queue. Email only: WhatsApp campaigns send immediately, batched
+ * synchronously, in ./whatsapp/campaign-send.ts, rather than through this
+ * queue (see that file for why a drip queue is the wrong shape for a
+ * template send).
  *
  * Sends are spread over days rather than fired at once. A few hundred near
  * identical emails leaving one domain in a minute is what gets a sender
@@ -91,7 +129,16 @@ export async function queueCampaign(options: {
   const start = options.startAt ?? new Date();
   const cap = Math.max(1, options.dailyCap);
 
-  const rows = options.audience.map((patient, index) => {
+  // buildAudience(..., "email") only ever returns members with an email, but
+  // the shared AudienceMember type allows null (WhatsApp members carry no
+  // email at all). Anything without one here would mean a caller passed the
+  // wrong audience in, so it is dropped rather than queued with a null address.
+  const withEmail = options.audience.filter(
+    (patient): patient is AudienceMember & { email: string } =>
+      patient.email !== null,
+  );
+
+  const rows = withEmail.map((patient, index) => {
     const dayOffset = Math.floor(index / cap);
     // Within a day the cron paces them further; this just decides which day.
     const sendAfter = new Date(start.getTime() + dayOffset * 86_400_000);

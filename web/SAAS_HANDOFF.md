@@ -137,6 +137,19 @@ In `web/.env.local` (local) or Vercel (production):
   Vercel cron hitting that path.
 - **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
   leave unset for V1; `"false"` for V2.
+- **WhatsApp (roadmap #2, built 2026-08-15, not yet live anywhere):**
+  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (E.164, no
+  `whatsapp:` prefix — the code adds it), and `ANTHROPIC_API_KEY` for the AI
+  reply loop (`CASDEY_WHATSAPP_AI_MODEL` optionally overrides the default
+  `claude-haiku-4-5-20251001`). None of these are set anywhere, including
+  locally: WhatsApp sending is one shared casdey Twilio number for every
+  practice (see `src/lib/whatsapp/`), and going live for real (outside
+  Twilio's WhatsApp Sandbox) additionally needs Twilio WhatsApp Business API
+  access, Meta Business verification, and at least one Meta-approved message
+  template (its Content SID goes in Settings → WhatsApp per practice, not in
+  an env var) — external, manual steps Davide has to complete himself, same
+  class of setup as the Resend domain verification above. Twilio's inbound
+  webhook must point at `/api/whatsapp/webhook`.
 
 ## Local testing (current session)
 
@@ -157,4 +170,5 @@ go-live blocker above) — be aware of that before running the drain again.
 
 Real Dentally sync, SMS, the other practice-software integrations, live Stripe
 keys, invoicing. The Free plan's deeper limits (above) are a pending product
-decision, not built.
+decision, not built. WhatsApp (previously listed here) is now built, see
+above and `SAAS_ROADMAP.md` #2 — SMS specifically remains out of scope.
