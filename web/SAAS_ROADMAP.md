@@ -129,11 +129,49 @@ self-test waits on #2. Testing an actual reply → booking hand-off waits on the
 booking/calendar-write-access work under "Guarantee mechanics" in CLAUDE.md,
 which does not exist yet for real patients either.
 
-## 5. Support chatbot for casdey itself — `todo`
+## 5. Support chatbot for casdey itself — `done` (local)
 A support chat widget bottom-right of the app (like most SaaS today), for the
 **practice** to get help using casdey. Distinct from #2 (which talks to
 patients).
 - Standalone; medium.
+
+**Done 2026-08-15, curated (not AI-backed).** Locked with Davide before
+building: it answers from a fixed, hand-written set of questions a practice
+actually asks, no LLM. Same standing-cost reasoning that retired #1's AI
+drafting, a support bot would reintroduce exactly that per-use cost and the
+`ANTHROPIC_API_KEY` dependency, for a job a good curated FAQ does better. If
+it cannot answer, it falls back to a plain `mailto:info@casdey.com` (opens the
+practice's own mail client, casdey never sends on their behalf).
+
+- New `src/components/app/support-widget.tsx` (client) + `support-topics.ts`
+  (the curated content, 10 topics: import, dormancy, sending a campaign, the
+  self-test from #4, Free vs Premium, the guarantee, revenue estimate,
+  recording a rebooking, unsubscribes, and data/GDPR). Answers are kept
+  accurate to the actual product and written to the brand copy rules (no em
+  dashes).
+- Mounted once in `src/app/app/layout.tsx`, so it is on every `/app` page.
+- New `IconHelp` (a chat bubble with a question mark, deliberately not
+  `IconMessage`, which is the Campaigns glyph) and `IconClose` in
+  `src/components/app/icons.tsx`.
+- Design: the launcher is treated as chrome, sitting on the same inverted
+  petrol plane as the sidebar, while the panel is a normal raised white card
+  so its answers read like the rest of the product. Amber untouched. Uses only
+  existing globals.css tokens, no new colours.
+- Behaviour: bottom-right launcher toggles a panel; search does AND-matching
+  across question + answer + keywords (so "delete data" narrows); topics are an
+  accordion; a no-match state points at the email fallback. Escape and an
+  outside click both close and return focus to the launcher; opening focuses
+  the search. Reduced motion is handled globally.
+
+**Verified 2026-08-15** in-browser at desktop and mobile (375px): launcher
+renders on the petrol plane, panel opens, accordion expands, multi-word search
+filters correctly, empty state shows, Escape closes and returns focus, the
+panel fits the mobile viewport with no horizontal overflow, and there are no
+app console errors (only dev HMR-socket noise). tsc / lint / test (70/70) /
+build all clean. No schema or server data, so no migration.
+
+**Still open:** same Vercel production gate as the rest of `/app` (the widget
+itself needs no env vars, but `/app` is inert in prod until Auth/etc. are set).
 
 ## 6. Fix the send issue — `done` (local), `needs Vercel env for prod`
 Campaign email used to send through casdey's own Zoho account, which can't
@@ -289,11 +327,12 @@ needs a real test-mode subscription actually running through the app.
 5. ~~**#1 AI message + language**~~ — reverted 2026-08-15 (language kept, AI dropped).
 6. ~~**#4 self-test**~~ — email side done (local) 2026-08-15; WhatsApp side still
    waits on #2.
-7. **#2 WhatsApp AI agent**, **#5 support chatbot** — feature-add track, sequence
-   by appetite.
+7. ~~**#5 support chatbot**~~ — curated (not AI), done (local) 2026-08-15.
+8. **#2 WhatsApp AI agent** — last one standing; the big one, needs a WhatsApp
+   Business API provider and an AI reply loop.
 
-Status: **done** — #1 (language only), #3, #4 (local, email only), #6 (local), #7,
-#8 (local). **todo** — #2, #5.
+Status: **done** — #1 (language only), #3, #4 (local, email only), #5 (local),
+#6 (local), #7, #8 (local). **todo** — #2.
 
 ## Open questions to pin down as we go
 - #2: which AI model/provider for the WhatsApp agent, and which WhatsApp

@@ -71,6 +71,26 @@ export function IconChevron(props: IconProps) {
   );
 }
 
+/** Support: a chat bubble carrying a question mark. Not IconMessage, which is
+ *  the Campaigns glyph and means "a message to a patient", not "get help". */
+export function IconHelp(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20 11.4a7.4 7.4 0 0 1-10.6 6.7L4 19.5l1.4-4.1A7.4 7.4 0 1 1 20 11.4Z" />
+      <path d="M9.7 9.4a2.4 2.4 0 0 1 4.5 1.1c0 1.6-2.1 1.8-2.1 3.1" />
+      <path d="M12 16.4h.01" />
+    </Svg>
+  );
+}
+
+export function IconClose(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Svg>
+  );
+}
+
 /** Google's four-colour mark. Fixed brand colours, not casdey's palette. */
 export function IconGoogle({ className = "" }: IconProps) {
   return (

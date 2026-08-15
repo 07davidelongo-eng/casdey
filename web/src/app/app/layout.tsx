@@ -5,6 +5,7 @@ import { IconSignOut } from "@/components/app/icons";
 import { Wordmark } from "@/components/wordmark";
 import { getPracticeContext } from "@/lib/dal";
 import { BillingBanner } from "@/components/app/billing-banner";
+import { SupportWidget } from "@/components/app/support-widget";
 
 import "@/styles/product.css";
 
@@ -72,6 +73,8 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           {children}
         </main>
       </div>
+
+      <SupportWidget />
     </div>
   );
 }
