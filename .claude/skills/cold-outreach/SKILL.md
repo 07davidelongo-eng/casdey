@@ -8,7 +8,9 @@ description: Runs casdey's automated cold-outreach workflow — sourcing UK/EU d
 Operating spec for casdey's automated cold-email outreach system, targeting UK/EU dental practices. High-level business context lives in [CLAUDE.md](../../../CLAUDE.md); this skill is the detailed how-it-runs spec, invoked as `/cold-outreach`.
 
 ## Goal
-Fully automate lead sourcing + personalized outreach at volume (~100 emails/day minimum once ramped up), with automated follow-ups (as of 2026-08-13, see "Follow-up policy"), tracking toward a 3% engaged-lead rate. Runs unattended, once per day, via a Claude Routine — see "Autonomous sending" below.
+Fully automate lead sourcing + personalized outreach, with automated follow-ups (as of 2026-08-13, see "Follow-up policy"), tracking toward a 3% engaged-lead rate. Runs unattended, once per day, via a Claude Routine — see "Autonomous sending" below.
+
+**Volume paused, 2026-08-15.** The earlier "~100 emails/day minimum once ramped up" target is off. By 216 sends (`Send Log` tab, dated 31/07-14/08), the engaged-lead rate was 0% against the 3% target, only 2 hard bounces in the whole log, so this reads as a message/offer problem, not a broken pipe (deliverability looks fine, Davide separately confirmed the emails land in the main inbox, not spam). Davide's call: stop scaling raw volume and shrink to a small, hand-picked daily batch instead, see "Autonomous sending" and "Send cadence" below, while the CTA change under "The cold email" gets tested. Don't creep the volume back up on your own; revisit only once this batch shows real engagement.
 
 ## Which environment am I running in?
 Check this first, it changes which tools are usable:
@@ -28,6 +30,7 @@ Check this first, it changes which tools are usable:
 ## Lead sourcing — ongoing, not one-time
 The list runs dry fast at volume. Before each day's send:
 - Check remaining unsent leads (`Status` blank in `Leads` tab). If fewer than ~150 remain, source more before that day's batch.
+- **Picking today's ~15-20 (2026-08-15, ties to the volume pause above):** prefer independents over chains (they decide faster, already the stated priority in `CLAUDE.md`) and prefer leads with a confirmed `Owner/Manager` name over blank/`VERIFY` ones, since a real name reads less mail-merged. This is a preference for ordering, not a filter, still send to chains and unnamed leads too, just later in the queue.
 - Source the same way the original list was built: real sources only (practice websites, CQC, verified directories) — never invent or guess an email address or owner name.
 - Every new lead needs: Practice Name, City, Phone, Address, Email (confirmed from an actual source, mark `Email status` accordingly), Owner/Principal (name only if a clean confident source states it, otherwise "no named owner found" or "corporate/group").
 - Dedupe against `Send Log` before adding — never re-add or re-contact someone already emailed.
@@ -45,8 +48,10 @@ First-touch email, sent during the pre-launch/beta phase while the SaaS is still
 3. The offer: a free first week of Premium once the software ships, then a Free plan, then a lifetime £50/€59 discount if they choose to upgrade to Premium later, only available to people joining now
 4. Explicit feedback framing, stated plainly: this isn't a sales pitch, casdey genuinely wants their feedback on the product before it's finished
 5. The link: https://casdey.com/waitlist
-6. Low-friction CTA: reply to learn more / join the waitlist
+6. Low-friction CTA (changed 2026-08-15): offer to work out, free, roughly how many of their patients haven't rebooked in 6+ months and what that's likely costing them, if they reply, instead of a vague "reply to learn more." See the CTA note right after this list before drafting point 6.
 7. A one-line opt-out ("let me know if you'd rather I not follow up again," varied per email) — for PECR/GDPR risk reduction, especially now covering EU.
+
+**CTA note, 2026-08-15:** point 6's free-calculation offer is an offer to calculate, never an asserted number, guess, or industry-average stat about the recipient's own business, that would break "never invent a fact" (see "What NOT to do") and read as making something up. Ask what makes the calculation possible (roughly how many patients they see, or a quick reply/call) rather than stating a figure. Example phrasing, vary it per lead, never copy verbatim: "If it's useful, reply with roughly how many patients you see a year and I'll work out what a typical drop-off pattern would be costing you, no obligation." Points 1-5 and 7 (pain point, what casdey does, the beta offer, feedback framing, waitlist link, opt-out) are unchanged by this.
 
 Under ~150 words (raised from ~120 to fit the extra offer detail without cramming, still tight). Professional tone, no superlatives, no standard-price/guarantee language. State the offer as one plain, clear idea rather than a bulleted pitch, don't stack it with other persuasion techniques on top (see the pushiness note from batch 1 feedback below, still fully in force), there is already more to say than before so keep everything else as minimal as it was. Vary structure, opening line, and phrasing per lead, should not read as mail-merged. Use whatever specific detail is available (city, NHS vs private, chain vs independent) naturally.
 
@@ -92,14 +97,14 @@ Spec: 4-5 days after initial send, no reply → one follow-up on the same thread
 
 ## Autonomous sending
 This skill runs unattended, once every 24h, via a Claude Routine, no per-batch review or chat confirmation before sending. That trade-off (speed over a human reading every draft first) is Davide's explicit call, made after reviewing batch 1. In place of manual review, hold these rails automatically:
-- Hard cap: no more than ~100 sends in a single run, covering new cold emails and follow-ups combined, not just cold emails.
+- Hard cap: no more than ~20 sends in a single run (dialed back 2026-08-15 from ~100, see "Goal"), covering new cold emails and follow-ups combined, not just cold emails.
 - Skip the run entirely (log why, send nothing) rather than send with incomplete/unverified data if: the lead sheet is unreachable, fewer than a handful of eligible leads exist and sourcing also fails, or more than a couple of sends in a row error out (possible auth/API problem, not a reason to keep retrying blindly).
 - Every send still goes through the same salutation rules, word cap, and "never invent a fact" rule, those aren't relaxed by removing the review step.
 - Skip weekends, per send cadence below.
 - Still log everything to `Send Log` and `Leads` exactly as before, that log is now the only audit trail, so it has to be complete and accurate every run.
 
 ## Send cadence
-- Target: at least 100 emails/day once ramped up, spread through the working day, not all at once. Skip weekends.
+- Target: ~15-20 emails/day (dialed back 2026-08-15 from a 100/day-minimum target, see "Goal"), spread through the working day, not all at once. Skip weekends.
 - Zoho's actual limit: 50-500 emails/hour, dynamic by sender reputation (not a fixed daily cap).
 - Log every send to `Send Log` immediately (prevents duplicates, supports tracking below).
 
@@ -130,6 +135,8 @@ Live since 2026-08-12: a Claude Routine named "casdey cold outreach — daily" r
 **2026-08-13: cold email offer copy updated.** `casdey.com` went live in production this day. Per Davide's direction: the cold email now includes `https://casdey.com/waitlist`, and its offer changed from "free first week, no commitment" alone to that plus a Free plan after the trial and a lifetime £50/€59 discount if a lead later upgrades to Premium, framed explicitly as feedback-seeking rather than a sales pitch (see "The cold email" and "The full offer" above for the exact rules). If a Routine run reads a stale checkout that predates this commit, this note (and the two sections above it) is the source of truth, not whatever the Routine's own working copy still has cached.
 
 **2026-08-13: follow-up sending turned on.** Per Davide's explicit go-ahead in chat that day, the one scheduled follow-up per non-replying lead is now sent automatically each run instead of only being listed as "due" (see "Follow-up policy" above). This was requested in the same conversation as the offer-copy update above but landed in a separate commit. Batch 3 (below) ran before both changes, on the old template with manual-only follow-ups.
+
+**2026-08-15: volume dial-back + CTA change, after zero replies at 216 sends.** Read the live `Send Log` tab directly: 216 leads contacted since 31/07, 0 marked `Replied`/`Interested`/`Committed`, 0 "Y" anywhere in the `Reply?` column, only 2 hard bounces in the whole log. That low bounce rate plus Davide separately confirming test sends land in the main inbox, not spam, rules out a broken pipe, so this reads as a message/offer problem. Davide's call, made after reviewing the *SaaS Growth Masterclass* deck (Nate Herk-style $0-customer playbook, not saved to this repo): stop scaling raw volume and prove the message works on a small hand-picked batch first, same spirit as the deck's "one free result before you scale" mechanism, adapted to not invent per-practice numbers we don't have (see the CTA note under "The cold email" and "What NOT to do"). Changed: the daily/per-run volume target (100/day → 15-20/day, see "Goal", "Autonomous sending", "Send cadence"), lead-picking order within that smaller batch (see "Lead sourcing"), and the CTA in point 6 of "Key points every cold email must hit" (vague "reply to learn more" → concrete free-calculation offer). Not changed: salutation rules, tone rules, the offer content itself, follow-up policy, reply detection.
 
 ## Batch history
 | Date | Batch | Leads | Sent | Notes |
