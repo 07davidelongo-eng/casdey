@@ -27,6 +27,7 @@ const EVENT_LABEL: Record<PatientEventType, string> = {
   message_failed: "A message could not be delivered",
   replied: "Replied",
   rebooked: "Booked again",
+  booked: "Booked online",
   opted_out: "Asked not to be contacted",
 };
 

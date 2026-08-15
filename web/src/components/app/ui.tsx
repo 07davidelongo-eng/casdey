@@ -176,12 +176,24 @@ export function ButtonLink({
 
 /* --- Formatting ----------------------------------------------------------- */
 
-/** Dates are always literal, always unambiguous. Never "12/06/2025". */
+/**
+ * Dates are always literal, always unambiguous. Never "12/06/2025".
+ *
+ * Fixed to UTC rather than left to the runtime's own default timezone: a
+ * timestamp taken close to midnight (a booking, a reactivation) can otherwise
+ * land on a different calendar day depending on where the server or browser
+ * happens to think it is, silently disagreeing with itself between an
+ * environment that defaults to UTC and one that does not. UTC is also what
+ * every date-only field in the schema (last_visit_at and friends) is already
+ * implicitly stored and parsed as, so this keeps every date on the page
+ * reading the same day no matter who or where renders it.
+ */
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "never";
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return "unknown";
   return date.toLocaleDateString("en-GB", {
+    timeZone: "UTC",
     day: "numeric",
     month: "short",
     year: "numeric",

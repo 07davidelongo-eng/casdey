@@ -105,13 +105,27 @@ export async function loadGuaranteeStatus(
       .select("id", { count: "exact", head: true })
       .eq("practice_id", practice.id)
       .eq("status", "reactivated")
+      // The self-test synthetic patient (src/lib/self-test.ts) can now book
+      // itself through the same self-serve flow a real patient uses, and it
+      // must never count toward the guarantee any more than it counts toward
+      // the dashboard's own "rebooked" stat (src/lib/stats.ts).
+      .eq("is_test", false)
       .gte("reactivated_at", window.start.toISOString())
       .lte("reactivated_at", countedThrough.toISOString()),
+    // Deliberately practice.premium_started_at here, not window.start (the
+    // first qualifying campaign's start): the payment that actually unlocked
+    // Premium always happens before the practice gets around to approving a
+    // campaign, so window.start would exclude the very payment the guarantee
+    // exists to cover, and paidMinor would read 0 for almost every real
+    // practice — which "met" below reads as "nothing to refund" regardless of
+    // outcome. Safe to widen like this only because premium_started_at is set
+    // once and never touched again (see ../app/api/stripe/webhook/route.ts),
+    // so this can never pull in a second, unrelated billing period.
     supabase
       .from("subscription_payments")
       .select("amount_minor")
       .eq("practice_id", practice.id)
-      .gte("paid_at", window.start.toISOString())
+      .gte("paid_at", practice.premium_started_at)
       .lte("paid_at", countedThrough.toISOString()),
   ]);
 

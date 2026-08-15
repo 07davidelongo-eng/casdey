@@ -76,11 +76,21 @@ export async function POST(request: NextRequest): Promise<Response> {
   // re-reads from the database rather than trusting status.paidMinor as a
   // single lump sum, because a refund has to point at a real Stripe payment,
   // not an aggregate.
+  //
+  // practice.premium_started_at, not status.window.start, is the lower
+  // bound here for the same reason it is in loadGuaranteeStatus
+  // (../../../../lib/guarantee-data.ts): the payment that unlocked Premium
+  // always lands before the practice gets around to approving its first
+  // campaign, so window.start would silently exclude the one payment this
+  // guarantee exists to refund. Getting this wrong here is worse than
+  // getting it wrong on the display, because guarantee_claims is a one-shot,
+  // never-re-armed slot (see the insert above) — a claim that finds nothing
+  // to refund still burns the practice's only chance.
   const { data: payments } = await admin
     .from("subscription_payments")
     .select("*")
     .eq("practice_id", practice.id)
-    .gte("paid_at", status.window.start.toISOString())
+    .gte("paid_at", practice.premium_started_at ?? status.window.start.toISOString())
     .lte("paid_at", status.window.end.toISOString());
 
   const stripe = stripeClient();

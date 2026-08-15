@@ -1,7 +1,7 @@
 import { requirePractice } from "@/lib/dal";
 import { ruleFor } from "@/lib/dormancy";
 import { buildAudience } from "@/lib/campaigns";
-import { emailProvider } from "@/lib/messaging";
+import { bookingUrl, emailProvider } from "@/lib/messaging";
 import { languageForCountry } from "@/lib/languages";
 import { PageHeader, Notice, ButtonLink } from "@/components/app/ui";
 import { CampaignForm } from "./form";
@@ -59,6 +59,11 @@ export default async function NewCampaignPage() {
             whatsappAudienceCount={whatsappAudience.length}
             dailyCap={practice.daily_send_cap}
             emailSample={emailAudience[0] ?? null}
+            sampleBookingUrl={
+              practice.booking_enabled && emailAudience[0]
+                ? bookingUrl(emailAudience[0].booking_token)
+                : null
+            }
             defaultLanguage={languageForCountry(practice.country)}
             whatsappEnabled={practice.whatsapp_enabled}
             whatsappTemplateName={practice.whatsapp_template_name}

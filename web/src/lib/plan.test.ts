@@ -32,6 +32,12 @@ function practice(overrides: Partial<Practice> = {}): Practice {
     onboarded_at: null,
     whatsapp_enabled: false,
     whatsapp_template_name: null,
+    booking_enabled: false,
+    booking_slot_minutes: 30,
+    booking_buffer_minutes: 0,
+    booking_min_notice_hours: 24,
+    booking_horizon_days: 21,
+    booking_hours: {},
     ...overrides,
   };
 }

@@ -31,6 +31,7 @@ function patient(overrides: Partial<Patient> = {}): Patient {
     consent_whatsapp: true,
     source: "csv",
     is_test: false,
+    booking_token: "tok-p1",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,

@@ -26,6 +26,7 @@ export type TestPatient = {
   id: string;
   first_name: string | null;
   last_visit_at: string | null;
+  booking_token: string;
 };
 
 export async function ensureTestPatient(
@@ -59,7 +60,7 @@ export async function ensureTestPatient(
       },
       { onConflict: "practice_id,external_ref" },
     )
-    .select("id, first_name, last_visit_at")
+    .select("id, first_name, last_visit_at, booking_token")
     .single();
 
   if (error || !data) {
@@ -125,7 +126,7 @@ export async function ensureTestWhatsAppPatient(
       },
       { onConflict: "practice_id,external_ref" },
     )
-    .select("id, first_name, last_visit_at")
+    .select("id, first_name, last_visit_at, booking_token")
     .single();
 
   if (error || !data) {

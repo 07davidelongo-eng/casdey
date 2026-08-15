@@ -143,7 +143,17 @@ async function handle(event: Stripe.Event): Promise<void> {
       // list, for the same reason checkout.session.completed re-fetches the
       // subscription above: a guaranteed-fresh, guaranteed-populated object
       // rather than whatever shape happened to arrive over the wire.
-      const invoice = await stripe.invoices.retrieve(event.data.object.id);
+      //
+      // expand: ["payments"] is not optional. Without it Stripe's REST API
+      // omits the payments list entirely (confirmed against a real invoice:
+      // the field comes back undefined), which silently zeroes out both
+      // stripe_payment_intent_id and stripe_charge_id below on every payment
+      // this ever records — and a subscription_payments row with neither is
+      // exactly what src/app/api/guarantee/claim/route.ts calls "no
+      // refundable target" and refuses to refund.
+      const invoice = await stripe.invoices.retrieve(event.data.object.id, {
+        expand: ["payments"],
+      });
       await recordInvoicePayment(invoice);
       return;
     }

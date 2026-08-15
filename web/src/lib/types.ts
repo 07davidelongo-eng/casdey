@@ -33,7 +33,14 @@ export type PatientEventType =
   | "message_failed"
   | "replied"
   | "rebooked"
+  | "booked"
   | "opted_out";
+
+export type AppointmentStatus = "booked" | "cancelled" | "completed" | "no_show";
+
+export type CalendarProvider = "google";
+
+export type CalendarConnectionStatus = "active" | "revoked";
 
 /** A campaign's contact method. Email is a single templated send; WhatsApp is
  *  a real back-and-forth held by src/lib/whatsapp/ai-agent.ts. */
@@ -84,7 +91,24 @@ export type Practice = {
   /** Name of the Meta-approved template used for cold first contact. Null
    *  blocks WhatsApp campaigns for this practice. See src/lib/whatsapp/. */
   whatsapp_template_name: string | null;
+  /** Master switch for self-serve booking. Off until the practice sets its
+   *  hours. When off, no booking link is emitted. See src/lib/calendar/. */
+  booking_enabled: boolean;
+  /** Length of one offered slot, in minutes. */
+  booking_slot_minutes: number;
+  /** Gap kept clear after each booked slot, in minutes. */
+  booking_buffer_minutes: number;
+  /** Minimum notice before a bookable slot, in hours. */
+  booking_min_notice_hours: number;
+  /** How far ahead slots are offered, in days. */
+  booking_horizon_days: number;
+  /** Per-weekday open windows in the practice timezone. See BookingHours. */
+  booking_hours: BookingHours;
 };
+
+/** Weekday key -> list of [start, end] "HH:MM" open windows, practice-local. */
+export type Weekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+export type BookingHours = Partial<Record<Weekday, [string, string][]>>;
 
 export type Patient = {
   id: string;
@@ -107,6 +131,8 @@ export type Patient = {
   /** True only for the one synthetic per-practice patient behind "send
    *  yourself a test" (src/lib/self-test.ts). Never a real person. */
   is_test: boolean;
+  /** Opaque token behind this patient's booking link (/book/<token>). */
+  booking_token: string;
   created_at: string;
   updated_at: string;
 };
@@ -236,4 +262,47 @@ export type WhatsAppMessage = {
   provider_message_id: string | null;
   ai_generated: boolean;
   created_at: string;
+};
+
+/**
+ * A practice's connected external calendar (Google for V1). The encrypted
+ * token columns never leave the server; pages only ever read the non-secret
+ * fields. See src/lib/calendar/.
+ */
+export type CalendarConnection = {
+  id: string;
+  practice_id: string;
+  provider: CalendarProvider;
+  google_calendar_id: string;
+  access_token_enc: string | null;
+  refresh_token_enc: string | null;
+  token_expires_at: string | null;
+  connected_email: string | null;
+  status: CalendarConnectionStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * A casdey-owned booking. The source of truth for who booked and when,
+ * optionally mirrored into the practice's Google Calendar (google_event_id).
+ * A booking flips its patient to reactivated, which the dashboard and the
+ * guarantee already count. See src/lib/calendar/.
+ */
+export type Appointment = {
+  id: string;
+  practice_id: string;
+  patient_id: string;
+  service_id: string | null;
+  start_at: string;
+  end_at: string;
+  status: AppointmentStatus;
+  google_event_id: string | null;
+  /** Snapshotted at booking, minor units. Never rewritten by later price edits. */
+  value_minor: number | null;
+  created_via: "self_serve" | "staff";
+  booking_token: string;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
 };

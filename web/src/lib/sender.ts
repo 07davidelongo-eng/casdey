@@ -1,7 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "./supabase";
-import { emailProvider, unsubscribeUrl } from "./messaging";
+import { bookingUrl, emailProvider, unsubscribeUrl } from "./messaging";
 import { composeBody, contextFor, renderTemplate } from "./template";
 import { capabilities } from "./plan";
 import type { Practice } from "./types";
@@ -144,7 +144,7 @@ export async function drainQueue(
 
     const { data: patient } = await client
       .from("patients")
-      .select("id, first_name, last_visit_at, consent_email, status")
+      .select("id, first_name, last_visit_at, consent_email, status, booking_token")
       .eq("id", message.patient_id)
       .maybeSingle();
 
@@ -160,6 +160,8 @@ export async function drainQueue(
     const context = contextFor(
       { first_name: patient.first_name, last_visit_at: patient.last_visit_at },
       practice,
+      new Date(),
+      practice.booking_enabled ? bookingUrl(patient.booking_token) : null,
     );
 
     try {

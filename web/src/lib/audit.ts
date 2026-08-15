@@ -30,6 +30,11 @@ export type AuditAction =
   | "campaign.cancelled"
   | "patient.unsubscribed"
   | "whatsapp.settings_updated"
+  | "booking.settings_updated"
+  | "calendar.connected"
+  | "calendar.disconnected"
+  | "appointment.booked"
+  | "appointment.cancelled"
   | "billing.started"
   | "billing.updated"
   | "guarantee.claimed";

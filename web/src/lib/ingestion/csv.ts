@@ -1,3 +1,5 @@
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/min";
+
 import type {
   ColumnMapping,
   DateFormat,
@@ -81,6 +83,37 @@ export function parseDate(
   return isRealDate(year, month, day) ? iso(year, month, day) : null;
 }
 
+/**
+ * A practice's export writes phone numbers the way the front desk dials
+ * them: local format ("07700 900123"), not E.164 ("+447700900123"). Twilio's
+ * WhatsApp API rejects anything else outright, and the inbound webhook
+ * matches a reply back to a conversation by exact phone string (see
+ * whatsapp_conversations.phone in ../whatsapp/), so a local-format number
+ * would silently break both directions of the WhatsApp channel.
+ *
+ * Falls back to the trimmed raw value when it cannot be parsed: a phone
+ * number that will not resolve to E.164 still gets stored (harmless for
+ * email-channel patients, and better than losing the row) rather than
+ * blocking the import the way a bad required date does.
+ */
+export function normalizePhoneForCountry(
+  raw: string,
+  defaultCountry: string,
+): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+
+  const parsed = parsePhoneNumberFromString(trimmed, {
+    defaultCountry: defaultCountry as CountryCode,
+  });
+  // isPossible (structurally a phone number) rather than isValid (matches an
+  // actually-assigned range): a practice's real patient may well carry a
+  // number in a newer or less common range that the library's static
+  // allocation tables do not recognise yet. Either way it is not casdey's
+  // place to decide a patient's own number is not real.
+  return parsed?.isPossible() ? parsed.number : trimmed;
+}
+
 function cell(row: Record<string, string>, column?: string): string {
   if (!column) return "";
   return (row[column] ?? "").trim();
@@ -102,6 +135,9 @@ export function normalizeRow(
   mapping: ColumnMapping,
   dateFormat: DateFormat,
   rowNumber: number,
+  /** The practice's country, used to read a local-format phone number.
+   *  Omitted in the client-side preview, which never displays phone. */
+  defaultCountry?: string,
 ): ParseResult {
   const issue = (field: string, reason: string): ParseResult => ({
     ok: false,
@@ -159,12 +195,17 @@ export function normalizeRow(
     visitCount = Math.max(1, parsed);
   }
 
+  const rawPhone = cell(row, mapping.phone);
+  const phone = rawPhone
+    ? (defaultCountry ? normalizePhoneForCountry(rawPhone, defaultCountry) : rawPhone).slice(0, 40)
+    : null;
+
   const patient: RawPatient = {
     externalRef,
     firstName: first ? first.slice(0, 120) : null,
     lastName: last ? last.slice(0, 120) : null,
     email,
-    phone: cell(row, mapping.phone).slice(0, 40) || null,
+    phone,
     lastVisitAt,
     visitCount,
   };
@@ -176,11 +217,14 @@ export function normalizeRow(
  * Best guess at which column is which, offered as a starting point in the UI.
  * Always shown to the practice for confirmation, never applied silently.
  */
+// [\s_-]* rather than \s* on purpose: CSV exports as often write these
+// headers as "first_name" or "first-name" (snake/kebab case) as "First Name"
+// (space-separated), and a plain \s* only matched the latter.
 const HINTS: { field: keyof ColumnMapping; patterns: RegExp[] }[] = [
-  { field: "externalRef", patterns: [/^(patient\s*)?(id|ref|reference|number|no)$/i, /patient.*(id|ref)/i] },
-  { field: "firstName", patterns: [/^(first|given|fore)\s*name$/i, /^first$/i] },
-  { field: "lastName", patterns: [/^(last|sur|family)\s*name$/i, /^surname$/i, /^last$/i] },
-  { field: "fullName", patterns: [/^(full\s*)?name$/i, /^patient(\s*name)?$/i] },
+  { field: "externalRef", patterns: [/^(patient[\s_-]*)?(id|ref|reference|number|no)$/i, /patient.*(id|ref)/i] },
+  { field: "firstName", patterns: [/^(first|given|fore)[\s_-]*name$/i, /^first$/i] },
+  { field: "lastName", patterns: [/^(last|sur|family)[\s_-]*name$/i, /^surname$/i, /^last$/i] },
+  { field: "fullName", patterns: [/^(full[\s_-]*)?name$/i, /^patient([\s_-]*name)?$/i] },
   { field: "email", patterns: [/e-?mail/i] },
   { field: "phone", patterns: [/phone|mobile|tel/i] },
   { field: "lastVisitAt", patterns: [/last.*(visit|appointment|seen)/i, /(visit|appointment).*date/i, /^date$/i] },

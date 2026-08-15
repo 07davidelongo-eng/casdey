@@ -43,6 +43,7 @@ export function CampaignForm({
   whatsappAudienceCount,
   dailyCap,
   emailSample,
+  sampleBookingUrl,
   defaultLanguage,
   whatsappEnabled,
   whatsappTemplateName,
@@ -53,6 +54,9 @@ export function CampaignForm({
   whatsappAudienceCount: number;
   dailyCap: number;
   emailSample: Sample;
+  /** The sample patient's real booking link, or null when booking is off.
+   *  Computed server-side because it needs siteUrl(), which is server-only. */
+  sampleBookingUrl: string | null;
   defaultLanguage: string;
   whatsappEnabled: boolean;
   whatsappTemplateName: string | null;
@@ -69,6 +73,7 @@ export function CampaignForm({
     firstName: emailSample?.first_name ?? null,
     practiceName,
     monthsAway: monthsSince(emailSample?.last_visit_at ?? null),
+    bookingUrl: sampleBookingUrl,
   };
 
   const audienceCount = channel === "whatsapp" ? whatsappAudienceCount : emailAudienceCount;

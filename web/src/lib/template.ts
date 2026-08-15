@@ -33,9 +33,12 @@ export type TemplateContext = {
   firstName: string | null;
   practiceName: string;
   monthsAway: number | null;
+  /** The patient's booking link, or null when booking is off / not applicable.
+   *  Powers {{booking_link}} and the auto-offered link in composeBody. */
+  bookingUrl: string | null;
 };
 
-type Placeholder = "first_name" | "practice" | "months_away";
+type Placeholder = "first_name" | "practice" | "months_away" | "booking_link";
 
 export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
   {
@@ -44,6 +47,10 @@ export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
   },
   { token: "{{practice}}", means: "your practice name" },
   { token: "{{months_away}}", means: "months since their last visit" },
+  {
+    token: "{{booking_link}}",
+    means: "a link where they pick a time (only when booking is on)",
+  },
 ];
 
 export function renderTemplate(
@@ -51,13 +58,14 @@ export function renderTemplate(
   context: TemplateContext,
 ): string {
   return template.replace(
-    /\{\{\s*(first_name|practice|months_away)\s*\}\}/g,
+    /\{\{\s*(first_name|practice|months_away|booking_link)\s*\}\}/g,
     (_match, token: Placeholder) => {
       if (token === "first_name") {
         // "Hi ," is worse than a slightly generic greeting.
         return context.firstName?.trim() || "there";
       }
       if (token === "practice") return context.practiceName;
+      if (token === "booking_link") return context.bookingUrl ?? "";
       return context.monthsAway === null
         ? "some time"
         : String(context.monthsAway);
@@ -69,11 +77,13 @@ export function contextFor(
   patient: Pick<Patient, "first_name" | "last_visit_at">,
   practice: Pick<Practice, "name">,
   now: Date = new Date(),
+  bookingUrl: string | null = null,
 ): TemplateContext {
   return {
     firstName: patient.first_name,
     practiceName: practice.name,
     monthsAway: monthsSince(patient.last_visit_at, now),
+    bookingUrl,
   };
 }
 
@@ -95,7 +105,17 @@ export function composeBody(options: {
   replyTo: string | null;
   providerCanSetReplyTo: boolean;
 }): string {
-  const parts = [renderTemplate(options.body, options.context).trim(), ""];
+  const rendered = renderTemplate(options.body, options.context).trim();
+  const parts = [rendered, ""];
+
+  // When booking is on, make sure the patient actually gets the link, even if
+  // the practice did not add {{booking_link}} to their copy. Skipped if the
+  // rendered body already contains it, so a practice that placed the link
+  // themselves does not get it twice.
+  const bookingUrl = options.context.bookingUrl;
+  if (bookingUrl && !rendered.includes(bookingUrl)) {
+    parts.push("To book a time that suits you, follow this link:", bookingUrl, "");
+  }
 
   if (!options.providerCanSetReplyTo && options.replyTo) {
     parts.push(`You can also write to us directly at ${options.replyTo}.`, "");

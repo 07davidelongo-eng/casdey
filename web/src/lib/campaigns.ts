@@ -24,6 +24,7 @@ export type AudienceMember = {
   phone: string | null;
   first_name: string | null;
   last_visit_at: string | null;
+  booking_token: string;
 };
 
 /**
@@ -55,7 +56,7 @@ export async function buildAudience(
     channel === "whatsapp"
       ? await client
           .from("patients")
-          .select("id, email, phone, first_name, last_visit_at")
+          .select("id, email, phone, first_name, last_visit_at, booking_token")
           .eq("practice_id", practiceId)
           .eq("is_test", false)
           .neq("status", "opted_out")
@@ -66,7 +67,7 @@ export async function buildAudience(
           .order("last_visit_at", { ascending: true })
       : await client
           .from("patients")
-          .select("id, email, phone, first_name, last_visit_at")
+          .select("id, email, phone, first_name, last_visit_at, booking_token")
           .eq("practice_id", practiceId)
           .eq("is_test", false)
           .neq("status", "opted_out")

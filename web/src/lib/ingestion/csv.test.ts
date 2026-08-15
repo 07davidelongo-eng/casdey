@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { guessMapping, normalizeRow, parseDate } from "./csv";
+import { guessMapping, normalizePhoneForCountry, normalizeRow, parseDate } from "./csv";
 import type { ColumnMapping } from "./types";
 
 describe("parseDate", () => {
@@ -195,5 +195,79 @@ describe("guessMapping", () => {
     const guess = guessMapping(["col_a", "col_b", "col_c"]);
     expect(guess.email).toBeUndefined();
     expect(guess.lastVisitAt).toBeUndefined();
+  });
+
+  it("recognises snake_case headers, a common generic CSV export style", () => {
+    const guess = guessMapping([
+      "first_name",
+      "last_name",
+      "email",
+      "phone",
+      "last_visit_at",
+      "visit_count",
+      "patient_id",
+    ]);
+
+    expect(guess.firstName).toBe("first_name");
+    expect(guess.lastName).toBe("last_name");
+    expect(guess.email).toBe("email");
+    expect(guess.lastVisitAt).toBe("last_visit_at");
+    expect(guess.visitCount).toBe("visit_count");
+    expect(guess.externalRef).toBe("patient_id");
+  });
+});
+
+describe("normalizePhoneForCountry", () => {
+  it("reads a UK local-format mobile number to E.164", () => {
+    expect(normalizePhoneForCountry("07700 900123", "GB")).toBe("+447700900123");
+  });
+
+  it("reads local formats for the rest of casdey's target countries", () => {
+    expect(normalizePhoneForCountry("085 123 4567", "IE")).toBe("+353851234567");
+    expect(normalizePhoneForCountry("06 12345678", "NL")).toBe("+31612345678");
+    expect(normalizePhoneForCountry("0151 23456789", "DE")).toBe("+4915123456789");
+  });
+
+  it("leaves an already-E.164 number alone", () => {
+    expect(normalizePhoneForCountry("+447700900123", "GB")).toBe("+447700900123");
+  });
+
+  it("falls back to the raw value when it cannot be read as a phone number", () => {
+    expect(normalizePhoneForCountry("not a phone", "GB")).toBe("not a phone");
+  });
+
+  it("leaves an empty string alone", () => {
+    expect(normalizePhoneForCountry("", "GB")).toBe("");
+  });
+});
+
+describe("normalizeRow phone handling", () => {
+  const mapping: ColumnMapping = {
+    lastVisitAt: "last_visit_at",
+    email: "email",
+    phone: "phone",
+  };
+
+  it("normalizes phone to E.164 when a country is given", () => {
+    const result = normalizeRow(
+      { last_visit_at: "2024-03-05", email: "a@example.com", phone: "07700 900123" },
+      mapping,
+      "iso",
+      2,
+      "GB",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.patient.phone).toBe("+447700900123");
+  });
+
+  it("keeps the raw phone string when no country is given (the client preview path)", () => {
+    const result = normalizeRow(
+      { last_visit_at: "2024-03-05", email: "a@example.com", phone: "07700 900123" },
+      mapping,
+      "iso",
+      2,
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.patient.phone).toBe("07700 900123");
   });
 });

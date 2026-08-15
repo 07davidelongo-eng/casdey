@@ -22,6 +22,11 @@ export type OutgoingEmail = {
   text: string;
   fromName: string;
   replyTo: string | null;
+  /** An optional .ics to attach, e.g. a booking confirmation. Resend attaches
+   *  it; Zoho (the legacy fallback) sends without one rather than fail the
+   *  whole send over a calendar file, since the confirmation text already
+   *  states the appointment details. */
+  attachment?: { filename: string; content: string; contentType: string };
 };
 
 export type SendResult = { providerMessageId: string | null };
@@ -61,6 +66,14 @@ const resendProvider: EmailProvider = {
         subject: email.subject,
         text: email.text,
         reply_to: email.replyTo ?? undefined,
+        attachments: email.attachment
+          ? [
+              {
+                filename: email.attachment.filename,
+                content: email.attachment.content,
+              },
+            ]
+          : undefined,
       }),
     });
 
@@ -98,4 +111,8 @@ export function siteUrl(): string {
 
 export function unsubscribeUrl(token: string): string {
   return `${siteUrl()}/u/${token}`;
+}
+
+export function bookingUrl(token: string): string {
+  return `${siteUrl()}/book/${token}`;
 }

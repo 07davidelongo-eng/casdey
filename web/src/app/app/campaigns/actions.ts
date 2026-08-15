@@ -11,7 +11,7 @@ import { ruleFor } from "@/lib/dormancy";
 import { audienceSnapshot, buildAudience, queueCampaign } from "@/lib/campaigns";
 import { capabilities } from "@/lib/plan";
 import { isLanguageCode } from "@/lib/languages";
-import { emailProvider, unsubscribeUrl } from "@/lib/messaging";
+import { bookingUrl, emailProvider, unsubscribeUrl } from "@/lib/messaging";
 import { composeBody, contextFor, renderTemplate } from "@/lib/template";
 import { ensureTestPatient, ensureTestWhatsAppPatient } from "@/lib/self-test";
 import { sendWhatsAppCampaign } from "@/lib/whatsapp/campaign-send";
@@ -223,6 +223,8 @@ export async function sendTestAction(
   const context = contextFor(
     { first_name: patient.first_name, last_visit_at: patient.last_visit_at },
     practice,
+    new Date(),
+    practice.booking_enabled ? bookingUrl(patient.booking_token) : null,
   );
 
   try {

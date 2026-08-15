@@ -32,10 +32,16 @@ export default async function CampaignPage(
   const campaign = data as Campaign;
   const isWhatsApp = campaign.channel === "whatsapp";
 
+  // patients!inner(is_test) + the eq below excludes the self-test send's own
+  // message row (see /app/campaigns/[id]/test-send-form.tsx): without it, the
+  // synthetic patient's one-off "sent" row gets counted alongside the real
+  // audience and these stats stop matching the "will go to N patients" count
+  // shown before approval.
   const { data: messages } = await session.supabase
     .from("campaign_messages")
-    .select("status")
-    .eq("campaign_id", campaign.id);
+    .select("status, patients!inner(is_test)")
+    .eq("campaign_id", campaign.id)
+    .eq("patients.is_test", false);
 
   const counts = (messages ?? []).reduce<Record<string, number>>(
     (totals, row) => {

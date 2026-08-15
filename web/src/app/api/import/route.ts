@@ -116,7 +116,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   rows.forEach((row, index) => {
     // +2: one for the header line, one because people count from 1.
-    const result = normalizeRow(row, mapping, dateFormat, index + 2);
+    const result = normalizeRow(row, mapping, dateFormat, index + 2, practice.country);
     if (result.ok) {
       patients.push(result.patient);
     } else {
