@@ -150,8 +150,10 @@ In `web/.env.local` (local) or Vercel (production):
 - **`RESEND_API_KEY`** (optional): without it, campaign email sends via Zoho,
   which can't set a per-practice reply-to. With it + casdey.com verified,
   replies land in the practice's own inbox.
-- **`CRON_SECRET`** guards `POST /api/cron/send` (drains the send queue). Add a
-  Vercel cron hitting that path.
+- **`CRON_SECRET`** guards `POST /api/cron/send` (drains the send queue).
+  `web/vercel.json` now registers the hourly Vercel cron hitting that path
+  (added 2026-08-17) — the config side is done; `CRON_SECRET` still needs
+  setting in Vercel prod env for the scheduler's calls to authenticate.
 - **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
   leave unset for V1; `"false"` for V2.
 - **WhatsApp (roadmap #2, built 2026-08-15, set locally, not yet live in
