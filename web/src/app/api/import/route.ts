@@ -95,7 +95,22 @@ export async function POST(request: NextRequest): Promise<Response> {
     : null;
   if (!dateFormat) return fail("Choose the date format used in your file.", 400);
 
-  const text = await file.text();
+  // Decode explicitly rather than via file.text(), which assumes UTF-8 and
+  // silently turns invalid bytes into replacement characters. An older PMS or an
+  // Excel "CSV (MS-DOS)" export is Windows-1252, so a name like "François" would
+  // otherwise import as "FranÃ§ois" and go out verbatim in a live campaign. Try
+  // strict UTF-8 first (the common, correct case) and fall back to Windows-1252
+  // only when the bytes are not valid UTF-8.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    text = new TextDecoder("windows-1252").decode(bytes);
+  }
+  // Drop a UTF-8 BOM so it can't contaminate the first header name.
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+
   const parsed = Papa.parse<Record<string, string>>(text, {
     header: true,
     skipEmptyLines: "greedy",
@@ -113,6 +128,19 @@ export async function POST(request: NextRequest): Promise<Response> {
   const patients: RawPatient[] = [];
   const issues: RowIssue[] = [];
   let skipped = 0;
+
+  // Surface CSV syntax problems instead of trusting Papa's best-effort recovery.
+  // A row with an unescaped quote or stray delimiter is emitted mis-aligned (a
+  // phone number sliding into the email column); at least tell the practice the
+  // file itself was malformed rather than importing corrupted rows quietly.
+  for (const parseError of parsed.errors ?? []) {
+    if (issues.length >= MAX_REPORTED_ISSUES) break;
+    issues.push({
+      row: typeof parseError.row === "number" ? parseError.row + 2 : 0,
+      field: "format",
+      reason: parseError.message,
+    });
+  }
 
   rows.forEach((row, index) => {
     // +2: one for the header line, one because people count from 1.
@@ -165,6 +193,18 @@ export async function POST(request: NextRequest): Promise<Response> {
   });
 
   await recordImportEvents(practice.id, run.id as string, result.newPatientIds);
+
+  // Records the row-by-row fallback could not write are real, actionable
+  // failures (usually a shared email), not silent drops. Put them where the
+  // practice already looks for problems.
+  for (const failure of result.failures) {
+    if (issues.length >= MAX_REPORTED_ISSUES) break;
+    issues.push({
+      row: 0,
+      field: "record",
+      reason: `${failure.ref}: ${failure.reason}`,
+    });
+  }
 
   await client
     .from("imports")

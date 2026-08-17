@@ -148,8 +148,8 @@ export async function bookSlotAction(
     const calendar = await calendarFor(practice.id);
     if (calendar) {
       const summary = serviceName
-        ? `${serviceName} — ${patientLabel(patient)}`
-        : `Appointment — ${patientLabel(patient)}`;
+        ? `${serviceName} with ${patientLabel(patient)}`
+        : `Appointment with ${patientLabel(patient)}`;
       const { eventId } = await calendar.createEvent({
         summary,
         description: "Booked automatically by casdey.",

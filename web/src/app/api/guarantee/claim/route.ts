@@ -4,6 +4,7 @@ import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { loadGuaranteeStatus } from "@/lib/guarantee-data";
+import { paymentsFundingWindow } from "@/lib/guarantee";
 import { stripeClient } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -34,7 +35,9 @@ export async function POST(request: NextRequest): Promise<Response> {
       "error",
       status.state === "claimed"
         ? "This has already been claimed."
-        : "There is nothing to claim right now.",
+        : status.state === "needs_review"
+          ? "Set your typical appointment value in Settings so we can check this, then contact us and we will handle the refund."
+          : "There is nothing to claim right now.",
     );
     return NextResponse.redirect(back, 303);
   }
@@ -86,19 +89,36 @@ export async function POST(request: NextRequest): Promise<Response> {
   // getting it wrong on the display, because guarantee_claims is a one-shot,
   // never-re-armed slot (see the insert above) — a claim that finds nothing
   // to refund still burns the practice's only chance.
-  const { data: payments } = await admin
+  const { data: allPayments } = await admin
     .from("subscription_payments")
     .select("*")
     .eq("practice_id", practice.id)
     .gte("paid_at", practice.premium_started_at ?? status.window.start.toISOString())
     .lte("paid_at", status.window.end.toISOString());
 
+  // Narrow to the same billing period loadGuaranteeStatus judged as "paid", so
+  // the refund can never hand back more than the guarantee was measured against
+  // (an extra pre-window month, for a practice slow to launch its first
+  // campaign, must not be refunded).
+  type PaymentRow = {
+    id: string;
+    paid_at: string;
+    amount_minor: number;
+    refunded_minor: number;
+    stripe_payment_intent_id: string | null;
+    stripe_charge_id: string | null;
+  };
+  const payments = paymentsFundingWindow(
+    (allPayments ?? []) as PaymentRow[],
+    status.window.start,
+  );
+
   const stripe = stripeClient();
   const refundIds: string[] = [];
   let refundedMinor = 0;
   let allSucceeded = true;
 
-  for (const payment of payments ?? []) {
+  for (const payment of payments) {
     const owed = payment.amount_minor - payment.refunded_minor;
     if (owed <= 0) continue;
 

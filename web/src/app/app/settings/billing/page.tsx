@@ -173,6 +173,13 @@ export default async function BillingPage(
                 <GuaranteeClaimForm />
               </div>
             </>
+          ) : guarantee.state === "needs_review" ? (
+            <p className="text-[0.9375rem] text-graphite">
+              Your guarantee window has closed. To check whether you are owed a
+              refund we need your typical appointment value, which is not set
+              yet. Add it under Settings, then get in touch and we will handle
+              the refund for you.
+            </p>
           ) : guarantee.claim.status === "refunded" ? (
             <p className="text-[0.9375rem] text-graphite">
               Refunded{" "}

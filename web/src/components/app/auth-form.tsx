@@ -7,7 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 import { Button } from "./ui";
 import { IconGoogle } from "./icons";
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "reset";
 type Status = "idle" | "working" | "sent" | "error";
 
 /**
@@ -96,6 +96,30 @@ export function AuthForm({
     router.push(next);
   }
 
+  async function onReset(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "").trim();
+
+    setStatus("working");
+    setMessage("");
+
+    const supabase = supabaseBrowser();
+    // Sends a recovery link back through /auth/callback, which exchanges it for
+    // a session and lands the user on /reset-password to choose a new one.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+    });
+
+    if (error) {
+      setStatus("error");
+      setMessage(error.message);
+      return;
+    }
+    setStatus("sent");
+    setMessage(email);
+  }
+
   async function onGoogle() {
     setStatus("working");
     setMessage("");
@@ -114,13 +138,72 @@ export function AuthForm({
   }
 
   if (status === "sent") {
+    const isReset = mode === "reset";
     return (
       <div className="card p-7">
-        <h1 className="display text-[1.375rem]">Confirm your email</h1>
+        <h1 className="display text-[1.375rem]">
+          {isReset ? "Check your email" : "Confirm your email"}
+        </h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
-          We sent a link to{" "}
-          <span className="literal text-ink">{message}</span>. Open it and you
-          are in. It can take a minute, and it sometimes lands in spam.
+          We sent {isReset ? "a password reset link" : "a link"} to{" "}
+          <span className="literal text-ink">{message}</span>.{" "}
+          {isReset
+            ? "Open it to choose a new password."
+            : "Open it and you are in."}{" "}
+          It can take a minute, and it sometimes lands in spam.
+        </p>
+      </div>
+    );
+  }
+
+  if (mode === "reset") {
+    return (
+      <div className="card p-7">
+        <h1 className="display text-[1.5rem]">Reset your password</h1>
+        <p className="mt-2 text-[0.9375rem] text-graphite">
+          Enter your work email and we will send you a link to set a new one.
+        </p>
+
+        <form onSubmit={onReset} noValidate className="mt-6">
+          <div className="mb-5">
+            <label htmlFor={`${id}-reset-email`} className="field-label">
+              Work email
+            </label>
+            <input
+              id={`${id}-reset-email`}
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              disabled={working}
+              className="field"
+              placeholder="you@yourpractice.co.uk"
+            />
+          </div>
+
+          {status === "error" ? (
+            <p role="alert" className="notice notice-error mb-4">
+              {message}
+            </p>
+          ) : null}
+
+          <Button type="submit" disabled={working} className="w-full">
+            {working ? "One moment" : "Send reset link"}
+          </Button>
+        </form>
+
+        <p className="mt-5 text-center text-[0.875rem] text-graphite">
+          <button
+            type="button"
+            onClick={() => {
+              setMode("signin");
+              setStatus("idle");
+              setMessage("");
+            }}
+            className="font-semibold text-teal underline underline-offset-4 hover:no-underline"
+          >
+            Back to sign in
+          </button>
         </p>
       </div>
     );
@@ -187,6 +270,21 @@ export function AuthForm({
             className="field"
             placeholder={mode === "signup" ? "At least 8 characters" : ""}
           />
+          {mode === "signin" ? (
+            <div className="mt-2 text-right">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("reset");
+                  setStatus("idle");
+                  setMessage("");
+                }}
+                className="text-[0.8125rem] font-semibold text-teal underline underline-offset-4 hover:no-underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {status === "error" ? (

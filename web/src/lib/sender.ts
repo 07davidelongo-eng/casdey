@@ -47,13 +47,21 @@ export async function drainQueue(
   const client = supabaseAdmin();
   const report: SendReport = { sent: 0, failed: 0, suppressed: 0, skipped: 0 };
 
+  // Snapshot the cutoff once so the same value gates both the initial read and
+  // the per-row claim below.
+  const nowIso = new Date().toISOString();
+  // How long a claimed row is hidden from other drains while this one works it.
+  // Comfortably longer than a send (the cron route caps at ~60s); if this run
+  // crashes mid-send the row simply becomes due again after the lease.
+  const leaseUntil = new Date(Date.now() + 10 * 60_000).toISOString();
+
   const { data, error } = await client
     .from("campaign_messages")
     .select(
       "id, practice_id, campaign_id, patient_id, to_email, unsubscribe_token, attempts",
     )
     .eq("status", "queued")
-    .lte("send_after", new Date().toISOString())
+    .lte("send_after", nowIso)
     .order("send_after", { ascending: true })
     .limit(limit);
 
@@ -73,6 +81,23 @@ export async function drainQueue(
   const sentToday = new Map<string, number>();
 
   for (const message of messages) {
+    // Atomically claim the row before doing anything with it. Two overlapping
+    // drains (the hourly cron and a manual trigger, or a Vercel retry) both read
+    // the same queued rows; without this the same patient gets emailed twice.
+    // The claim moves send_after to the lease, and the `.lte(send_after, nowIso)`
+    // guard is what makes it exclusive: whichever drain commits first bumps the
+    // value out of range, so the other claims nothing and skips the row.
+    const { data: claimed } = await client
+      .from("campaign_messages")
+      .update({ send_after: leaseUntil })
+      .eq("id", message.id)
+      .eq("status", "queued")
+      .lte("send_after", nowIso)
+      .select("id")
+      .maybeSingle();
+
+    if (!claimed) continue; // another drain already took this message
+
     const practice = await cached(practices, message.practice_id, async () => {
       const { data: row } = await client
         .from("practices")

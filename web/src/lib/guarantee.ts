@@ -32,6 +32,31 @@ export const GUARANTEE_WINDOW_DAYS = 30;
 export type GuaranteeWindow = { start: Date; end: Date };
 
 /**
+ * The payments that actually fund the guarantee window.
+ *
+ * The window opens when the first campaign starts. The billing period covering
+ * that moment is the latest payment on or before window.start; that payment,
+ * plus anything paid during the window, is what the guarantee is measured
+ * against and what a refund hands back. Earlier payments a practice ran up by
+ * taking weeks to launch its first campaign fund a period largely before the
+ * window, so counting or refunding them would over-pay the practice against
+ * revenue that is only ever measured from window.start onward.
+ */
+export function paymentsFundingWindow<T extends { paid_at: string }>(
+  payments: T[],
+  windowStart: Date,
+): T[] {
+  const startMs = windowStart.getTime();
+  const priorMs = payments
+    .map((p) => new Date(p.paid_at).getTime())
+    .filter((t) => t <= startMs);
+  // Anchor on the billing period that covers the window's start. If somehow no
+  // payment lands on or before it, keep them all rather than exclude everything.
+  const anchorMs = priorMs.length ? Math.max(...priorMs) : -Infinity;
+  return payments.filter((p) => new Date(p.paid_at).getTime() >= anchorMs);
+}
+
+/**
  * The one lifetime guarantee window, or null if it has not started yet.
  *
  * `firstPaidCampaignStartedAt` must already be filtered to campaigns started
@@ -76,6 +101,16 @@ export type GuaranteeStatus =
       revenueRecoveredMinor: number;
       paidMinor: number;
     }
+  // The window closed short, but the practice never set a typical appointment
+  // value, so there is no honest revenue figure to judge the refund against.
+  // A one-click, no-review refund would let any practice claw back a full
+  // window simply by leaving that setting blank, so this routes to us instead.
+  | {
+      state: "needs_review";
+      window: GuaranteeWindow;
+      revenueRecoveredMinor: number;
+      paidMinor: number;
+    }
   // A claim already exists for this practice's one lifetime window.
   | { state: "claimed"; claim: GuaranteeClaim };
 
@@ -95,6 +130,13 @@ export function guaranteeStatus(params: {
   revenueRecoveredMinor: number;
   paidMinor: number;
   existingClaim: GuaranteeClaim | null;
+  /**
+   * Whether the revenue figure can be trusted, i.e. the practice has set a
+   * positive typical appointment value. Defaults to true for callers (and
+   * tests) that only exercise the priced path. When false, a shortfall becomes
+   * `needs_review` rather than an auto-refundable `claimable`.
+   */
+  revenueEstimable?: boolean;
   now?: Date;
 }): GuaranteeStatus {
   if (params.existingClaim) {
@@ -132,8 +174,17 @@ export function guaranteeStatus(params: {
   // if somehow nothing was collected in the window at all — "claimable" only
   // ever means there is a real payment behind it to hand back.
   const met = paidMinor <= 0 || revenueRecoveredMinor >= paidMinor;
+  if (met) {
+    return { state: "met", window, revenueRecoveredMinor, paidMinor };
+  }
 
-  return met
-    ? { state: "met", window, revenueRecoveredMinor, paidMinor }
-    : { state: "claimable", window, revenueRecoveredMinor, paidMinor };
+  // A genuine shortfall — but only auto-refundable when the revenue figure is
+  // trustworthy. Without a set appointment value the "recovered" number is a
+  // hard zero for any practice, which would make the shortfall automatic and
+  // the guarantee free money; send those to review instead.
+  if (params.revenueEstimable === false) {
+    return { state: "needs_review", window, revenueRecoveredMinor, paidMinor };
+  }
+
+  return { state: "claimable", window, revenueRecoveredMinor, paidMinor };
 }

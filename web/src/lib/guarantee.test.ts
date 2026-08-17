@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { GUARANTEE_WINDOW_DAYS, guaranteeStatus, guaranteeWindow } from "./guarantee";
+import {
+  GUARANTEE_WINDOW_DAYS,
+  guaranteeStatus,
+  guaranteeWindow,
+  paymentsFundingWindow,
+} from "./guarantee";
 import type { GuaranteeClaim } from "./types";
 
 const DAY = 86_400_000;
@@ -140,5 +145,55 @@ describe("guaranteeStatus", () => {
       now: new Date("2026-09-10T00:00:00Z"),
     });
     expect(status).toEqual({ state: "claimed", claim });
+  });
+
+  it("is needs_review, not claimable, when the shortfall rests on an unset appointment value", () => {
+    const status = guaranteeStatus({
+      premiumStartedAt: "2026-08-01T00:00:00Z",
+      firstPaidCampaignStartedAt: "2026-08-10T00:00:00Z",
+      revenueRecoveredMinor: 0,
+      paidMinor: 25000,
+      revenueEstimable: false,
+      existingClaim: null,
+      now: new Date("2026-09-10T00:00:00Z"),
+    });
+    // Without a trustworthy revenue figure, a shortfall must not be an
+    // automatic self-serve refund — that would be free money for leaving a
+    // setting blank.
+    expect(status.state).toBe("needs_review");
+  });
+
+  it("is still met (not needs_review) when nothing was paid, even without an appointment value", () => {
+    const status = guaranteeStatus({
+      premiumStartedAt: "2026-08-01T00:00:00Z",
+      firstPaidCampaignStartedAt: "2026-08-10T00:00:00Z",
+      revenueRecoveredMinor: 0,
+      paidMinor: 0,
+      revenueEstimable: false,
+      existingClaim: null,
+      now: new Date("2026-09-10T00:00:00Z"),
+    });
+    expect(status.state).toBe("met");
+  });
+});
+
+describe("paymentsFundingWindow", () => {
+  const windowStart = new Date("2026-09-01T00:00:00Z");
+
+  it("keeps the payment covering window.start plus any inside the window, dropping earlier months", () => {
+    const rows = [
+      { paid_at: "2026-07-02T00:00:00Z", amount_minor: 25000 }, // extra pre-window month
+      { paid_at: "2026-08-02T00:00:00Z", amount_minor: 25000 }, // funds the window
+      { paid_at: "2026-09-15T00:00:00Z", amount_minor: 25000 }, // during the window
+    ];
+    expect(paymentsFundingWindow(rows, windowStart).map((r) => r.paid_at)).toEqual([
+      "2026-08-02T00:00:00Z",
+      "2026-09-15T00:00:00Z",
+    ]);
+  });
+
+  it("keeps everything when no payment precedes the window", () => {
+    const rows = [{ paid_at: "2026-09-05T00:00:00Z", amount_minor: 25000 }];
+    expect(paymentsFundingWindow(rows, windowStart)).toHaveLength(1);
   });
 });

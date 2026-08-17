@@ -17,6 +17,11 @@ import type { RawPatient } from "./types";
  */
 
 const BATCH_SIZE = 500;
+/** Enough for the practice to see which records to fix, not a copy of the file. */
+const MAX_FAILURES = 50;
+
+/** One record the upsert could not write, with something the practice can act on. */
+export type UpsertFailure = { ref: string; reason: string };
 
 export type UpsertResult = {
   imported: number;
@@ -24,6 +29,8 @@ export type UpsertResult = {
   failed: number;
   /** Ids of patients created by this run, for the timeline. */
   newPatientIds: string[];
+  /** Per-record reasons for any failures, so a bad row is diagnosable. */
+  failures: UpsertFailure[];
 };
 
 type Row = {
@@ -80,12 +87,28 @@ export async function upsertPatients(
     updated: 0,
     failed: 0,
     newPatientIds: [],
+    failures: [],
   };
 
   await run(withRef, "practice_id,external_ref", options, result);
   await run(withoutRef, "practice_id,email", options, result);
 
   return result;
+}
+
+/**
+ * Collapses rows that share a conflict key so a single statement never tries to
+ * touch the same target row twice (Postgres rejects the whole batch otherwise).
+ * The last occurrence wins, matching the "re-import updates" contract: a later
+ * row in the file is the more recent data.
+ */
+function dedupeByConflictKey(
+  patients: RawPatient[],
+  keyOf: (p: RawPatient) => string,
+): RawPatient[] {
+  const byKey = new Map<string, RawPatient>();
+  for (const patient of patients) byKey.set(keyOf(patient), patient);
+  return [...byKey.values()];
 }
 
 async function run(
@@ -95,9 +118,13 @@ async function run(
   result: UpsertResult,
 ): Promise<void> {
   const client = supabaseAdmin();
+  const keyOf: (p: RawPatient) => string = onConflict.endsWith("email")
+    ? (p) => (p.email ?? "").toLowerCase()
+    : (p) => p.externalRef ?? "";
+  const deduped = dedupeByConflictKey(patients, keyOf);
 
-  for (let start = 0; start < patients.length; start += BATCH_SIZE) {
-    const slice = patients.slice(start, start + BATCH_SIZE);
+  for (let start = 0; start < deduped.length; start += BATCH_SIZE) {
+    const slice = deduped.slice(start, start + BATCH_SIZE);
     const rows = slice.map((patient) =>
       toRow(patient, options.practiceId, options.importId, options.source),
     );
@@ -108,9 +135,13 @@ async function run(
       .select("id, created_at, updated_at");
 
     if (error) {
-      // One bad batch should not lose the rest of the file.
-      console.error("[import] batch failed", error.code, error.message);
-      result.failed += slice.length;
+      // A whole batch failing usually means one offending row (a row that
+      // collides with the *other* unique index, e.g. an external-ref row whose
+      // email already belongs to a different patient). Retry the slice one row
+      // at a time so a single bad record can't drop the other 499, and record
+      // which record failed and why instead of a silent aggregate.
+      console.error("[import] batch failed, retrying row by row", error.code);
+      await runRowByRow(client, slice, onConflict, options, result);
       continue;
     }
 
@@ -121,6 +152,47 @@ async function run(
       if (row.created_at === row.updated_at) {
         result.imported += 1;
         result.newPatientIds.push(row.id as string);
+      } else {
+        result.updated += 1;
+      }
+    }
+  }
+}
+
+/** Fallback for a batch that errored: isolate each row so one can't sink many. */
+async function runRowByRow(
+  client: ReturnType<typeof supabaseAdmin>,
+  slice: RawPatient[],
+  onConflict: string,
+  options: { practiceId: string; importId: string; source: string },
+  result: UpsertResult,
+): Promise<void> {
+  for (const patient of slice) {
+    const row = toRow(patient, options.practiceId, options.importId, options.source);
+    const { data, error } = await client
+      .from("patients")
+      .upsert(row, { onConflict, ignoreDuplicates: false })
+      .select("id, created_at, updated_at")
+      .maybeSingle();
+
+    if (error) {
+      result.failed += 1;
+      if (result.failures.length < MAX_FAILURES) {
+        result.failures.push({
+          ref: patient.externalRef ?? patient.email ?? "(no reference)",
+          reason:
+            error.code === "23505"
+              ? "email already belongs to another patient in this practice"
+              : error.message,
+        });
+      }
+      continue;
+    }
+
+    if (data) {
+      if (data.created_at === data.updated_at) {
+        result.imported += 1;
+        result.newPatientIds.push(data.id as string);
       } else {
         result.updated += 1;
       }

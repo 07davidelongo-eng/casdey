@@ -103,10 +103,20 @@ export function emailProvider(): EmailProvider {
 }
 
 export function siteUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ??
-    "http://localhost:3000"
-  );
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+  if (configured) return configured;
+  // In production a missing value must never silently become localhost: this
+  // string is baked into every patient unsubscribe/booking link and is the URL
+  // the Twilio webhook signature is verified against. A localhost fallback there
+  // means dead opt-out links in already-sent mail and a 401'd WhatsApp channel,
+  // with no error surfaced. Fail loudly instead; the localhost default is for
+  // local dev only.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_SITE_URL is not set. Refusing to fall back to http://localhost:3000 in production.",
+    );
+  }
+  return "http://localhost:3000";
 }
 
 export function unsubscribeUrl(token: string): string {

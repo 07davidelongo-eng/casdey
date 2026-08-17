@@ -31,6 +31,15 @@ export function publicSupabaseConfig(): { url: string; key: string } {
       "Supabase Auth is not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY",
     );
   }
+  // Guard against the recurring config incident: the dashboard's "Project URL"
+  // field is the bare origin, but the REST/GraphQL panels show a URL ending in
+  // /rest/v1. Pasting that here builds a client that 404s (PGRST125) on every
+  // call. Fail loudly at construction instead of silently in production.
+  if (/\/(rest|auth|graphql|storage|realtime)\/v\d/.test(url)) {
+    throw new Error(
+      `NEXT_PUBLIC_SUPABASE_URL must be the bare project URL (https://<ref>.supabase.co), with no /rest/v1 or similar path suffix. Got: ${url}`,
+    );
+  }
   return { url, key };
 }
 

@@ -2,7 +2,12 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { guaranteeStatus, guaranteeWindow, type GuaranteeStatus } from "./guarantee";
+import {
+  guaranteeStatus,
+  guaranteeWindow,
+  paymentsFundingWindow,
+  type GuaranteeStatus,
+} from "./guarantee";
 import { estimatedRecoveredMinor } from "./money";
 import type { GuaranteeClaim, Practice } from "./types";
 
@@ -112,34 +117,33 @@ export async function loadGuaranteeStatus(
       .eq("is_test", false)
       .gte("reactivated_at", window.start.toISOString())
       .lte("reactivated_at", countedThrough.toISOString()),
-    // Deliberately practice.premium_started_at here, not window.start (the
-    // first qualifying campaign's start): the payment that actually unlocked
-    // Premium always happens before the practice gets around to approving a
-    // campaign, so window.start would exclude the very payment the guarantee
-    // exists to cover, and paidMinor would read 0 for almost every real
-    // practice — which "met" below reads as "nothing to refund" regardless of
-    // outcome. Safe to widen like this only because premium_started_at is set
-    // once and never touched again (see ../app/api/stripe/webhook/route.ts),
-    // so this can never pull in a second, unrelated billing period.
+    // Read from premium_started_at so the payment that unlocked Premium (which
+    // lands before the first campaign is approved) is in scope, then narrow to
+    // the window's own billing period with paymentsFundingWindow() below. The
+    // old code summed this whole span, which over-counted — and over-refunded —
+    // any extra month a practice ran up before launching its first campaign.
     supabase
       .from("subscription_payments")
-      .select("amount_minor")
+      .select("amount_minor, paid_at")
       .eq("practice_id", practice.id)
       .gte("paid_at", practice.premium_started_at)
       .lte("paid_at", countedThrough.toISOString()),
   ]);
 
-  const paidMinor = (paidRows ?? []).reduce(
-    (sum, row) => sum + (row.amount_minor as number),
-    0,
-  );
+  const paidMinor = paymentsFundingWindow(
+    (paidRows ?? []) as { amount_minor: number; paid_at: string }[],
+    window.start,
+  ).reduce((sum, row) => sum + row.amount_minor, 0);
 
   // Same formula the dashboard uses (see ./money.ts), so the number on the
   // billing page and the number a claim is judged against can never drift
-  // apart. If the practice has never set a value, there is no honest revenue
-  // figure to credit them with, so it counts as zero rather than blocking the
-  // guarantee outright — the guarantee should not be defeated by a setting
-  // nobody was told they had to fill in.
+  // apart. When the practice has never set a value there is no honest revenue
+  // figure: it still reads as zero here, but revenueEstimable=false below means
+  // a shortfall routes to review rather than an automatic self-serve refund, so
+  // an unset value can no longer be used to claw back a full window for free.
+  const revenueEstimable =
+    practice.appointment_value_minor != null &&
+    practice.appointment_value_minor > 0;
   const revenueRecoveredMinor =
     estimatedRecoveredMinor(rebooked ?? 0, practice.appointment_value_minor) ??
     0;
@@ -149,6 +153,7 @@ export async function loadGuaranteeStatus(
     firstPaidCampaignStartedAt,
     revenueRecoveredMinor,
     paidMinor,
+    revenueEstimable,
     existingClaim: null,
     now,
   });

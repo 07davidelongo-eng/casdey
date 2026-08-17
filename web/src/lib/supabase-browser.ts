@@ -24,6 +24,13 @@ export function supabaseBrowser(): SupabaseClient {
       "Supabase Auth is not configured: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY",
     );
   }
+  // See publicSupabaseConfig() in ./supabase-server.ts: reject a URL carrying a
+  // /rest/v1 (or similar) suffix rather than let it silently break auth.
+  if (/\/(rest|auth|graphql|storage|realtime)\/v\d/.test(url)) {
+    throw new Error(
+      `NEXT_PUBLIC_SUPABASE_URL must be the bare project URL (https://<ref>.supabase.co), with no /rest/v1 or similar path suffix. Got: ${url}`,
+    );
+  }
 
   client = createBrowserClient(url, key);
   return client;
