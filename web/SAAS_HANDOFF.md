@@ -12,16 +12,21 @@ detection, re-engagement email campaigns, Stripe-billed Premium, and the GDPR
 controls patient data requires. All additive: new routes/files only, so the
 landing and waitlist pages are untouched.
 
-## Deployment state (as of 2026-08-14)
+## Deployment state (as of 2026-08-17)
 
 - **Landing + waitlist are LIVE** at https://casdey.com (Vercel, `main`, DNS
-  moved off GoDaddy; Zoho email untouched). Vercel is now on a **paid** plan
-  (card added), so the trial-expiry risk is gone.
-- **The SaaS ships but is inert in production.** `/app` and `/login` exist in
-  the deployed code, but production env vars are the waitlist-safe set only, so
-  Supabase Auth / Stripe / sending are unconfigured and the app can't
-  authenticate anyone. Going live is purely: add the env vars in Vercel (below)
-  — no redeploy-from-scratch.
+  moved off GoDaddy; Zoho email untouched). Vercel has a card on file but is
+  still showing as "Pro Trial" in billing (running 13–27 Aug 2026) as of
+  2026-08-17 — not yet auto-converted or manually converted to paid; worth
+  confirming before the 27th.
+- **The SaaS's env vars are now fully set in Vercel Production (2026-08-17)**
+  — `NEXT_PUBLIC_SUPABASE_*`, the full `STRIPE_*` set (live keys, 4 prices, 2
+  coupons, webhook secret), `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`, and
+  `CRON_SECRET`. **Production has not been redeployed since**, so `/app` and
+  `/login` are still not live for real users despite the vars being present.
+  Also still unverified: whether the Google OAuth consent screen (shared by
+  login and Calendar) is Published rather than stuck in Testing mode, which
+  would block real Google sign-ins even after redeploying.
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
   eu-west-1 — corrected 2026-08-15, earlier docs said Frankfurt) backs both
   the waitlist and the SaaS. Migrations through `0010` are **applied** (run
@@ -119,24 +124,32 @@ in `web/.env.local`. Confirmed locally: the campaign builder's "replies go to
 casdey" warning no longer renders, meaning `emailProvider()` now picks Resend.
 
 **Still open before real practices can send:** the same two env vars
-(`RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`) need adding to **Vercel**
-production — not done yet, deliberately, consistent with the rest of `/app`
-staying inert in prod (see Infrastructure below). A real send through Resend
-(both a self-test and an approved campaign) was confirmed working locally
-2026-08-16, as part of the full-path walk in Verified above.
+(`RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`) were added to **Vercel**
+production on 2026-08-17 (see Deployment state above) but production hasn't
+been redeployed since, and no real send through Resend has been tested in
+production yet. A real send through Resend (both a self-test and an approved
+campaign) was confirmed working locally 2026-08-16, as part of the full-path
+walk in Verified above.
 
 ## To go live / to test the full flow — env vars
 
 In `web/.env.local` (local) or Vercel (production):
 
 - **Supabase Auth:** `NEXT_PUBLIC_SUPABASE_URL` (bare project URL, not
-  `/rest/v1`), `NEXT_PUBLIC_SUPABASE_ANON_KEY`. *(Set locally already.)*
+  `/rest/v1`), `NEXT_PUBLIC_SUPABASE_ANON_KEY`. *(Set locally, and in Vercel
+  Production as of 2026-08-17.)*
 - **Google OAuth:** create an OAuth client, paste into Supabase → Auth →
   Providers → Google, register the callback URL. Email/password works without
-  it; the Google button needs it.
+  it; the Google button needs it. *(Client created and enabled in Supabase —
+  see Stage 2 progress in CLAUDE.md — but whether its consent screen is
+  Published rather than stuck in Testing mode is still unchecked as of
+  2026-08-17; Testing mode would block real Google sign-ins.)*
 - **Stripe:** `STRIPE_SECRET_KEY`, the four `STRIPE_PRICE_*`, and the two
-  `STRIPE_COUPON_*` ids. *(All set locally; run `node scripts/stripe-setup.mjs`
-  to (re)create products, prices, and coupons — idempotent, test-only.)*
+  `STRIPE_COUPON_*` ids. *(Test-mode set locally via `scripts/stripe-setup.mjs`
+  — idempotent, but the script deliberately refuses to run against a live key.
+  Live-mode product/prices/coupons were created by hand in the Stripe
+  dashboard on 2026-08-17 to match the test-mode spec, and all six live ids
+  are now set in Vercel Production.)*
 - **`STRIPE_WEBHOOK_SECRET`** from `stripe listen --forward-to
   localhost:3000/api/stripe/webhook` (local) or the endpoint secret (prod).
   Without it, an upgrade won't sync back to `subscription_status`. The prod
@@ -146,14 +159,20 @@ In `web/.env.local` (local) or Vercel (production):
   written, and the guarantee can never start or find anything to refund. That
   handler also fetches the invoice with `expand: ["payments"]` (fixed
   2026-08-16, see `SAAS_ROADMAP.md` #8) — without it Stripe's API omits the
-  payment/charge id entirely, so a refund would have nothing to target.
+  payment/charge id entirely, so a refund would have nothing to target. *(A
+  live endpoint, "casdey production" → `https://casdey.com/api/stripe/webhook`,
+  was created 2026-08-17 listening to exactly `checkout.session.completed`,
+  the three `customer.subscription.*` events, `invoice.paid`, and
+  `invoice.payment_failed`; its signing secret is set in Vercel Production.)*
 - **`RESEND_API_KEY`** (optional): without it, campaign email sends via Zoho,
   which can't set a per-practice reply-to. With it + casdey.com verified,
-  replies land in the practice's own inbox.
+  replies land in the practice's own inbox. *(Set in Vercel Production as of
+  2026-08-17.)*
 - **`CRON_SECRET`** guards `POST /api/cron/send` (drains the send queue).
-  `web/vercel.json` now registers the hourly Vercel cron hitting that path
-  (added 2026-08-17) — the config side is done; `CRON_SECRET` still needs
-  setting in Vercel prod env for the scheduler's calls to authenticate.
+  `web/vercel.json` registers the hourly Vercel cron hitting that path (added
+  2026-08-17). *(`CRON_SECRET` itself is now also set in Vercel Production as
+  of 2026-08-17 — both halves are done; still pending an actual redeploy to
+  take effect.)*
 - **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
   leave unset for V1; `"false"` for V2.
 - **WhatsApp (roadmap #2, built 2026-08-15, set locally, not yet live in

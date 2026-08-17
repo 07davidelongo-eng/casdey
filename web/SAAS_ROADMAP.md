@@ -238,9 +238,10 @@ build there. Completed the external config instead:
 
 **Known caveat:** the Google OAuth consent screen may still be in "Testing"
 mode (only added test users can complete sign-in) unless published separately
-- worth checking before relying on this for a real prospect. Also still
-subject to the existing production gate: `/app` stays inert live until
-`NEXT_PUBLIC_SUPABASE_*` etc. are set on Vercel.
+- still unchecked as of 2026-08-17, worth confirming before relying on this
+for a real prospect. `NEXT_PUBLIC_SUPABASE_*` and the rest of `/app`'s env
+vars are now set on Vercel (2026-08-17), but production hasn't been
+redeployed with them yet — see `SAAS_HANDOFF.md`.
 - Also flagged while in the Supabase dashboard: the project's DB region reads
   **eu-west-1 (Ireland)**, not eu-central-1 (Frankfurt) as CLAUDE.md /
   SAAS_HANDOFF state - still EU, but the "stored in Frankfurt" marketing claim
@@ -353,7 +354,8 @@ app console errors (only dev HMR-socket noise). tsc / lint / test (70/70) /
 build all clean. No schema or server data, so no migration.
 
 **Still open:** same Vercel production gate as the rest of `/app` (the widget
-itself needs no env vars, but `/app` is inert in prod until Auth/etc. are set).
+itself needs no env vars; `/app`'s env vars are now set as of 2026-08-17 but
+production hasn't been redeployed yet — see `SAAS_HANDOFF.md`).
 
 ## 6. Fix the send issue — `done` (local), `needs Vercel env for prod`
 Campaign email used to send through casdey's own Zoho account, which can't
@@ -381,12 +383,12 @@ side:
   can't set a reply-to) is gone, confirming `emailProvider()` now picks
   Resend over Zoho.
 
-**Still open:** add the same `RESEND_API_KEY` and `CASDEY_SENDING_ADDRESS` to
-**Vercel** production env vars before this is live for real practices - not
-done yet, deliberately, same reasoning as the rest of `/app` staying inert in
-prod (see CLAUDE.md Infrastructure section). No real send has been tested end
--to-end yet (approving a campaign and letting it queue through Resend) - worth
-doing once there's a safe test address to send to.
+**Still open:** `RESEND_API_KEY` and `CASDEY_SENDING_ADDRESS` were added to
+**Vercel** production env vars on 2026-08-17 (see CLAUDE.md Infrastructure
+section), but production hasn't been redeployed since, and no real send has
+been tested end-to-end in production yet (approving a campaign and letting it
+queue through Resend) - worth doing once there's a safe test address to send
+to.
 - No longer blocks #4 on the email side. #4 still needs #2 (WhatsApp) for
   full parity, but email self-test is unblocked now.
 
@@ -518,8 +520,9 @@ reasons:
   the actual claim route.
 
 **Still open:**
-- Same as #6/#3: Vercel production env still deliberately lacks Stripe/Auth
-  vars, so this is inert in production until that gate lifts.
+- Same as #6/#3: Vercel production env got its Stripe/Auth vars on 2026-08-17
+  (including live-mode Stripe prices/coupons/webhook, see `SAAS_HANDOFF.md`),
+  but production hasn't been redeployed since, so this is still not live.
 - Whether the subscription itself should be cancelled automatically when a
   guarantee refund fires, or left running for the practice to cancel
   themselves — not asked, so left running (belt-and-braces: they can always
@@ -543,9 +546,11 @@ reasons:
 
 Status: **done** — #1 (language only), #2 (local), #3, #4 (local, both
 channels), #5 (local), #6 (local), #7, #8 (local). Every item on this list has
-shipped at least locally; what remains is external setup (Vercel env vars,
-Twilio/Meta approval) rather than more building — see each item above for
-its specific gate.
+shipped at least locally; what remains is external setup rather than more
+building — Vercel got its core env vars 2026-08-17 but still needs a redeploy,
+the Google OAuth consent screen's Published-vs-Testing status needs checking,
+and #2's Twilio/Meta approval is still pending — see each item above for its
+specific gate.
 
 ## Open questions to pin down as we go
 - #2: **answered** — Twilio for the WhatsApp Business API provider, Claude
