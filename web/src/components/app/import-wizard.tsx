@@ -44,7 +44,7 @@ const FIELDS: {
   { key: "firstName", label: "First name", hint: "" },
   { key: "lastName", label: "Surname", hint: "" },
   { key: "fullName", label: "Full name", hint: "Only if your file has one name column instead of two." },
-  { key: "phone", label: "Phone", hint: "Stored, not used yet." },
+  { key: "phone", label: "Phone", hint: "Used for WhatsApp, if you turn that on." },
   { key: "visitCount", label: "Number of visits", hint: "If missing, every patient counts as one visit." },
 ];
 

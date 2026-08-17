@@ -24,9 +24,11 @@ landing and waitlist pages are untouched.
   — no redeploy-from-scratch.
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
   eu-west-1 — corrected 2026-08-15, earlier docs said Frankfurt) backs both
-  the waitlist and the SaaS. Migrations through `0006` are **applied** (run
+  the waitlist and the SaaS. Migrations through `0010` are **applied** (run
   directly via `pg`, since the earlier SQL-editor attempts only ever applied
-  fragments — that saga is resolved).
+  fragments — that saga is resolved). `0007` is the guarantee, `0008` is the
+  self-test patient flag, `0009` is the WhatsApp channel, `0010` is the
+  booking/calendar loop (see below).
 
 ## The offer model (implemented) — see `src/lib/plan.ts`
 
@@ -67,15 +69,27 @@ Those are easy to add in `capabilities()` when decided.
 ## Verified
 
 - `npx tsc --noEmit`, `npm run lint`, `npm run build` — all clean
-- `npm run test` — **50/50 pass** (dormancy rules, CSV parsing, and the plan
-  model: trial/free/premium derivation + send gating)
+- `npm run test` — **113/113 pass** as of 2026-08-16 (dormancy rules, CSV
+  parsing incl. phone normalisation, the plan model, calendar/booking, and
+  more — this number moves every session, treat it as a floor)
 - The onboarding RPC path was exercised end-to-end against the live DB
   (create_practice via the API, then cleaned up)
 - Login page + auth handshake render; `/app/*` correctly redirects to `/login`
+- **The full customer path was walked end-to-end 2026-08-16** as a genuinely
+  fresh signup (not the existing `test@casdey.com` fixture): signup → email
+  confirmation → onboarding → CSV import → dormancy detection → campaign
+  build/send → real Stripe Checkout to Premium → guarantee claim → real
+  Stripe refund, plus the WhatsApp inbound webhook and the Google Calendar
+  booking loop. Found and fixed 5 real bugs along the way — see the dated
+  bullets in `CLAUDE.md` Stage 2 progress and `SAAS_ROADMAP.md` items #2 and
+  #8 for detail. A second permanent test fixture, "Stress Test Dental
+  Clinic", now exists in the live Supabase project and Stripe test mode
+  alongside `test@casdey.com`/"Bridge Street Dental", complete with a
+  completed guarantee-refund cycle in its history.
 
-### Not yet verified (blocked on env below)
-The upgrade-with-discount half of the loop, which needs real Stripe: Free
-send-gate → upgrade → send. Code is in place; needs the keys.
+The upgrade-with-discount half of the loop (Free send-gate → upgrade → send)
+was verified for real 2026-08-16 as part of the full-path walk above — no
+longer the open item it once was here.
 
 The rest of the loop **was** walked end-to-end on 2026-08-14 (signup → free
 week → import → build a campaign → approve → real send attempt) with a fake
@@ -107,9 +121,9 @@ casdey" warning no longer renders, meaning `emailProvider()` now picks Resend.
 **Still open before real practices can send:** the same two env vars
 (`RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`) need adding to **Vercel**
 production — not done yet, deliberately, consistent with the rest of `/app`
-staying inert in prod (see Infrastructure below). Also, no real send has been
-approved end-to-end through Resend yet (only confirmed the provider switch,
-not an actual delivered email) — worth a real test send before relying on it.
+staying inert in prod (see Infrastructure below). A real send through Resend
+(both a self-test and an approved campaign) was confirmed working locally
+2026-08-16, as part of the full-path walk in Verified above.
 
 ## To go live / to test the full flow — env vars
 
@@ -129,7 +143,10 @@ In `web/.env.local` (local) or Vercel (production):
   endpoint must have **`invoice.paid`** enabled alongside the subscription
   events (added 2026-08-15 for the guarantee, see `SAAS_ROADMAP.md` #8) — without
   it, `practices.premium_started_at` and `subscription_payments` never get
-  written, and the guarantee can never start or find anything to refund.
+  written, and the guarantee can never start or find anything to refund. That
+  handler also fetches the invoice with `expand: ["payments"]` (fixed
+  2026-08-16, see `SAAS_ROADMAP.md` #8) — without it Stripe's API omits the
+  payment/charge id entirely, so a refund would have nothing to target.
 - **`RESEND_API_KEY`** (optional): without it, campaign email sends via Zoho,
   which can't set a per-practice reply-to. With it + casdey.com verified,
   replies land in the practice's own inbox.
@@ -137,19 +154,36 @@ In `web/.env.local` (local) or Vercel (production):
   Vercel cron hitting that path.
 - **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
   leave unset for V1; `"false"` for V2.
-- **WhatsApp (roadmap #2, built 2026-08-15, not yet live anywhere):**
-  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (E.164, no
-  `whatsapp:` prefix — the code adds it), and `ANTHROPIC_API_KEY` for the AI
-  reply loop (`CASDEY_WHATSAPP_AI_MODEL` optionally overrides the default
-  `claude-haiku-4-5-20251001`). None of these are set anywhere, including
-  locally: WhatsApp sending is one shared casdey Twilio number for every
-  practice (see `src/lib/whatsapp/`), and going live for real (outside
-  Twilio's WhatsApp Sandbox) additionally needs Twilio WhatsApp Business API
-  access, Meta Business verification, and at least one Meta-approved message
-  template (its Content SID goes in Settings → WhatsApp per practice, not in
-  an env var) — external, manual steps Davide has to complete himself, same
-  class of setup as the Resend domain verification above. Twilio's inbound
-  webhook must point at `/api/whatsapp/webhook`.
+- **WhatsApp (roadmap #2, built 2026-08-15, set locally, not yet live in
+  production):** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+  `TWILIO_WHATSAPP_FROM` (E.164, no `whatsapp:` prefix — the code adds it),
+  and `ANTHROPIC_API_KEY` for the AI reply loop (`CASDEY_WHATSAPP_AI_MODEL`
+  optionally overrides the default `claude-haiku-4-5-20251001`) are all set
+  in `web/.env.local` (Twilio trial sandbox credentials; the Anthropic key is
+  a real key on the "casdey" Console org, which still has a **$0 credit
+  balance** — needs funds added before AI replies actually work, confirmed
+  still blocking as of 2026-08-16). None are set on Vercel. WhatsApp sending
+  is one shared casdey Twilio number for every practice (see
+  `src/lib/whatsapp/`), and going live for real (outside Twilio's WhatsApp
+  Sandbox) additionally needs Twilio WhatsApp Business API access, Meta
+  Business verification, and at least one Meta-approved message template (its
+  Content SID goes in Settings → WhatsApp per practice, not in an env var) —
+  external, manual steps Davide has to complete himself, same class of setup
+  as the Resend domain verification above. Twilio's inbound webhook must
+  point at `/api/whatsapp/webhook`.
+- **Google Calendar / booking loop (built 2026-08-15, wired and live-verified
+  2026-08-16):** `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`
+  (the existing "casdey web" OAuth client from Google sign-in above, reused —
+  same Google Cloud project, with the Calendar scopes added to its consent
+  screen and both `http://localhost:3000/api/calendar/google/callback` and
+  the `casdey.com` equivalent added as authorised redirect URIs), and
+  `CALENDAR_TOKEN_KEY` (a random AES-256 key that encrypts each practice's
+  stored Google tokens at rest — generate with `node -e
+  "console.log(require('crypto').randomBytes(32).toString('base64'))"`). All
+  three set in `web/.env.local`, not on Vercel. Without them, Settings →
+  Booking shows "not set up" rather than erroring — the rest of booking
+  (self-serve slot picker, casdey's own record of the appointment) works
+  without a connected calendar, it just cannot see or write to Google.
 
 ## Local testing (current session)
 
@@ -162,13 +196,15 @@ directly — but a fresh signup already lands in the 7-day trial with full acces
 
 `CRON_SECRET` in local `.env.local` was empty (fails closed by design, see
 `src/app/api/cron/send/route.ts`) and is now set to a random local-only value
-so `POST /api/cron/send` can be tested manually. `RESEND_API_KEY` is still
-unset locally, so draining the queue sends through the real Zoho account (see
-go-live blocker above) — be aware of that before running the drain again.
+so `POST /api/cron/send` can be tested manually. `RESEND_API_KEY` is now set
+locally (2026-08-15) — draining the queue sends through Resend, not Zoho.
 
 ## Out of scope (deliberately)
 
-Real Dentally sync, SMS, the other practice-software integrations, live Stripe
-keys, invoicing. The Free plan's deeper limits (above) are a pending product
-decision, not built. WhatsApp (previously listed here) is now built, see
-above and `SAAS_ROADMAP.md` #2 — SMS specifically remains out of scope.
+Real Dentally/EXACT/R4 sync (both patient import and calendar write), SMS,
+the other practice-software integrations, live Stripe keys, invoicing. The
+Free plan's deeper limits (above) are a pending product decision, not built.
+WhatsApp and the booking/calendar loop (both previously listed here) are now
+built, see above, `CLAUDE.md` Stage 2 progress, and `SAAS_ROADMAP.md` #2 —
+SMS and real PMS-diary write specifically remain out of scope; Google
+Calendar is the one real diary casdey can write to today.

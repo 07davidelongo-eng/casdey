@@ -200,6 +200,26 @@ outbound sending (and therefore #4's WhatsApp half) still blocked on the
 trial account. No further Twilio work is expected in the meantime; revisit
 this item when the V1-publish decision is made, not before.
 
+**Real bug found and fixed 2026-08-16**, independent of the Twilio
+trial-account limits above: nothing anywhere in the pipeline converted a
+patient's phone number to the E.164 format Twilio's API requires. A
+practice's CSV export writes local format (`07700 900123`, the UK default,
+not `+447700900123`), which broke two things at once — Twilio rejects a
+non-E.164 `to` (confirmed via a real API call: a malformed-format number gets
+a different error code than a legitimately-restricted one), and the inbound
+webhook matches a reply back to its conversation by exact stored phone
+string, so even a send that somehow succeeded would never route a reply back
+correctly. Fixed by adding `libphonenumber-js` and normalising to E.164 at
+CSV import time (`src/lib/ingestion/csv.ts`, `normalizePhoneForCountry`),
+using the practice's own country as the default region; falls back to the
+raw value if a number cannot be read at all, rather than blocking the import
+row. Verified live: imported a UK-local-format number, confirmed it stored
+as E.164, then sent a real signed webhook reply and confirmed it routed to
+the correct conversation. This means the trial-account limits above were not
+the only thing standing between WhatsApp and actually working for a real UK
+or EU practice — this bug would have broken it regardless, once Twilio
+access was upgraded.
+
 ## 3. Google sign-in — `done`
 Wire up the Google login button (already stubbed). Needs a Google OAuth client
 configured in Supabase → Auth → Providers → Google + callback URL registered.
@@ -235,11 +255,10 @@ reply → booking) before sending to real patients.
 **Done 2026-08-15, email side only.** WhatsApp self-test was added when #2
 shipped later the same day (`ensureTestWhatsAppPatient` in `src/lib/self-test.ts`,
 the "Send me a test" form on a WhatsApp campaign's review page) — see #2 below
-for detail. There is still no in-product booking step for anyone to test,
-real or synthetic, on either channel: that is the separate, still-open
-calendar-write-access item under "Guarantee mechanics" in CLAUDE.md — the
-testable surface today is receiving the message, replying to it, and the
-unsubscribe/opt-out.
+for detail. The booking/calendar loop (built 2026-08-15, Google Calendar
+wired 2026-08-16, see `CLAUDE.md` Stage 2 progress and `SAAS_HANDOFF.md`)
+means a reply → booking hand-off can now be tested for real too, via the
+patient's self-serve booking link.
 
 - A **"Send me a test"** button on the campaign draft/review page
   (`src/app/app/campaigns/[id]/page.tsx`, new `test-send-form.tsx`, new
@@ -281,10 +300,16 @@ the synthetic test-patient row, since it is the feature's normal persistent
 artifact rather than test contamination. tsc / lint / test (70/70) / build all
 clean throughout.
 
-**Still open:** same Vercel production gate as the rest of `/app`. Testing an
-actual reply → booking hand-off waits on the booking/calendar-write-access
-work under "Guarantee mechanics" in CLAUDE.md, which does not exist yet for
-real patients on either channel.
+**Real bug found and fixed 2026-08-16:** the campaign review page's
+Sent/Queued/Not-delivered stats counted a self-test send's own
+`campaign_messages` row alongside the real audience — the `is_test`
+exclusion list above never covered this particular query. A campaign with a
+3-patient real audience showed "Sent 1 / Queued 3" after a self-test, instead
+of "Sent 0 / Queued 3". Fixed in `src/app/app/campaigns/[id]/page.tsx` by
+joining to `patients` and filtering `is_test = false`, matching the pattern
+`buildAudience` already used.
+
+**Still open:** same Vercel production gate as the rest of `/app`.
 
 ## 5. Support chatbot for casdey itself — `done` (local)
 A support chat widget bottom-right of the app (like most SaaS today), for the
@@ -462,12 +487,39 @@ the test touched and restored the practice to its original state. No real
 Stripe payment/refund exists yet to test the success path against — that
 needs a real test-mode subscription actually running through the app.
 
+**Success path finally exercised 2026-08-16, and it did not work — found and
+fixed two real bugs.** Signed up as a fresh practice, ran a real Stripe
+Checkout (test-mode card) to Premium, approved a campaign, then backdated the
+practice's timestamps 30+ days to make the window read as closed, and clicked
+"Claim your refund" for real. It failed both times, for two independent
+reasons:
+  - `loadGuaranteeStatus` (`src/lib/guarantee-data.ts`) and the claim route
+    both used the qualifying campaign's `started_at` as the lower bound for
+    "payments in the window" — but the payment that unlocks Premium always
+    happens *before* the practice gets around to approving a campaign, so
+    that first payment was excluded from "paid" every time. The billing page
+    showed "£0 paid" against a real £200 charge. Fixed to use
+    `practice.premium_started_at` instead (safe because it is set once and
+    never touched again, so it can never pull in a second, unrelated billing
+    period).
+  - Separately, the `invoice.paid` Stripe webhook handler fetched the invoice
+    without `expand: ["payments"]`. Confirmed against a real invoice: without
+    that expand, Stripe's REST API omits the payments list entirely, so
+    `stripe_payment_intent_id` and `stripe_charge_id` were **always null** on
+    every `subscription_payments` row ever written — meaning even after
+    fixing the bug above, the claim route logged "payment has no refundable
+    target" and refused to refund anything. Fixed by adding the expand.
+
+  Together these meant the guarantee's refund had been completely
+  non-functional since it was built, for every practice, silently — a
+  claim would record as "failed" and burn the practice's one lifetime slot
+  with nothing refunded. Both fixed and **re-verified with a real Stripe
+  test-mode refund that completed successfully** (`status: succeeded`) via
+  the actual claim route.
+
 **Still open:**
 - Same as #6/#3: Vercel production env still deliberately lacks Stripe/Auth
   vars, so this is inert in production until that gate lifts.
-- Never exercised the success path (a real refund actually completing) since
-  there is no live subscription to test against yet. Worth doing once a real
-  test-mode Premium subscription exists.
 - Whether the subscription itself should be cancelled automatically when a
   guarantee refund fires, or left running for the practice to cancel
   themselves — not asked, so left running (belt-and-braces: they can always
