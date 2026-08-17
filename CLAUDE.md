@@ -23,6 +23,21 @@ Note: "casdey" is always written lowercase, including at the start of a sentence
 - Core validation rule: validate with real payments/commitments, not with polite interest. "Sounds useful" doesn't count — a deposit or explicit "I'll pay £X on launch" does.
 - See "Offer evolution (beta → V1 → V2)" below for how this price is wrapped for waitlist/beta contacts specifically, including a lifetime early-adopter discount.
 
+## Niche pivot under consideration (recorded 2026-08-17, not yet executed)
+The core insight (a business loses real revenue when past customers go quiet and nobody follows up) stays. What's in question is whether **dental practices** are the right buyer for it, not whether the reactivation mechanic works.
+
+**Why this came up.** The automated cold-outreach system had sent 216 emails with zero genuine replies as of 2026-08-15 (see Stage 1 below). A session on 2026-08-17 concluded that reads as a demand signal, not a messaging problem: dental practices are a documented industry case of slow, reluctant technology adoption (resistance to workflow disruption, high onboarding friction), which matches the outreach result. Combined with the weight of handling health-adjacent patient data (GDPR Art. 28/44 obligations, no legal entity yet to carry that liability), Davide raised whether dental is worth the combined cost of low buyer engagement plus high compliance burden, even though the underlying reactivation problem is real.
+
+**Decision.** Keep casdey as the business (name, domain, brand, the reactivation-plus-booking-plus-guarantee mechanic), but reconsider the target niche. Candidates discussed: e-commerce, fitness/gyms, SaaS churn. Quick research ruled out e-commerce (win-back is a bundled feature already inside tools stores pay for, Klaviyo alone does roughly $937M revenue on this) and SaaS (no real domain experience beyond casdey itself). **Fitness/gym studios, targeting cancelled or lapsed members, is the current leading candidate:** gym platforms (Mindbody, Glofox, ABC Fitness) manage active members but drop cancelled ones into a real, documented workflow gap; reactivation rates are already proven and quantifiable in that market (10-20% for members lapsed 30-90 days, 5-10% for 90-180 days); gym/studio owners are demonstrably more marketing- and tech-engaged than dentists (already buying automation tools, already paying agencies to run manual win-back campaigns); and membership data isn't health data, which meaningfully shrinks the GDPR burden that was part of the original discomfort.
+
+**What ports over from the current build almost untouched:** dormancy/lapse detection, campaign sending, the manual price list feeding the revenue-recovered calculation (membership tiers instead of treatment prices), the Google Calendar booking loop (class booking instead of appointment booking), CSV import shape, the guarantee mechanic itself.
+
+**What needs rethinking, not just relabeling:** the "dormant" signal is fuzzier for gyms (an active member who stopped attending is a retention problem, not a reactivation one; a cancelled member is the clean, unambiguous target and the one the research gap actually points at); buyer-facing copy needs a full voice audit (dentists think in "patients/appointments", gym owners think in "churn/MRR/class fill rate"); the outreach channel itself may need to shift (gym owners may be more reachable via Instagram DM or industry Facebook/Slack groups than cold email).
+
+**Status: decision recorded only.** Nothing has been rebuilt or retargeted yet, and no outreach has gone out under the new positioning. The automated daily dental cold-outreach routine (`.claude/skills/cold-outreach/`) is still running as configured and continuing to send to dental leads; whether to pause it while the pivot is being planned is an open question, not yet decided, flagged here so it isn't missed.
+
+**Next step (not yet started), same lesson the dental result taught:** validate the fitness/gym niche with a small real outreach test before rebuilding any product surface, prove engagement before investing in the rework.
+
 ## Offer evolution (beta → V1 → V2)
 Dictated by Davide on 2026-08-13, to be reflected in both the cold-outreach templates and the waitlist/landing copy. Three phases, same underlying price (see above), different wrapper:
 
