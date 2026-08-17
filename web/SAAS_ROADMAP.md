@@ -353,9 +353,9 @@ panel fits the mobile viewport with no horizontal overflow, and there are no
 app console errors (only dev HMR-socket noise). tsc / lint / test (70/70) /
 build all clean. No schema or server data, so no migration.
 
-**Still open:** same Vercel production gate as the rest of `/app` (the widget
-itself needs no env vars; `/app`'s env vars are now set as of 2026-08-17 but
-production hasn't been redeployed yet — see `SAAS_HANDOFF.md`).
+**Live:** same Vercel state as the rest of `/app` (the widget itself needs no
+env vars; `/app`'s env vars were set 2026-08-17 and production has been
+redeployed — see `SAAS_HANDOFF.md`).
 
 ## 6. Fix the send issue — `done` (local), `needs Vercel env for prod`
 Campaign email used to send through casdey's own Zoho account, which can't
@@ -385,7 +385,7 @@ side:
 
 **Still open:** `RESEND_API_KEY` and `CASDEY_SENDING_ADDRESS` were added to
 **Vercel** production env vars on 2026-08-17 (see CLAUDE.md Infrastructure
-section), but production hasn't been redeployed since, and no real send has
+section) and production has been redeployed, but no real send has
 been tested end-to-end in production yet (approving a campaign and letting it
 queue through Resend) - worth doing once there's a safe test address to send
 to.
@@ -520,15 +520,84 @@ reasons:
   the actual claim route.
 
 **Still open:**
-- Same as #6/#3: Vercel production env got its Stripe/Auth vars on 2026-08-17
-  (including live-mode Stripe prices/coupons/webhook, see `SAAS_HANDOFF.md`),
-  but production hasn't been redeployed since, so this is still not live.
+- Vercel production got its Stripe/Auth vars on 2026-08-17 (including live-mode
+  Stripe prices/coupons/webhook, see `SAAS_HANDOFF.md`) and production has since
+  been redeployed, so the guarantee path is live in prod. Still worth a real
+  live-mode (not test-mode) checkout + refund end-to-end before relying on it,
+  and the #9 hardening (needs_review + bounded paid window) shipped 2026-08-17.
 - Whether the subscription itself should be cancelled automatically when a
   guarantee refund fires, or left running for the practice to cancel
   themselves — not asked, so left running (belt-and-braces: they can always
   cancel from "Manage billing"). Revisit if it causes confusion in practice.
 
 ---
+
+## 9. Pre-launch stress-test audit — `fixes shipped 2026-08-17` / `deferred items open`
+
+An 8-agent read-only adversarial audit (one specialist per domain) ahead of the
+V1 go-live. Core engineering held up: no auth bypass, RLS on all 19 tables,
+`tsc`/`lint`/`test`/`build` all green. Risk was concentrated in production
+config, silent-failure handling on external APIs, the legal documents, and the
+guarantee's economics.
+
+**Shipped in commit `f30f61b` (deployed 2026-08-17), all code-only, no migration:**
+- **Import batch-poisoning** — a single shared/duplicate email in a CSV used to
+  fail the whole `ON CONFLICT` batch and silently drop up to 500 rows. Now
+  `upsertPatients` dedups on the conflict key and, on a batch error, retries the
+  slice row-by-row so one bad record is isolated and reported (surfaced in the
+  import `issues`) instead of lost. `src/lib/ingestion/upsert.ts`.
+- **Import encoding + parse errors** — decode strict UTF-8 then fall back to
+  Windows-1252 (+ BOM strip) so accented UK/EU names no longer import as
+  mojibake, and Papa parse errors are surfaced instead of trusted.
+  `src/app/api/import/route.ts`.
+- **Guarantee hardening** — an unset appointment value can no longer auto-qualify
+  a full-window refund: a shortfall with no trustworthy revenue basis resolves to
+  a new `needs_review` state (routed to us) rather than a one-click `claimable`.
+  And the paid/refunded set is bounded to the window's billing period via a shared
+  `paymentsFundingWindow()` helper, applied to both the display and the claim
+  route, so an extra pre-window month is no longer over-refunded. `src/lib/
+  guarantee.ts`, `guarantee-data.ts`, `src/app/api/guarantee/claim/route.ts`.
+- **Password reset** — there was no recovery flow at all. Added a "Forgot
+  password?" request in the auth form, a top-level `/reset-password` page, and a
+  server-side `/api/auth/reset-password` handler (server-side deliberately: the
+  session cookie is HttpOnly). Relies on custom SMTP → Resend being configured.
+- **Cron double-send** — `drainQueue` now atomically claims each row (leases
+  `send_after` into the future under a `.lte(send_after, now)` guard) before
+  sending, so two overlapping drains can't email the same patient twice.
+  `src/lib/sender.ts`.
+- **Config guards** — `siteUrl()` throws in production instead of silently
+  returning `localhost:3000` (it feeds unsubscribe/booking links and the Twilio
+  webhook signature); the Supabase clients reject a URL carrying a `/rest/v1`
+  suffix (the recurring incident). `src/lib/messaging.ts`, `supabase-*.ts`.
+- **Copy** — Google Calendar event titles use "with", not an em dash.
+
+**Deferred — must land before enabling the gated channels:**
+- **Calendar (before turning Google-calendar sync on for real):** free/busy
+  currently fails *open* — any error reading the practice's calendar is caught and
+  treated as "no busy times", so a genuinely-busy slot shows as open and gets
+  double-booked; fail closed instead. Confirm/publish the Google OAuth consent
+  screen (an unverified/Testing app expires refresh tokens after 7 days, so a
+  connected calendar silently goes dark ~a week later) and surface a re-auth
+  banner on `invalid_grant`. Narrow the requested scope from `calendar.events`
+  (edit/delete *all* the owner's events) to `calendar.app.created`. Enforce buffer
+  minutes under concurrency, and reconcile/retry Google-mirror desyncs.
+- **WhatsApp (before turning the AI reply loop on):** the first Claude call is
+  malformed (history starts on the seeded outbound template, so the `messages`
+  array opens on `assistant` and the API 400s — the loop may never have produced a
+  real reply); the reply-cap + booking-status update is a non-atomic read-then-
+  write race; history loads the *oldest* 40 messages not the newest; STOP opt-out
+  is exact-match English-only (misses "Please STOP" and every non-English variant
+  in the target market); and there's no output moderation before an AI message
+  sends under the practice's name (prompt-injection → fabricated "free treatment"
+  promise).
+- **GDPR documents (before opening `/app` to real practices):** the signed DPA
+  (`src/app/terms/processing/page.tsx`) states patient data "is not transferred
+  outside the UK or EEA" and lists only Supabase/Vercel/Stripe/Zoho-Resend, but
+  patient PII actually reaches Google (calendar, live), Twilio and Anthropic in the
+  US — undisclosed (Art. 28 + Art. 44). `/privacy` still asserts "casdey does not
+  hold any patient data yet" (false at launch) and has unfilled controller
+  legal-identity + postal-address TODOs. Cleanest fix is to ship email-only first
+  and only claim what casdey actually does.
 
 ## Suggested sequencing (not locked)
 1. ~~**#6 send fix**~~ — done (local) 2026-08-15, unblocks email-side #4. Needs
@@ -547,10 +616,13 @@ reasons:
 Status: **done** — #1 (language only), #2 (local), #3, #4 (local, both
 channels), #5 (local), #6 (local), #7, #8 (local). Every item on this list has
 shipped at least locally; what remains is external setup rather than more
-building — Vercel got its core env vars 2026-08-17 but still needs a redeploy,
-the Google OAuth consent screen's Published-vs-Testing status needs checking,
-and #2's Twilio/Meta approval is still pending — see each item above for its
-specific gate.
+building — Vercel got its core env vars 2026-08-17 and production was redeployed,
+so `/app`'s email + billing paths now serve at casdey.com. What remains: the
+Google OAuth consent screen is still in Testing (needs publish + verification),
+the Calendar-sync and WhatsApp env vars are deliberately still absent from Vercel
+(so those channels are inert in prod), the #9 deferred items above must land
+before those channels are switched on, and #2's Twilio/Meta approval is still
+pending — see each item for its specific gate.
 
 ## Open questions to pin down as we go
 - #2: **answered** — Twilio for the WhatsApp Business API provider, Claude

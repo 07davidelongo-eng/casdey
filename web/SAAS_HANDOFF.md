@@ -19,14 +19,24 @@ landing and waitlist pages are untouched.
   still showing as "Pro Trial" in billing (running 13–27 Aug 2026) as of
   2026-08-17 — not yet auto-converted or manually converted to paid; worth
   confirming before the 27th.
-- **The SaaS's env vars are now fully set in Vercel Production (2026-08-17)**
+- **The SaaS's email + billing env vars are set in Vercel Production and prod
+  has been redeployed (2026-08-17), so `/app` and `/login` now serve**
   — `NEXT_PUBLIC_SUPABASE_*`, the full `STRIPE_*` set (live keys, 4 prices, 2
   coupons, webhook secret), `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`, and
-  `CRON_SECRET`. **Production has not been redeployed since**, so `/app` and
-  `/login` are still not live for real users despite the vars being present.
-  Also still unverified: whether the Google OAuth consent screen (shared by
-  login and Calendar) is Published rather than stuck in Testing mode, which
-  would block real Google sign-ins even after redeploying.
+  `CRON_SECRET`. Two production-only bugs were found and fixed getting here:
+  (1) `NEXT_PUBLIC_SUPABASE_URL` in Vercel carried a `/rest/v1` suffix (the
+  documented gotcha) and broke prod auth — corrected in Vercel, and the Supabase
+  clients now reject that suffix in code; (2) Supabase Auth's Site URL was still
+  `localhost:3000` with an empty redirect allowlist (breaking OAuth + email
+  links) — set to `https://casdey.com` + a `casdey.com/**` allowlist. Email/
+  password auth is confirmed working in prod. **Signup/reset email now works**
+  too: Supabase Auth was on its free-tier shared SMTP (silently non-delivering),
+  now switched to custom SMTP → Resend (`smtp.resend.com:465`, user `resend`,
+  sender `no-reply@mail.casdey.com`). A **password-reset flow** was also added
+  2026-08-17 (there was none): `/reset-password` + `/api/auth/reset-password` +
+  a "Forgot password?" link. Still unverified/gated: the Google OAuth consent
+  screen (shared by login + Calendar) is still in Testing, which limits real
+  Google sign-ins to test users until it's published/verified.
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
   eu-west-1 — corrected 2026-08-15, earlier docs said Frankfurt) backs both
   the waitlist and the SaaS. Migrations through `0010` are **applied** (run
@@ -123,13 +133,16 @@ and set `RESEND_API_KEY` + `CASDEY_SENDING_ADDRESS=no-reply@mail.casdey.com`
 in `web/.env.local`. Confirmed locally: the campaign builder's "replies go to
 casdey" warning no longer renders, meaning `emailProvider()` now picks Resend.
 
-**Still open before real practices can send:** the same two env vars
+**Still open before real practices can send:** the two env vars
 (`RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`) were added to **Vercel**
-production on 2026-08-17 (see Deployment state above) but production hasn't
-been redeployed since, and no real send through Resend has been tested in
-production yet. A real send through Resend (both a self-test and an approved
-campaign) was confirmed working locally 2026-08-16, as part of the full-path
-walk in Verified above.
+production on 2026-08-17 and production has since been redeployed, so the send
+path is live in prod — but no real send through Resend has been tested against
+production yet (a real self-test + approved campaign was confirmed working
+locally 2026-08-16, as part of the full-path walk in Verified above). Note the
+2026-08-17 stress-test hardening: `siteUrl()` now throws in production if
+`NEXT_PUBLIC_SITE_URL` is missing rather than baking `localhost` into
+unsubscribe/booking links, and the cron drain claims each row atomically so
+overlapping runs can't double-send.
 
 ## To go live / to test the full flow — env vars
 
@@ -171,8 +184,8 @@ In `web/.env.local` (local) or Vercel (production):
 - **`CRON_SECRET`** guards `POST /api/cron/send` (drains the send queue).
   `web/vercel.json` registers the hourly Vercel cron hitting that path (added
   2026-08-17). *(`CRON_SECRET` itself is now also set in Vercel Production as
-  of 2026-08-17 — both halves are done; still pending an actual redeploy to
-  take effect.)*
+  of 2026-08-17 — both halves are done and production has been redeployed, so the
+  cron is live.)*
 - **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
   leave unset for V1; `"false"` for V2.
 - **WhatsApp (roadmap #2, built 2026-08-15, set locally, not yet live in
