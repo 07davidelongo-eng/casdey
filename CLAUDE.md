@@ -34,9 +34,55 @@ The core insight (a business loses real revenue when past customers go quiet and
 
 **What needs rethinking, not just relabeling:** the "dormant" signal is fuzzier for gyms (an active member who stopped attending is a retention problem, not a reactivation one; a cancelled member is the clean, unambiguous target and the one the research gap actually points at); buyer-facing copy needs a full voice audit (dentists think in "patients/appointments", gym owners think in "churn/MRR/class fill rate"); the outreach channel itself may need to shift (gym owners may be more reachable via Instagram DM or industry Facebook/Slack groups than cold email).
 
-**Status: decision recorded only.** Nothing has been rebuilt or retargeted yet, and no outreach has gone out under the new positioning. The automated daily dental cold-outreach routine (`.claude/skills/cold-outreach/`) is still running as configured and continuing to send to dental leads; whether to pause it while the pivot is being planned is an open question, not yet decided, flagged here so it isn't missed.
+**Status: decision recorded, execution deliberately not started.** Nothing has been rebuilt or retargeted, no outreach has gone out under the new positioning, and the website/marketing copy stay exactly as they are (dental) for now, on Davide's explicit call, until the next step below lands. Davide wants the daily dental cold-outreach routine paused while the pivot is being decided, but it runs as a claude.ai Routine ("casdey cold outreach — daily", see Stage 1), not something a coding-agent session's tools can reach or control (checked 2026-08-17, `list_scheduled_tasks` shows nothing). It is still running as configured, sending to dental leads, until Davide pauses it himself from wherever the Routine is managed.
 
-**Next step (not yet started), same lesson the dental result taught:** validate the fitness/gym niche with a small real outreach test before rebuilding any product surface, prove engagement before investing in the rework.
+**Next step:** Davide's manual research (started 2026-08-17) produced a go-to-market plan, see "Go-to-market plan for the niche pivot" below. No product/copy changes and no outreach have started yet, that plan is also not yet executed.
+
+## Go-to-market plan for the niche pivot (drafted 2026-08-18, not yet executed)
+Davide's own notes from a video plus Alex Hormozi's teachings (his business mentor), organized here, nothing added. Sits on top of the section above: this is how the pivot would actually get validated and grown, once the niche and product rework are settled. Not started, no communities joined, no outreach sent under this plan yet.
+
+**Guiding principles**
+- Look at competitors first.
+- Get the waitlist live before publishing V1, and refine V1 itself before that.
+- In general, sell before you build. In casdey's case the product is already almost ready, so this mostly applies to the rework/positioning that still needs doing.
+- Get feedback at every level, from the very first cold outreach conversation up through 100+ customers. Get data, improve, repeat.
+- Treat every feedback conversation like the person is a business partner, and actually implement what they say they need.
+- Price on the value the customer is getting, what competitors charge, and casdey's own costs. Keep usage limits in place until real customer costs are known.
+
+**V1**
+- Build relationships: talk directly with gym owners.
+- Give the product away for free (the existing free trial) in exchange for feedback.
+- Find people in communities, and reach business owners directly by DM and email, offering the free trial.
+- Try converting some of them into paying clients, and keep asking for feedback throughout.
+
+**V2**
+- Use the reviews and testimonials collected in V1 to rewrite the copy.
+- Use the revenue generated to fund paid ads.
+- Keep running outreach for the next wave of clients.
+- Repeat the whole process.
+
+**Converting to paying clients**
+- Start with manual cold outreach purely to collect data: ask things like "what do you think of this tool?" and "how much would you pay for it?"
+- When converting someone to a paying client, don't only offer the lifetime discount, also push a referral campaign.
+- Plan tiers: Free, Starter, Pro.
+
+**Paid ads and organic growth, later**
+- Start paid ads by paying small creators and giving them free access, rather than running ads directly.
+- Only move to paid ads once it's clear where the first customers are actually coming from.
+- Referral links for small creators can run either before paid ads start or alongside them, both work.
+- Start with organic content (Reddit, X) early, per Nate's advice.
+
+**Practical week-by-week plan**
+- Week 1: join 2 communities, find 30 people to talk to, contact 5 of them per day.
+- Week 2: get some of those people to try the software for free (with the current offer), collect feedback, then ask them to pay using the first-time-client offer. Repeat the loop (get feedback, get data, improve) until it feels ready to open up more.
+- Once ready to open up: bring in paid ads and organic content (Reddit, X, Instagram, blogs).
+
+**How to do it, per outreach message (from $100M Leads)**
+- Personalize: do a little research on the lead before sending a message.
+- Big fast value: initially, while V1 isn't ready, just collect data; once it's ready, give them the amazing offer.
+- Follow-up: contact them on various channels (use that as an ice-breaker to open a conversation), follow up the day after, and do the walk-away follow-up 3 days after that.
+
+Keep automation on the side while lead volume is still small early on, add it back later. If the Week 1/2 volume (30 total, 5/day) turns out too low, increase it.
 
 ## Offer evolution (beta → V1 → V2)
 Dictated by Davide on 2026-08-13, to be reflected in both the cold-outreach templates and the waitlist/landing copy. Three phases, same underlying price (see above), different wrapper:
