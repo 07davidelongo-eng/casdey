@@ -2,12 +2,14 @@ import Link from "next/link";
 import { ButtonLink, Container } from "./ui";
 import { Wordmark } from "./wordmark";
 
-const NAV = [
-  { href: "/#how-it-works", label: "How it works" },
-  { href: "/#why-casdey", label: "Why casdey" },
-  { href: "/#patient-data", label: "Member data" },
-];
-
+/*
+ * Simplified while casdey.com is unpublished down to /waitlist and /privacy
+ * (see next.config.ts redirects and CLAUDE.md, "Niche pivot under
+ * consideration"). The full nav (How it works, Why casdey, Member data,
+ * Sign in) pointed at the homepage and /login, both currently redirected
+ * back to /waitlist, so every one of those links was a dead end. Restore
+ * the full nav once the site republishes.
+ */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-ash/70 bg-paper/85 backdrop-blur-md">
@@ -21,32 +23,9 @@ export function SiteHeader() {
             <Wordmark className="text-[1.6rem]" />
           </Link>
 
-          <nav aria-label="Primary" className="hidden lg:block">
-            <ul className="flex items-center gap-9">
-              {NAV.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="text-[0.9375rem] text-graphite transition-colors duration-200 hover:text-ink"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/login"
-              className="hidden px-3 py-2.5 text-[0.9375rem] text-graphite transition-colors duration-200 hover:text-ink sm:inline-block"
-            >
-              Sign in
-            </Link>
-            <ButtonLink href="/login?mode=signup" className="px-4 py-2.5">
-              Start free week
-            </ButtonLink>
-          </div>
+          <ButtonLink href="/waitlist" className="px-4 py-2.5">
+            Join the waitlist
+          </ButtonLink>
         </div>
       </Container>
     </header>
