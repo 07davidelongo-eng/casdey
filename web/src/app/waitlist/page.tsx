@@ -11,7 +11,7 @@ import { Container, Eyebrow } from "@/components/ui";
 // emails point at, so the preview needs to be waitlist-specific.
 const waitlistTitle = "Join the casdey waitlist";
 const waitlistDescription =
-  "Practices on the casdey waitlist get first access and a free first week, with no card and no commitment.";
+  "Gyms and studios on the casdey waitlist get first access and a free first week, with no card and no commitment.";
 
 export const metadata: Metadata = {
   title: "Join the waitlist",
@@ -36,48 +36,48 @@ const NEXT = [
   {
     n: "1",
     title: "You join",
-    body: "Practice name, work email, and the software you run. That is the whole form.",
+    body: "Gym or studio name, work email, and the software you run. That is the whole form.",
   },
   {
     n: "2",
     title: "We build around you",
-    body: "The systems practices tell us about are the ones we connect to first.",
+    body: "The systems gyms tell us about are the ones we connect to first.",
   },
   {
     n: "3",
     title: "You get the free week",
-    body: "One email when casdey is ready for you, in the order practices joined.",
+    body: "One email when casdey is ready for you, in the order gyms joined.",
   },
 ];
 
 const QUESTIONS = [
   {
-    q: "Which practice software does it work with?",
-    a: "We are building around the systems UK and EU practices actually run on. Tell us yours on the form and it moves up the order we connect to them in.",
+    q: "Which membership software does it work with?",
+    a: "We are building around the systems gyms and studios actually run on. Tell us yours on the form and it moves up the order we connect to them in.",
   },
   {
-    q: "Will patients be able to tell it is automated?",
-    a: "Messages go out in your practice's name, one patient at a time, referring to that patient's own history with you. There is no casdey branding on anything a patient sees.",
+    q: "Will members be able to tell it is automated?",
+    a: "Messages go out in your gym's name, one member at a time, referring to that member's own history with you. There is no casdey branding on anything a member sees.",
   },
   {
-    q: "What happens when a patient replies?",
-    a: "casdey handles it end to end, including the booking. It replies in your name, finds a slot in your calendar, and confirms it with the patient. Your team only sees a booked appointment, not a thread to manage.",
+    q: "What happens when a member replies?",
+    a: "casdey handles it end to end, including the booking. It replies in your name, finds a slot in your class schedule, and confirms it with the member. Your team only sees a booked class, not a thread to manage.",
   },
   {
     q: "What does casdey need access to?",
-    a: "Your patient list, to find who to contact, and your calendar, to book them back in. We also connect to your price list, so what comes back can be measured against what was spent, which is how the profit-or-nothing guarantee gets checked.",
+    a: "Your member list, to find who has cancelled, and your calendar, to book them into a class. We also connect to your membership pricing, so what comes back can be measured against what was spent, which is how the profit-or-nothing guarantee gets checked.",
   },
   {
     q: "Does our team have to change how it works?",
-    a: "No. Once it is connected, casdey reads your records and books straight into your calendar. Nobody at the practice has to remember to do anything.",
+    a: "No. Once it is connected, casdey reads your records and books straight into your class schedule. Nobody at the gym has to remember to do anything.",
   },
   {
     q: "What does it cost after the free week?",
-    a: "Your account drops to a Free plan, not a bill: you keep importing your list and seeing who has gone quiet at no cost. If you want casdey writing to them and booking the appointment, upgrade to Premium whenever you're ready, and joining the waitlist locks in a lifetime discount on that price for as long as you stay subscribed. Either way it is the only spend, no ad budget needed, and if it does not recover more than it costs, you do not pay.",
+    a: "Your account drops to a Free plan, not a bill: you keep importing your list and seeing who has cancelled at no cost. If you want casdey writing to them and booking them into a class, upgrade to Premium whenever you're ready, and joining the waitlist locks in a lifetime discount on that price for as long as you stay subscribed. Either way it is the only spend, no ad budget needed, and if it does not recover more than it costs, you do not pay.",
   },
   {
     q: "When does it launch?",
-    a: "In the coming weeks. Waitlist practices hear first, and the free week is attached to that email.",
+    a: "In the coming weeks. Waitlist gyms hear first, and the free week is attached to that email.",
   },
 ];
 
@@ -104,14 +104,17 @@ export default async function WaitlistPage({ searchParams }: PageProps<"/waitlis
                   Get the free first week.
                 </h1>
                 <p className="mt-6 max-w-md text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-                  casdey is being built now, and the practices on the waitlist
-                  are the ones it gets built around. Join and you get first
-                  access, a free week with no card and no commitment, and a
-                  direct say in what it does next.
+                  casdey is being built now, and the gyms and studios on the
+                  waitlist are the ones it gets built around. Join and you get
+                  first access, a free week with no card and no commitment,
+                  and a direct say in what it does next.
                 </p>
 
                 <div className="mt-10 rounded-[20px] bg-white p-6 shadow-raised">
-                  <PatientTimeline />
+                  <PatientTimeline
+                    gapLabel="cancelled 8 months ago"
+                    endLabel="rejoined"
+                  />
                 </div>
 
                 <ol className="mt-10 space-y-6">

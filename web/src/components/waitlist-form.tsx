@@ -90,8 +90,8 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
           You are on the list.
         </p>
         <p className="mt-4 text-[0.9375rem] leading-relaxed text-graphite">
-          We will email you when casdey is ready for your practice, with the
-          free first week attached. Nothing else in the meantime.
+          We will email you when casdey is ready for your gym, with the free
+          first week attached. Nothing else in the meantime.
         </p>
         <p className="label mt-6 text-stone">
           questions before then? info@casdey.com
@@ -108,7 +108,7 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label className={LABEL} htmlFor={`${prefix}-practice`}>
-            Practice name
+            Gym or studio name
           </label>
           <input
             id={`${prefix}-practice`}
@@ -116,7 +116,7 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
             type="text"
             required
             autoComplete="organization"
-            placeholder="Bridge Street Dental"
+            placeholder="Riverside Fitness"
             className={`${FIELD} mt-2`}
           />
         </div>
@@ -132,7 +132,7 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
             required
             defaultValue={defaultEmail}
             autoComplete="email"
-            placeholder="you@yourpractice.co.uk"
+            placeholder="you@yourgym.co.uk"
             className={`${FIELD} mt-2`}
           />
         </div>
@@ -140,14 +140,14 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
 
       <div className="mt-5">
         <label className={LABEL} htmlFor={`${prefix}-software`}>
-          Practice software{" "}
+          Membership software{" "}
           <span className="font-normal text-stone">(optional)</span>
         </label>
         <input
           id={`${prefix}-software`}
           name="software"
           type="text"
-          placeholder="SOE Exact, Dentally, R4, Carestream, something else"
+          placeholder="Mindbody, Glofox, ABC Fitness, something else"
           className={`${FIELD} mt-2`}
         />
         <p className="mt-2 text-[0.8125rem] text-stone">

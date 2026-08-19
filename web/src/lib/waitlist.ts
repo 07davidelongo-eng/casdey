@@ -8,8 +8,8 @@ import { sendMail } from "./zoho-mail";
  * will keep its data. Schema and the reasoning behind the RLS setup are in
  * `supabase/migrations/0001_waitlist.sql`.
  *
- * Business contact details only: practice name, work email, and which software
- * they run. No patient data ever touches this table.
+ * Business contact details only: gym/studio name, work email, and which
+ * software they run. No member data ever touches this table.
  */
 
 export type WaitlistInput = {
@@ -32,9 +32,9 @@ export function validate(input: {
   const software =
     typeof input.software === "string" ? input.software.trim() : "";
 
-  if (!practice) return { ok: false, error: "Add your practice name." };
+  if (!practice) return { ok: false, error: "Add your gym or studio name." };
   if (practice.length > 200)
-    return { ok: false, error: "That practice name is too long." };
+    return { ok: false, error: "That name is too long." };
   if (!email || !EMAIL_RE.test(email) || email.length > 320)
     return { ok: false, error: "That email address does not look right." };
   if (software.length > 200)
@@ -86,7 +86,7 @@ export async function confirmToPractice(input: WaitlistInput): Promise<void> {
     text: [
       `Thanks for joining, ${input.practice}.`,
       "",
-      "casdey is being built now. When it is ready for practices like yours, you will get an email from me with the free first week attached. No card and no commitment, and nothing else from us in the meantime.",
+      "casdey is being built now. When it is ready for gyms and studios like yours, you will get an email from me with the free first week attached. No card and no commitment, and nothing else from us in the meantime.",
       "",
       "If you have a question before then, just reply to this message. It comes straight to me.",
       "",
