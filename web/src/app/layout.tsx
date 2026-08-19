@@ -50,11 +50,11 @@ export const metadata: Metadata = {
   description,
   applicationName: "casdey",
   keywords: [
-    "dental practice software",
-    "patient reactivation",
-    "lapsed patients",
-    "dental recall",
-    "practice growth",
+    "gym membership software",
+    "cancelled member reactivation",
+    "lapsed members",
+    "member win-back",
+    "gym and studio growth",
   ],
   openGraph: {
     type: "website",

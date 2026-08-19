@@ -5,7 +5,7 @@ import { Wordmark } from "./wordmark";
 const NAV = [
   { href: "/#how-it-works", label: "How it works" },
   { href: "/#why-casdey", label: "Why casdey" },
-  { href: "/#patient-data", label: "Patient data" },
+  { href: "/#patient-data", label: "Member data" },
 ];
 
 export function SiteHeader() {

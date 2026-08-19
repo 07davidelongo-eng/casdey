@@ -8,7 +8,7 @@ const COLUMNS = [
     links: [
       { href: "/#how-it-works", label: "How it works" },
       { href: "/#why-casdey", label: "Why casdey" },
-      { href: "/#patient-data", label: "Patient data" },
+      { href: "/#patient-data", label: "Member data" },
     ],
   },
   {
@@ -33,8 +33,8 @@ export function SiteFooter() {
           <div>
             <Wordmark className="text-[1.6rem] text-ink" />
             <p className="mt-4 max-w-xs text-[0.9375rem] leading-relaxed text-graphite">
-              Dormant-patient reactivation for dental practices in the UK and
-              the EU.
+              Cancelled-member reactivation for gyms and studios in the UK
+              and the EU.
             </p>
             <a
               href="mailto:info@casdey.com"
