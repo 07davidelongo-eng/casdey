@@ -100,7 +100,7 @@ export function SupportWidget() {
           id={panelId}
           role="dialog"
           aria-label="Help and support"
-          className="fixed bottom-[5.75rem] right-4 z-50 flex max-h-[min(34rem,calc(100dvh-7rem))] w-[min(23rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[20px] border border-[color-mix(in_srgb,var(--ash)_60%,transparent)] bg-white shadow-[0_18px_50px_-12px_rgba(12,46,51,0.35)] sm:right-6"
+          className="fixed bottom-[5.75rem] right-4 z-50 flex max-h-[min(34rem,calc(100dvh-7rem))] w-[min(23rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[20px] border border-[color-mix(in_srgb,var(--ash)_60%,transparent)] bg-white shadow-[0_18px_50px_-12px_rgba(0,0,0,0.45)] sm:right-6"
         >
           <header className="border-b border-[color-mix(in_srgb,var(--ash)_55%,transparent)] px-5 pb-4 pt-5">
             <p className="label text-teal">Support</p>
@@ -194,7 +194,7 @@ export function SupportWidget() {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={open ? "Close help" : "Get help"}
-        className="on-deep fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-deep text-teal-bright shadow-[0_10px_30px_-8px_rgba(12,46,51,0.55)] transition-[transform,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:bg-deep-raised active:translate-y-0 sm:right-6"
+        className="on-deep fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-deep text-teal-bright shadow-[0_10px_30px_-8px_rgba(0,0,0,0.55)] transition-[transform,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:bg-deep-raised active:translate-y-0 sm:right-6"
       >
         {open ? (
           <IconClose className="h-6 w-6" />

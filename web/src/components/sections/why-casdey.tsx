@@ -27,7 +27,7 @@ function Flow() {
         <IconFind className="h-5 w-5" />
       </div>
       {arrow}
-      <div className="flex h-12 shrink-0 items-center justify-center rounded-[14px] bg-deep px-3 sm:h-14 sm:px-4 text-white">
+      <div className="flex h-12 shrink-0 items-center justify-center rounded-[14px] bg-deep px-3 sm:h-14 sm:px-4 text-ink">
         <Wordmark className="text-[1.05rem]" />
       </div>
       {arrow}

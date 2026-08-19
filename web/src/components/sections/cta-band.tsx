@@ -8,7 +8,7 @@ export function CtaBand() {
           <div className="grid items-center gap-10 lg:grid-cols-[1.3fr_1fr]">
             <div>
               <Eyebrow className="text-teal-bright">Try it first</Eyebrow>
-              <h2 className="display mt-4 max-w-lg text-[clamp(1.75rem,3.2vw,2.4rem)] text-white text-balance">
+              <h2 className="display mt-4 max-w-lg text-[clamp(1.75rem,3.2vw,2.4rem)] text-ink text-balance">
                 Ready to work the quiet half of your list?
               </h2>
               <p className="mt-5 max-w-md text-[0.9375rem] leading-relaxed text-sea">

@@ -3,55 +3,58 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>casdey — Brand Guide v2</title>
+<title>casdey — Brand Guide v3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Raleway:wght@300&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Raleway:wght@300&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --paper:#FAF9F7; --white:#FFFFFF; --mist:#ECE9E2; --ash:#DBD7CE;
-    --stone:#8C887F; --graphite:#46443E; --ink:#0D0D0D;
-    --deep:#0C2E33; --deep-raised:#14424A; --deep-line:#1D545D;
-    --teal:#1C6B62; --teal-hover:#175A52; --teal-bright:#2E9187;
-    --sea:#8FC5BC; --shallow:#E3EFEC; --amber:#E0A44A;
-    --shadow-raised:0 1px 2px rgba(12,46,51,.04), 0 4px 12px rgba(12,46,51,.05);
+    /* Iron & Brass, v3. Same token names as v2 (see globals.css for why:
+       one value swap re-themes the whole product without touching a single
+       component), new values. */
+    --paper:#17140F; --white:#221D16; --mist:#2A2419; --ash:#3A3226;
+    --stone:#A69C87; --graphite:#B9B2A0; --ink:#F1ECDF;
+    --deep:#0B0906; --deep-raised:#17140F; --deep-line:#2B2216;
+    --teal:#A9814A; --teal-hover:#8F6B3A; --teal-bright:#CBA268;
+    --sea:#CBBFA8; --shallow:#2E2718; --amber:#D8AE72;
+    --shadow-raised:0 1px 2px rgba(0,0,0,.32), 0 4px 12px rgba(0,0,0,.36);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);
        font-family:"Inter",system-ui,sans-serif;font-size:17px;line-height:1.7;
        -webkit-font-smoothing:antialiased}
   .wrap{max-width:76rem;margin:0 auto;padding:0 clamp(1.5rem,4vw,2rem)}
-  .display{font-family:"Familjen Grotesk",system-ui,sans-serif;font-weight:500;
+  .display{font-family:"Familjen Grotesk",system-ui,sans-serif;font-weight:600;
            letter-spacing:-.03em;line-height:1.08}
   .wordmark{font-family:"Raleway",system-ui,sans-serif;font-weight:300;
             letter-spacing:-.005em;text-transform:lowercase}
   .label{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.75rem;
-         letter-spacing:.12em;text-transform:uppercase;color:var(--teal)}
+         letter-spacing:.12em;text-transform:uppercase;color:var(--teal-bright)}
   section{border-top:1px solid var(--ash);padding:5rem 0}
   section:first-of-type{border-top:0}
   h2{margin:.75rem 0 0}
   .lede{max-width:42rem;color:var(--graphite);margin-top:1.25rem}
   .grid{display:grid;gap:1.25rem}
-  .card{background:var(--white);border:1px solid rgba(219,215,206,.6);
+  .card{background:var(--white);border:1px solid rgba(58,50,38,.6);
         border-radius:22px;padding:1.75rem}
   .swatches{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-top:2.5rem}
-  .sw{border-radius:14px;overflow:hidden;border:1px solid rgba(219,215,206,.6);background:var(--white)}
+  .sw{border-radius:14px;overflow:hidden;border:1px solid rgba(58,50,38,.6);background:var(--white)}
   .chip{height:84px}
   .sw .meta{padding:.75rem .9rem}
-  .sw b{display:block;font-size:.9375rem;font-weight:600}
+  .sw b{display:block;font-size:.9375rem;font-weight:600;color:var(--ink)}
   .sw code{font-family:"JetBrains Mono",monospace;font-size:.8125rem;color:var(--stone)}
   .sw p{margin:.35rem 0 0;font-size:.8125rem;line-height:1.5;color:var(--graphite)}
   .two{grid-template-columns:1fr;margin-top:2.5rem}
   @media(min-width:900px){.two{grid-template-columns:1fr 1fr;gap:3rem}}
   .rule{border-top:1px solid var(--ash);margin-top:2rem;padding-top:1.5rem}
   .do,.dont{font-size:.9375rem;color:var(--graphite);margin:.4rem 0 0;padding-left:1.4rem;position:relative}
-  .do::before{content:"✓";position:absolute;left:0;color:var(--teal);font-weight:600}
+  .do::before{content:"✓";position:absolute;left:0;color:var(--teal-bright);font-weight:600}
   .dont::before{content:"✕";position:absolute;left:0;color:var(--stone)}
-  .deep{background:var(--deep);color:var(--white);border-radius:28px;padding:2.5rem}
+  .deep{background:var(--deep);color:var(--sea);border-radius:28px;padding:2.5rem}
   .deep .label{color:var(--teal-bright)}
-  .deep p{color:var(--sea)}
+  .deep h3{color:var(--ink)}
   .btn{display:inline-flex;align-items:center;border-radius:10px;padding:.75rem 1.25rem;
-       font-size:.9375rem;font-weight:600;background:var(--teal);color:#fff;text-decoration:none}
+       font-size:.9375rem;font-weight:600;background:var(--teal);color:var(--paper);text-decoration:none}
   .btn.quiet{background:var(--white);color:var(--ink);border:1px solid var(--ash)}
   table{width:100%;border-collapse:collapse;margin-top:1.5rem;font-size:.9375rem}
   td{border-top:1px solid var(--ash);padding:.85rem 0;vertical-align:top;color:var(--graphite)}
@@ -63,23 +66,26 @@
 <div class="wrap">
 
 <section>
-  <span class="wordmark" style="font-size:3rem">casdey</span>
-  <p class="label" style="margin-top:2rem">brand guide · v2 · august 2026</p>
-  <h2 class="display" style="font-size:clamp(2rem,4vw,2.75rem);max-width:24ch">
-    Quiet name, warmer system.
+  <span class="wordmark" style="font-size:3rem;color:var(--ink)">casdey</span>
+  <p class="label" style="margin-top:2rem">brand guide · v3 · iron &amp; brass · august 2026</p>
+  <h2 class="display" style="font-size:clamp(2rem,4vw,2.75rem);max-width:26ch;color:var(--ink)">
+    Matte, not shiny. Earned, not flashy.
   </h2>
   <p class="lede">
     casdey is deliberately generic, so the identity can outlast a pivot without touching the
-    domain, the email or the name. The mark stays quiet on purpose. Everything around it now
-    carries more weight than it did in v1.
+    domain, the email or the name. v3 is that pivot: the niche moved from dental practices to
+    gyms and studios (see CLAUDE.md, "Niche pivot under consideration"), and the identity moved
+    with it.
   </p>
   <div class="rule">
-    <p style="margin:0;color:var(--graphite);font-size:.9375rem"><b style="color:var(--ink)">What changed from v1, and why.</b>
-    v1 was greyscale with a single slate accent. At the scale of a full page it read cold, thin and
-    beige, and the one accent could not carry a hero, a dark band and a call to action at the same
-    time. v2 keeps the neutral bones and the wordmark exactly as they were, then adds a petrol
-    ground, a teal primary, two tints and one warm accent. Headlines moved off Raleway, which was
-    always meant for the wordmark and nothing smaller.</p>
+    <p style="margin:0;color:var(--graphite);font-size:.9375rem"><b style="color:var(--ink)">What changed from v2, and why.</b>
+    v2 was warm neutrals on a light ground with a calm teal primary, right for a dental
+    patient's inbox: reassuring, clinical, quiet. A gym's register is intensity and discipline,
+    not reassurance, so v3 flips the ground dark and swaps teal for a worked brass, built from
+    the weight room's own material world (cast iron, worn barbell knurling, brass fittings,
+    chalk) rather than the shiny "elite gym" gold every boutique studio's Instagram funnel
+    already uses. The wordmark does not move. That is the one thing the brand guide promises
+    survives every pivot.</p>
   </div>
 </section>
 
@@ -89,19 +95,21 @@
   <p class="lede">
     "casdey" is never capitalised. Not at the start of a sentence, not in a headline, not in a
     signature. Treat it as a fixed spelling, not a style choice to be turned on and off. It is set
-    in Raleway Light and it is the only place Raleway appears.
+    in Raleway Light and it is the only place Raleway appears. Unchanged from v2, including on the
+    now-dark ground: the wordmark was always drawn to reverse out of a dark plane, that reversed
+    treatment is simply the default now instead of the exception.
   </p>
   <div class="grid two">
-    <div class="card" style="display:flex;align-items:center;justify-content:center;min-height:180px">
+    <div class="card" style="display:flex;flex-direction:column;gap:.75rem;align-items:center;justify-content:center;min-height:180px;background:#FAF9F7">
       <img src="casdey Logo.png" alt="casdey wordmark" style="max-width:70%;height:auto" />
+      <p style="margin:0;font-size:.75rem;color:#8C887F">source file is a light-ground lockup, shown on its native background here</p>
     </div>
     <div>
       <p class="label" style="color:var(--stone)">rules</p>
-      <p class="do">Ink <code>#0D0D0D</code> on Paper or White</p>
-      <p class="do">Paper <code>#FAF9F7</code> reversed out of Deep</p>
+      <p class="do">Chalk <code>#F1ECDF</code> on Iron or Iron Raised</p>
       <p class="do">Clearspace of one lowercase "c" height on every side</p>
       <p class="dont">Never capitalise any letter</p>
-      <p class="dont">Never recolour outside Ink, Paper or White</p>
+      <p class="dont">Never recolour outside Chalk, Iron or Iron Raised</p>
       <p class="dont">Never add a shadow, outline or gradient</p>
       <p class="dont">Never stretch, condense or re-kern the letterforms</p>
     </div>
@@ -110,66 +118,69 @@
 
 <section>
   <p class="label">02 · colour</p>
-  <h2 class="display" style="font-size:2rem">Warm neutrals, a petrol ground, one warm accent.</h2>
+  <h2 class="display" style="font-size:2rem">A ground with a warm undertone, one worked metal.</h2>
   <p class="lede">
-    The neutrals come from the logo file itself. The petrol and teal do the work the old single
-    accent could not. Amber appears once per page at most: it marks the moment a dormant patient
-    books again, and nothing else. It is never a button and never a background.
+    Iron replaces Paper as the ground: near-black, but biased warm and brown rather than neutral
+    grey, so it reads as a chosen material and not a generic dark-mode default. Brass replaces
+    Teal as the primary, always matte, never a bright yellow-gold. Every token keeps its v2 name,
+    only the hex values moved, see globals.css for why.
   </p>
 
   <div class="grid swatches">
-    <div class="sw"><div class="chip" style="background:var(--paper)"></div><div class="meta"><b>Paper</b><code>#FAF9F7</code><p>Page background</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--white);border-bottom:1px solid var(--ash)"></div><div class="meta"><b>White</b><code>#FFFFFF</code><p>Raised cards</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--mist)"></div><div class="meta"><b>Mist</b><code>#ECE9E2</code><p>Quiet fills, hover</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--ash)"></div><div class="meta"><b>Ash</b><code>#DBD7CE</code><p>Hairlines, dividers</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--stone)"></div><div class="meta"><b>Stone</b><code>#8C887F</code><p>Tertiary text, captions</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--graphite)"></div><div class="meta"><b>Graphite</b><code>#46443E</code><p>Body text</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--ink)"></div><div class="meta"><b>Ink</b><code>#0D0D0D</code><p>Wordmark, headlines</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--deep)"></div><div class="meta"><b>Deep</b><code>#0C2E33</code><p>Full-bleed dark sections</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--deep-raised)"></div><div class="meta"><b>Deep Raised</b><code>#14424A</code><p>Cards on Deep</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--teal)"></div><div class="meta"><b>Teal</b><code>#1C6B62</code><p>Primary. Buttons, links, key numbers</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--teal-bright)"></div><div class="meta"><b>Teal Bright</b><code>#2E9187</code><p>Teal that stays legible on Deep</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--sea)"></div><div class="meta"><b>Sea</b><code>#8FC5BC</code><p>Body text on Deep</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--shallow)"></div><div class="meta"><b>Shallow</b><code>#E3EFEC</code><p>Tint fills, badges</p></div></div>
-    <div class="sw"><div class="chip" style="background:var(--amber)"></div><div class="meta"><b>Amber</b><code>#E0A44A</code><p>The reactivated marker. Nothing else</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--paper)"></div><div class="meta"><b>Iron</b><code>#17140F</code><p>Page ground (token: paper)</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--white)"></div><div class="meta"><b>Iron Raised</b><code>#221D16</code><p>Raised cards (token: white)</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--mist)"></div><div class="meta"><b>Mist</b><code>#2A2419</code><p>Quiet fills, hover</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--ash)"></div><div class="meta"><b>Ash</b><code>#3A3226</code><p>Hairlines, dividers</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--stone)"></div><div class="meta"><b>Stone</b><code>#A69C87</code><p>Tertiary text, captions</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--graphite)"></div><div class="meta"><b>Graphite</b><code>#B9B2A0</code><p>Body text</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--ink)"></div><div class="meta"><b>Chalk</b><code>#F1ECDF</code><p>Wordmark, headlines (token: ink)</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--deep)"></div><div class="meta"><b>Deep</b><code>#0B0906</code><p>The one inverted plane, darkest tone on the page</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--deep-raised)"></div><div class="meta"><b>Deep Raised</b><code>#17140F</code><p>Hover state on Deep</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--teal)"></div><div class="meta"><b>Brass</b><code>#A9814A</code><p>Primary. Buttons, links, key numbers (token: teal)</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--teal-bright)"></div><div class="meta"><b>Brass Bright</b><code>#CBA268</code><p>Brass that stays legible on Deep</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--sea)"></div><div class="meta"><b>Sea</b><code>#CBBFA8</code><p>Body text on Deep</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--shallow)"></div><div class="meta"><b>Shallow</b><code>#2E2718</code><p>Tint fills, badge backgrounds</p></div></div>
+    <div class="sw"><div class="chip" style="background:var(--amber)"></div><div class="meta"><b>Amber</b><code>#D8AE72</code><p>The reactivated marker. Nothing else</p></div></div>
   </div>
 
   <div class="rule">
-    <p class="do">White on Teal clears 5.5:1. Both pass AA for body text.</p>
-    <p class="do">On Deep, use Teal Bright and Sea. Teal is too dark to read there.</p>
-    <p class="dont">Never use Teal as a page background. It is an accent, not a ground.</p>
+    <p class="do">Chalk on Iron clears 15:1. Brass on Iron clears 6:1, both pass AA for body text.</p>
+    <p class="do">Dark text (Iron) on Brass or Brass Bright also passes AA, use it for text sitting on a filled Brass surface.</p>
+    <p class="dont">Never a bright yellow-gold for Brass. Desaturate before it reads as jewellery.</p>
+    <p class="dont">Never assume a token still means what its name says. --white is no longer literally white, it is the raised surface, see globals.css.</p>
   </div>
 </section>
 
 <section>
   <p class="label">03 · typography</p>
-  <h2 class="display" style="font-size:2rem">Four faces, one job each.</h2>
+  <h2 class="display" style="font-size:2rem">Same four faces, one turned up.</h2>
   <p class="lede">
-    Raleway carries the wordmark and nothing smaller: its warmth reads as considered at logo size
-    and precious everywhere else. Familjen Grotesk took over headlines in v2, because a page needs
-    a display face with more presence than Raleway Light can give it. Inter takes everything that
-    gets read. JetBrains Mono marks anything literal.
+    Raleway carries the wordmark and nothing smaller, unchanged. JetBrains Mono marks anything
+    literal, unchanged, and it already reads as gym-scoreboard material (rep counts, stopwatch
+    digits), so it translated for free. Inter takes everything that gets read, unchanged.
+    Familjen Grotesk carries headlines, but moved from weight 500 to 600/700 with tighter
+    tracking, more impact than the calmer register v2 needed.
   </p>
 
   <div class="grid two">
     <div class="card">
-      <p class="label" style="color:var(--stone)">Raleway Light · wordmark only</p>
-      <p class="wordmark" style="font-size:3.25rem;margin:.75rem 0 0">casdey</p>
+      <p class="label" style="color:var(--stone)">Raleway Light · wordmark only, unchanged</p>
+      <p class="wordmark" style="font-size:3.25rem;margin:.75rem 0 0;color:var(--ink)">casdey</p>
       <p style="font-size:.8125rem;color:var(--stone);margin:.5rem 0 0">weight 300 · tracking -0.5%</p>
     </div>
     <div class="card">
-      <p class="label" style="color:var(--stone)">Familjen Grotesk · headlines</p>
-      <p class="display" style="font-size:2rem;margin:.75rem 0 0">Win back the patients who quietly stopped coming.</p>
-      <p style="font-size:.8125rem;color:var(--stone);margin:.5rem 0 0">weight 500 / 600 · tracking -3% at display sizes</p>
+      <p class="label" style="color:var(--stone)">Familjen Grotesk 600/700 · headlines</p>
+      <p class="display" style="font-size:2rem;margin:.75rem 0 0;color:var(--ink)">Win back the members who quietly cancelled.</p>
+      <p style="font-size:.8125rem;color:var(--stone);margin:.5rem 0 0">weight 600 / 700 · tracking -3% at display sizes, up from 500 in v2</p>
     </div>
     <div class="card">
-      <p class="label" style="color:var(--stone)">Inter · text, UI, email</p>
-      <p style="margin:.75rem 0 0;color:var(--graphite)">Of the day-to-day admin your practice software handles, what is the one thing it does not do well? That is usually where casdey fits: the follow-up nobody has time for.</p>
+      <p class="label" style="color:var(--stone)">Inter · text, UI, email, unchanged</p>
+      <p style="margin:.75rem 0 0;color:var(--graphite)">Of the day-to-day admin your gym software handles, what is the one thing it does not do well? That is usually where casdey fits: the follow-up nobody has time for.</p>
       <p style="font-size:.8125rem;color:var(--stone);margin:.5rem 0 0">weight 400 body · 600 labels and buttons · 17px base · line-height 1.7</p>
     </div>
     <div class="card">
-      <p class="label" style="color:var(--stone)">JetBrains Mono · anything literal</p>
-      <p style="font-family:'JetBrains Mono',monospace;margin:.75rem 0 0;color:var(--graphite)">£250/mo · no contact for 17 months · #0C2E33 · info@casdey.com</p>
+      <p class="label" style="color:var(--stone)">JetBrains Mono · anything literal, unchanged</p>
+      <p style="font-family:'JetBrains Mono',monospace;margin:.75rem 0 0;color:var(--graphite)">£250/mo · cancelled 8 months ago · #17140F · info@casdey.com</p>
       <p style="font-size:.8125rem;color:var(--stone);margin:.5rem 0 0">weight 400 / 500 · caption size, 12–15px · uppercase with 12% tracking for section labels</p>
     </div>
   </div>
@@ -177,23 +188,24 @@
 
 <section>
   <p class="label">04 · the signature</p>
-  <h2 class="display" style="font-size:2rem">One patient's history as a line.</h2>
+  <h2 class="display" style="font-size:2rem">One member's history as a line.</h2>
   <p class="lede">
-    Two visits close together, a long dashed nothing, then a booking. It is the whole product in
-    one picture, and it is the only place Amber is allowed to appear. Use it in a hero, on a
-    waitlist page, or anywhere the gap needs explaining without a paragraph.
+    Two visits close together, a long dashed nothing, then a booking. Same shape as v2, it
+    already did the job, it just needed the right metal: Amber swapped for Brass, "rebooked"
+    swapped for "rejoined." Use it in a hero, on the waitlist page, or anywhere the gap needs
+    explaining without a paragraph.
   </p>
   <div class="card" style="margin-top:2.5rem;max-width:34rem">
     <svg viewBox="0 0 340 78" style="width:100%">
-      <line x1="20" y1="44" x2="54" y2="44" stroke="#1C6B62" stroke-width="2" />
-      <circle cx="20" cy="44" r="5" fill="#1C6B62" />
-      <circle cx="54" cy="44" r="5" fill="#1C6B62" />
-      <line x1="64" y1="44" x2="262" y2="44" stroke="#DBD7CE" stroke-width="2" stroke-dasharray="2 7" stroke-linecap="round" />
-      <text x="163" y="26" text-anchor="middle" fill="#8C887F" style="font:400 10px 'JetBrains Mono',monospace;letter-spacing:.06em">no contact for 17 months</text>
-      <circle cx="284" cy="44" r="11" fill="none" stroke="#E0A44A" stroke-width="1.5" />
-      <circle cx="284" cy="44" r="5.5" fill="#1C6B62" />
-      <text x="37" y="68" text-anchor="middle" fill="#8C887F" style="font:400 10px 'JetBrains Mono',monospace">2 visits</text>
-      <text x="284" y="68" text-anchor="middle" fill="#46443E" style="font:500 10px 'JetBrains Mono',monospace">rebooked</text>
+      <line x1="20" y1="44" x2="54" y2="44" stroke="#A9814A" stroke-width="2" />
+      <circle cx="20" cy="44" r="5" fill="#A9814A" />
+      <circle cx="54" cy="44" r="5" fill="#A9814A" />
+      <line x1="64" y1="44" x2="262" y2="44" stroke="#3A3226" stroke-width="2" stroke-dasharray="2 7" stroke-linecap="round" />
+      <text x="163" y="26" text-anchor="middle" fill="#A69C87" style="font:400 10px 'JetBrains Mono',monospace;letter-spacing:.06em">cancelled 8 months ago</text>
+      <circle cx="284" cy="44" r="11" fill="none" stroke="#D8AE72" stroke-width="1.5" />
+      <circle cx="284" cy="44" r="5.5" fill="#A9814A" />
+      <text x="37" y="68" text-anchor="middle" fill="#A69C87" style="font:400 10px 'JetBrains Mono',monospace">2 visits</text>
+      <text x="284" y="68" text-anchor="middle" fill="#B9B2A0" style="font:500 10px 'JetBrains Mono',monospace">rejoined</text>
     </svg>
   </div>
 </section>
@@ -202,12 +214,12 @@
   <p class="label">05 · surfaces and depth</p>
   <h2 class="display" style="font-size:2rem">Three planes, never four.</h2>
   <table>
-    <tr><td>Base</td><td>Paper. The page itself. No border, no shadow.</td></tr>
-    <tr><td>Raised</td><td>White, 22px radius, 1px Ash border at 60%, layered petrol-tinted shadow. Cards, panels, the form.</td></tr>
+    <tr><td>Base</td><td>Iron. The page itself. No border, no shadow.</td></tr>
+    <tr><td>Raised</td><td>Iron Raised, 22px radius, 1px Ash border at 60%, layered black shadow. Cards, panels, the form.</td></tr>
     <tr><td>Floating</td><td>Same but with the heavier shadow, and it overlaps something. Used once per screen at most.</td></tr>
-    <tr><td>Inverted</td><td>Deep, full-bleed or 28px radius. Steps, calls to action. Two per page maximum.</td></tr>
+    <tr><td>Inverted</td><td>Deep, full-bleed or 28px radius. Steps, calls to action. Two per page maximum. Text on Deep is Chalk or Sea, never the raised-surface token, that is the one mistake this palette makes easy, see the note in section 02.</td></tr>
     <tr><td>Radius</td><td>10px controls · 14–16px small tiles · 20–22px cards · 28px full-bleed blocks</td></tr>
-    <tr><td>Shadows</td><td>Always tinted with petrol, never flat black, always two layers or more.</td></tr>
+    <tr><td>Shadows</td><td>Layered black at low opacity, never a single flat layer, never petrol-tinted (that was v2's ground colour, not this one's).</td></tr>
     <tr><td>Motion</td><td>Transform and opacity only, 200–220ms, cubic-bezier(.22,1,.36,1). Never transition-all. Reduced motion is respected.</td></tr>
   </table>
 </section>
@@ -215,6 +227,7 @@
 <section>
   <p class="label">06 · voice</p>
   <h2 class="display" style="font-size:2rem">Plain, direct, a little dry.</h2>
+  <p class="lede">Unchanged by the pivot. The niche moved, the way casdey talks did not.</p>
   <table>
     <tr><td>Casing</td><td>casdey, lowercase, always, no exceptions for grammar.</td></tr>
     <tr><td>Punctuation</td><td>No em dashes as a comma substitute. A sentence ends and the next one starts.</td></tr>
@@ -240,7 +253,7 @@
 </section>
 
 <footer>
-  casdey brand guide · v2, compiled August 2026 · palette and type mirrored in
+  casdey brand guide · v3, "iron &amp; brass", compiled August 2026 · palette and type mirrored in
   <code style="font-family:'JetBrains Mono',monospace">web/src/app/globals.css</code> ·
   keep the two in step
 </footer>

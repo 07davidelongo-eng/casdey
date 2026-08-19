@@ -51,11 +51,11 @@ const BUTTON_BASE =
 
 const VARIANTS = {
   primary:
-    "bg-teal text-white hover:bg-teal-hover hover:-translate-y-px shadow-[0_1px_2px_rgba(12,46,51,0.12)]",
+    "bg-teal text-white hover:bg-teal-hover hover:-translate-y-px shadow-[0_1px_2px_rgba(0,0,0,0.24)]",
   quiet:
     "bg-white text-ink border border-ash hover:border-stone hover:-translate-y-px",
   onDeep:
-    "bg-white/10 text-white border border-deep-line hover:bg-white/16 hover:-translate-y-px",
+    "bg-ink/10 text-ink border border-deep-line hover:bg-ink/16 hover:-translate-y-px",
   brightOnDeep:
     "bg-teal-bright text-deep hover:bg-sea hover:-translate-y-px font-semibold",
 } as const;

@@ -39,7 +39,7 @@ export function Offer() {
               <h3 className="display text-[1.75rem] text-white">
                 After the week
               </h3>
-              <p className="mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-shallow">
+              <p className="mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-paper/75">
                 Your account drops to a Free plan, not a bill. Upgrade
                 whenever you want, and joining now locks in a lifetime
                 discount for when you do.

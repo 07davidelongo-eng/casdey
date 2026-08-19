@@ -18,7 +18,7 @@ export function HeroMockup() {
           <IconCheck className="h-4 w-4" />
           <span className="label text-teal-bright">rebooked</span>
         </div>
-        <p className="mt-3 font-mono text-[1.375rem] leading-none text-white">
+        <p className="mt-3 font-mono text-[1.375rem] leading-none text-ink">
           Tue 14:30
         </p>
         <p className="mt-2 text-[0.8125rem] leading-snug text-sea">

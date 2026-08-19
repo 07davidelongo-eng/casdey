@@ -210,8 +210,8 @@
   }
 
   .notice-error {
-    background: color-mix(in srgb, #b3261e 7%, var(--paper));
-    border-color: color-mix(in srgb, #b3261e 28%, transparent);
-    color: #8c1d18;
+    background: color-mix(in srgb, #b3261e 10%, var(--paper));
+    border-color: color-mix(in srgb, #e2836f 32%, transparent);
+    color: #e2836f;
   }
 }

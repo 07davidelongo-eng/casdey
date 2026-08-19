@@ -31,7 +31,7 @@ export function HowItWorks() {
     >
       <Container>
         <Eyebrow className="text-teal-bright">How it works</Eyebrow>
-        <SectionHeading className="mt-4 max-w-2xl text-white">
+        <SectionHeading className="mt-4 max-w-2xl text-ink">
           Three steps, and the one that eats your time is ours.
         </SectionHeading>
 
@@ -43,11 +43,11 @@ export function HowItWorks() {
             >
               <span
                 aria-hidden="true"
-                className="display block text-[3.5rem] leading-none text-white/15"
+                className="display block text-[3.5rem] leading-none text-ink/15"
               >
                 {step.n}
               </span>
-              <h3 className="mt-5 text-[1.0625rem] font-semibold text-white">
+              <h3 className="mt-5 text-[1.0625rem] font-semibold text-ink">
                 {step.title}
               </h3>
               <p className="mt-3 text-[0.9375rem] leading-relaxed text-sea">

@@ -1,60 +1,75 @@
 @import "tailwindcss";
 
 /*
-  casdey design tokens, v2.
+  casdey design tokens, v3: "Iron & Brass".
 
-  v1 was grayscale with a single slate accent. It read cold and thin. v2 keeps
-  the warm neutral bones (Paper through Ink, which come from the logo file
-  itself) and grows a real colour system on top: a deep petrol ground for
-  full-bleed sections, a teal primary, two tints, and exactly one warm accent.
+  v2 was warm neutrals on a light ground with a calm teal primary, right for
+  a dental patient's inbox. The niche pivoted to gyms and studios (see
+  CLAUDE.md, "Niche pivot under consideration"), which called for a
+  different register: dark and matte rather than light and clinical, built
+  from the weight room's own material world (cast iron, worn barbell
+  knurling, brass fittings, chalk) rather than a shiny "elite gym" gold.
 
-  This page commits to a light appearance. The dark passages are dark by
-  design, not by system preference, which is what keeps the petrol bands
-  reading as deliberate rather than as a theme.
+  Every token below KEEPS its v2 name (--paper, --white, --ink, --teal,
+  --amber, and so on). Only the hex values moved. That is deliberate: every
+  component in the app reaches these through the same names via Tailwind's
+  `bg-paper` / `text-ink` / `bg-teal` utilities and product.css, so a value
+  swap here re-themes the whole product without touching a single component
+  file. The cost is that some names now describe what a token WAS rather
+  than what it looks like (--white is no longer literally white, it is the
+  raised dark surface; --paper is no longer paper-coloured, it is the dark
+  ground). Treat the names as role labels, not literal colour descriptions.
+
+  This page commits to a dark appearance. Dark by design, not by system
+  preference, same as v2 committed to light by design.
 */
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Neutrals, carried over from the wordmark.
-     Paper is lifted a few points off the logo file's #F6F4F1: at full-page
-     scale that value turned everything beige and the white cards stopped
-     reading as raised. The warmth stays, the mud goes. */
-  --paper: #faf9f7;
-  --white: #ffffff;
-  --mist: #ece9e2;
-  --ash: #dbd7ce;
-  --stone: #8c887f;
-  --graphite: #46443e;
-  --ink: #0d0d0d;
+  /* Neutrals. Iron replaces Paper as the ground: near-black with a warm
+     brown bias rather than neutral grey, so it reads as a considered
+     material rather than a generic dark-mode default. */
+  --paper: #17140f; /* Iron: the ground */
+  --white: #221d16; /* Iron Raised: the "raised card" role, no longer literally white */
+  --mist: #2a2419; /* quiet fills, hover */
+  --ash: #3a3226; /* hairlines, dividers */
+  --stone: #a69c87; /* tertiary text, captions */
+  --graphite: #b9b2a0; /* body text */
+  --ink: #f1ecdf; /* Chalk: headlines, wordmark */
 
-  /* Petrol: the dark ground */
-  --deep: #0c2e33;
-  --deep-raised: #14424a;
-  --deep-line: #1d545d;
+  /* The one inverted plane, now the deepest tone on the page rather than
+     the lightest. Used once per screen at most, same rule as before. */
+  --deep: #0b0906;
+  --deep-raised: #17140f;
+  --deep-line: #2b2216;
 
-  /* Teal: the primary */
-  --teal: #1c6b62;
-  --teal-hover: #175a52;
-  --teal-bright: #2e9187; /* legible on --deep */
-  --sea: #8fc5bc;
-  --shallow: #e3efec;
+  /* Brass: the primary, worked metal rather than shiny gold. Names kept as
+     --teal-* for zero-touch propagation, see note above. */
+  --teal: #a9814a; /* Brass */
+  --teal-hover: #8f6b3a;
+  --teal-bright: #cba268; /* legible on --deep */
+  --sea: #cbbfa8; /* body text on --deep */
+  --shallow: #2e2718; /* tint fill for badges/pills on the dark ground */
 
-  /* The one warm accent. Marks the moment a dormant patient books again,
-     and nothing else. Never a button, never a background. */
-  --amber: #e0a44a;
+  /* The one moment-marker accent, a brighter brass than the routine
+     primary so it still reads as a one-off. Marks the moment a cancelled
+     member books again, and nothing else. Never a button, never a
+     background fill on its own. */
+  --amber: #d8ae72;
 
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-xl: 28px;
 
-  /* Layered and petrol-tinted rather than flat black at one opacity. */
+  /* Layered, not flat black at one opacity. Shadows read as depth
+     differences between Iron and Iron Raised more than as cast light. */
   --shadow-raised:
-    0 1px 2px rgba(12, 46, 51, 0.04), 0 4px 12px rgba(12, 46, 51, 0.05);
+    0 1px 2px rgba(0, 0, 0, 0.32), 0 4px 14px rgba(0, 0, 0, 0.36);
   --shadow-float:
-    0 2px 4px rgba(12, 46, 51, 0.04), 0 12px 28px rgba(12, 46, 51, 0.08),
-    0 32px 64px rgba(12, 46, 51, 0.06);
+    0 2px 4px rgba(0, 0, 0, 0.32), 0 12px 28px rgba(0, 0, 0, 0.4),
+    0 32px 64px rgba(0, 0, 0, 0.32);
 }
 
 @theme inline {
