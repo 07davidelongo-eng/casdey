@@ -31,6 +31,28 @@ const nextConfig: NextConfig = {
       // The landing page lives at the root. /homepage is kept as an alias so a
       // link written that way still lands somewhere sensible.
       { source: "/homepage", destination: "/", permanent: false },
+
+      // Temporary: casdey.com is unpublished down to just /waitlist while the
+      // dental-to-fitness niche pivot is being decided (see CLAUDE.md, "Niche
+      // pivot under consideration"). Everything else, marketing pages, the
+      // SaaS product, login/auth, booking, unsubscribe, redirects there.
+      // /privacy stays reachable since the waitlist form links to it, and
+      // /api/* is untouched since none of it is browsable UI. Temporary
+      // (307/308) redirects, not permanent, so this is a one-line revert:
+      // delete this block once the site is ready to republish.
+      { source: "/", destination: "/waitlist", permanent: false },
+      { source: "/app", destination: "/waitlist", permanent: false },
+      { source: "/app/:path*", destination: "/waitlist", permanent: false },
+      { source: "/auth/:path*", destination: "/waitlist", permanent: false },
+      { source: "/book/:path*", destination: "/waitlist", permanent: false },
+      { source: "/login", destination: "/waitlist", permanent: false },
+      {
+        source: "/reset-password",
+        destination: "/waitlist",
+        permanent: false,
+      },
+      { source: "/terms/:path*", destination: "/waitlist", permanent: false },
+      { source: "/u/:path*", destination: "/waitlist", permanent: false },
     ];
   },
 };
