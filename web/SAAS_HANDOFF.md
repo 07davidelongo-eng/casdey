@@ -14,11 +14,17 @@ landing and waitlist pages are untouched.
 
 ## Deployment state (as of 2026-08-17)
 
-- **Landing + waitlist are LIVE** at https://casdey.com (Vercel, `main`, DNS
-  moved off GoDaddy; Zoho email untouched). Vercel has a card on file but is
-  still showing as "Pro Trial" in billing (running 13–27 Aug 2026) as of
-  2026-08-17 — not yet auto-converted or manually converted to paid; worth
-  confirming before the 27th.
+- **Landing + waitlist were LIVE** at https://casdey.com (Vercel, `main`, DNS
+  moved off GoDaddy; Zoho email untouched) as of this snapshot. Both are now
+  mid-pivot (dental to gym/fitness); see `CLAUDE.md`'s "Niche pivot" section
+  for the current routing and copy state, not reflected here.
+  **Correction (2026-08-19):** the "Pro Trial, running 13–27 Aug 2026" claim
+  below is no longer trusted, a Hobby-plan cron limit was hit in production
+  on 2026-08-19, which shouldn't happen on a Pro account. Vercel had a card
+  on file but was showing as "Pro Trial" in billing as of 2026-08-17, not yet
+  auto-converted or manually converted to paid; the actual plan needs
+  confirming directly on the Vercel billing page, see `CLAUDE.md`'s Vercel
+  infrastructure bullet for the full outage this surfaced.
 - **The SaaS's email + billing env vars are set in Vercel Production and prod
   has been redeployed (2026-08-17), so `/app` and `/login` now serve**
   — `NEXT_PUBLIC_SUPABASE_*`, the full `STRIPE_*` set (live keys, 4 prices, 2
