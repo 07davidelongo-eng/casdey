@@ -17,7 +17,7 @@ export const metadata = {
  * callback set rather than anything read in the browser.
  *
  * Lives at the top level, not under /app, so it is reachable on nothing but the
- * short-lived recovery session without tripping the practice-active gate.
+ * short-lived recovery session without tripping the gym-active gate.
  */
 export default async function ResetPasswordPage(props: {
   searchParams: Promise<{ error?: string }>;

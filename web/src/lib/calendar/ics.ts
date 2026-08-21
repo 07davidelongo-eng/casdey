@@ -1,18 +1,18 @@
 /**
- * Building the .ics a patient gets with their confirmation email.
+ * Building the .ics a member gets with their confirmation email.
  *
- * A one-event calendar file so the appointment lands in whatever calendar the
- * patient actually uses, phone or desktop. Pure and dependency-free: it takes
- * the appointment facts and returns a string, so it is unit tested without a
+ * A one-event calendar file so the booking lands in whatever calendar the
+ * member actually uses, phone or desktop. Pure and dependency-free: it takes
+ * the booking facts and returns a string, so it is unit tested without a
  * database or a mail provider (see ics.test.ts).
  *
  * Only the fields a confirmation needs are emitted, and each value is escaped
- * per RFC 5545 so a practice name with a comma or a newline cannot break the
+ * per RFC 5545 so a gym name with a comma or a newline cannot break the
  * file.
  */
 
 export type IcsEvent = {
-  /** Stable unique id for the event. Reuse the appointment id. */
+  /** Stable unique id for the event. Reuse the booking id. */
   uid: string;
   start: Date;
   end: Date;

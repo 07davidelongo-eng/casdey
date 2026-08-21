@@ -16,7 +16,7 @@ import type {
  * Upload, map, check, import.
  *
  * The file is parsed in the browser first, purely to learn the column names and
- * show the practice what their data will look like once read. Nothing is sent
+ * show the gym what their data will look like once read. Nothing is sent
  * anywhere during that step. The file only leaves the browser when they press
  * the final button, and the server parses it again from scratch rather than
  * trusting anything computed here.
@@ -38,14 +38,14 @@ const FIELDS: {
   hint: string;
   required?: boolean;
 }[] = [
-  { key: "lastVisitAt", label: "Last visit date", hint: "Required. This is what dormancy is measured from.", required: true },
-  { key: "email", label: "Email", hint: "Needed to contact them. A patient without one still counts." },
-  { key: "externalRef", label: "Patient reference", hint: "Their id in your software. Keeps repeat imports from duplicating." },
+  { key: "lastVisitAt", label: "Last visit date", hint: "Required. This is what lapse is measured from.", required: true },
+  { key: "email", label: "Email", hint: "Needed to contact them. A member without one still counts." },
+  { key: "externalRef", label: "Member reference", hint: "Their id in your software. Keeps repeat imports from duplicating." },
   { key: "firstName", label: "First name", hint: "" },
   { key: "lastName", label: "Surname", hint: "" },
   { key: "fullName", label: "Full name", hint: "Only if your file has one name column instead of two." },
-  { key: "phone", label: "Phone", hint: "Used for WhatsApp, if you turn that on." },
-  { key: "visitCount", label: "Number of visits", hint: "If missing, every patient counts as one visit." },
+  { key: "phone", label: "Phone", hint: "Optional. Stored on the member record." },
+  { key: "visitCount", label: "Number of visits", hint: "If missing, every member counts as one visit." },
 ];
 
 const DATE_FORMATS: { value: DateFormat; label: string; example: string }[] = [
@@ -124,7 +124,7 @@ export function ImportWizard() {
 
       setSummary(payload as Summary);
       setStep("done");
-      // The dashboard and patient counts are stale the moment this lands.
+      // The dashboard and member counts are stale the moment this lands.
       router.refresh();
     } catch {
       setError("We could not reach the server. Check your connection.");
@@ -173,7 +173,7 @@ export function ImportWizard() {
         ) : null}
 
         <div className="mt-6 flex gap-2">
-          <Button onClick={() => router.push("/app/patients")}>
+          <Button onClick={() => router.push("/app/members")}>
             See who has gone quiet
           </Button>
           <Button
@@ -194,9 +194,9 @@ export function ImportWizard() {
   if (step === "choose") {
     return (
       <Card>
-        <CardTitle>Upload your patient list</CardTitle>
+        <CardTitle>Upload your member list</CardTitle>
         <p className="mt-1 mb-5 text-[0.9375rem] text-graphite">
-          A CSV export from your practice software. It needs one row per patient
+          A CSV export from your gym software. It needs one row per member
           and a column with their last visit date. Nothing is uploaded until you
           have checked the columns on the next screen.
         </p>
@@ -276,7 +276,7 @@ export function ImportWizard() {
         <CardTitle>How dates are written in your file</CardTitle>
         <p className="mt-1 mb-4 text-[0.9375rem] text-graphite">
           03/04/2024 is the 3rd of April in the UK and the 4th of March in the
-          US. We will not guess: the wrong choice moves every patient&apos;s
+          US. We will not guess: the wrong choice moves every member&apos;s
           last visit by months.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -330,18 +330,18 @@ export function ImportWizard() {
                     result.ok ? (
                       <tr key={index}>
                         <td>
-                          {[result.patient.firstName, result.patient.lastName]
+                          {[result.member.firstName, result.member.lastName]
                             .filter(Boolean)
                             .join(" ") || "no name"}
                         </td>
                         <td className="literal text-[0.8125rem]">
-                          {result.patient.email ?? "none"}
+                          {result.member.email ?? "none"}
                         </td>
                         <td className="literal text-[0.8125rem]">
-                          {result.patient.lastVisitAt}
+                          {result.member.lastVisitAt}
                         </td>
                         <td className="literal text-[0.8125rem]">
-                          {result.patient.visitCount}
+                          {result.member.visitCount}
                         </td>
                       </tr>
                     ) : (
@@ -371,7 +371,7 @@ export function ImportWizard() {
           onClick={onImport}
           disabled={busy || !mapping.lastVisitAt || previewOk === 0}
         >
-          {busy ? "Importing" : "Import these patients"}
+          {busy ? "Importing" : "Import these members"}
         </Button>
         <Button
           variant="quiet"

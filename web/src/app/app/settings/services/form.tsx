@@ -5,12 +5,12 @@ import { useState, useTransition } from "react";
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import { currencySymbol } from "@/lib/money";
 import type { Currency } from "@/lib/countries";
-import type { PracticeService } from "@/lib/types";
+import type { Service } from "@/lib/types";
 import { saveServices, type ServicesState } from "./actions";
 
 type Row = { key: string; id: string | null; name: string; price: string };
 
-function toRow(service: PracticeService): Row {
+function toRow(service: Service): Row {
   return {
     key: service.id,
     id: service.id,
@@ -33,7 +33,7 @@ export function ServicesForm({
   currency,
   readOnly,
 }: {
-  services: PracticeService[];
+  services: Service[];
   currency: Currency;
   readOnly: boolean;
 }) {
@@ -63,7 +63,7 @@ export function ServicesForm({
   }
 
   function save() {
-    // A row with neither a name nor a price is just an empty line the practice
+    // A row with neither a name nor a price is just an empty line the gym
     // left behind. Drop it rather than making them tidy up before saving.
     const kept = rows.filter((row) => row.name.trim() !== "" || row.price.trim() !== "");
 
@@ -87,8 +87,8 @@ export function ServicesForm({
     <Card>
       <CardTitle>Your service prices</CardTitle>
       <p className="mb-5 text-[0.875rem] text-stone">
-        The treatments you offer and what they cost. casdey uses these to show
-        patients what a visit is worth in a message, and to value the work it
+        The memberships, classes and sessions you offer and what they cost. casdey uses these to show
+        members what a visit is worth in a message, and to value the work it
         books back in. Add as many as you like.
       </p>
 
@@ -104,7 +104,7 @@ export function ServicesForm({
               aria-label="Service name"
               value={row.name}
               onChange={(e) => update(row.key, "name", e.target.value)}
-              placeholder="Check-up"
+              placeholder="Monthly membership"
               maxLength={120}
               disabled={disabled}
               className="field flex-1"

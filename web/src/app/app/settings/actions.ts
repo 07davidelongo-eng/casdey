@@ -10,14 +10,14 @@ import { recordAudit } from "@/lib/audit";
 export type SettingsState = { error: string | null; saved: boolean };
 
 const Schema = z.object({
-  name: z.string().trim().min(2, "Add your practice name.").max(200),
+  name: z.string().trim().min(2, "Add your gym name.").max(200),
   senderName: z
     .string()
     .trim()
-    .min(2, "Patients need a name to recognise on the email.")
+    .min(2, "Members need a name to recognise on the email.")
     .max(120),
   replyToEmail: z.email("That reply-to address does not look right.").max(320),
-  dormantAfterMonths: z.coerce
+  lapsedAfterMonths: z.coerce
     .number()
     .int()
     .min(3, "Three months is the shortest window casdey will use.")
@@ -34,7 +34,7 @@ const Schema = z.object({
     .max(1000, "A thousand a day is the ceiling."),
   // Entered in major units (whole pounds/euros and pence/cents), blank allowed.
   // "" means "not set" and is stored as null, not zero.
-  appointmentValue: z
+  bookingValue: z
     .string()
     .trim()
     .transform((v) => (v === "" ? null : Number(v)))
@@ -48,16 +48,16 @@ export async function saveSettingsAction(
   _previous: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
-  const { practice, session } = await requireOwner();
+  const { gym, session } = await requireOwner();
 
   const parsed = Schema.safeParse({
     name: formData.get("name"),
     senderName: formData.get("senderName"),
     replyToEmail: formData.get("replyToEmail"),
-    dormantAfterMonths: formData.get("dormantAfterMonths"),
+    lapsedAfterMonths: formData.get("lapsedAfterMonths"),
     maxVisits: formData.get("maxVisits"),
     dailySendCap: formData.get("dailySendCap"),
-    appointmentValue: formData.get("appointmentValue"),
+    bookingValue: formData.get("bookingValue"),
   });
 
   if (!parsed.success) {
@@ -70,23 +70,23 @@ export async function saveSettingsAction(
   const value = parsed.data;
 
   // Kept in minor units in the database; entered in whole currency in the form.
-  const appointmentValueMinor =
-    value.appointmentValue === null
+  const bookingValueMinor =
+    value.bookingValue === null
       ? null
-      : Math.round(value.appointmentValue * 100);
+      : Math.round(value.bookingValue * 100);
 
   const { error } = await supabaseAdmin()
-    .from("practices")
+    .from("gyms")
     .update({
       name: value.name,
       sender_name: value.senderName,
       reply_to_email: value.replyToEmail.toLowerCase(),
-      dormant_after_months: value.dormantAfterMonths,
+      lapsed_after_months: value.lapsedAfterMonths,
       max_visits: value.maxVisits,
       daily_send_cap: value.dailySendCap,
-      appointment_value_minor: appointmentValueMinor,
+      booking_value_minor: bookingValueMinor,
     })
-    .eq("id", practice.id);
+    .eq("id", gym.id);
 
   if (error) {
     console.error("[settings] update failed", error.message);
@@ -94,17 +94,17 @@ export async function saveSettingsAction(
   }
 
   await recordAudit({
-    practiceId: practice.id,
+    gymId: gym.id,
     actorId: session.userId,
     actorEmail: session.email,
-    action: "practice.updated",
+    action: "gym.updated",
     meta: {
-      dormant_after_months: value.dormantAfterMonths,
+      lapsed_after_months: value.lapsedAfterMonths,
       max_visits: value.maxVisits,
     },
   });
 
-  // The dormancy window feeds every count on the dashboard and the patients
+  // The lapse window feeds every count on the dashboard and the members
   // list, so those pages are stale the moment this saves.
   revalidatePath("/app", "layout");
 

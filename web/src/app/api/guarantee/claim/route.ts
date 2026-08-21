@@ -12,23 +12,23 @@ export const dynamic = "force-dynamic";
 
 /**
  * The profit-or-nothing guarantee, self-service: one click, and if the
- * practice genuinely qualifies, the refund fires immediately with nobody at
+ * gym genuinely qualifies, the refund fires immediately with nobody at
  * casdey reviewing it first. That is only safe because of what
- * src/lib/guarantee.ts guarantees structurally: a practice gets exactly one
+ * src/lib/guarantee.ts guarantees structurally: a gym gets exactly one
  * lifetime window (its first campaign on or after its first real payment), so
  * there is no way to re-arm this by trying again.
  *
  * Everything the button showed is recomputed here, from the database, before
  * a single Stripe call is made. Nothing the browser sent is trusted for the
  * amounts or the eligibility: they are read fresh, the same way the checkout
- * route decides currency from the practice's country rather than the request.
+ * route decides currency from the gym's country rather than the request.
  */
 export async function POST(request: NextRequest): Promise<Response> {
-  const { practice, session } = await requireOwner();
+  const { gym, session } = await requireOwner();
   const origin = request.nextUrl.origin;
   const back = new URL("/app/settings/billing", origin);
 
-  const status = await loadGuaranteeStatus(session.supabase, practice);
+  const status = await loadGuaranteeStatus(session.supabase, gym);
 
   if (status.state !== "claimable") {
     back.searchParams.set(
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       status.state === "claimed"
         ? "This has already been claimed."
         : status.state === "needs_review"
-          ? "Set your typical appointment value in Settings so we can check this, then contact us and we will handle the refund."
+          ? "Set your typical booking value in Settings so we can check this, then contact us and we will handle the refund."
           : "There is nothing to claim right now.",
     );
     return NextResponse.redirect(back, 303);
@@ -44,14 +44,14 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   const admin = supabaseAdmin();
 
-  // Claims the practice's one lifetime slot via the unique(practice_id)
+  // Claims the gym's one lifetime slot via the unique(gym_id)
   // constraint on guarantee_claims. If two requests race (a doubled click, a
   // retried form submit), only one gets past this insert; the other lands on
   // the unique-violation branch below and refunds nothing.
   const { data: claim, error: claimError } = await admin
     .from("guarantee_claims")
     .insert({
-      practice_id: practice.id,
+      gym_id: gym.id,
       created_by: session.userId,
       window_start: status.window.start.toISOString(),
       window_end: status.window.end.toISOString(),
@@ -80,25 +80,25 @@ export async function POST(request: NextRequest): Promise<Response> {
   // single lump sum, because a refund has to point at a real Stripe payment,
   // not an aggregate.
   //
-  // practice.premium_started_at, not status.window.start, is the lower
+  // gym.premium_started_at, not status.window.start, is the lower
   // bound here for the same reason it is in loadGuaranteeStatus
   // (../../../../lib/guarantee-data.ts): the payment that unlocked Premium
-  // always lands before the practice gets around to approving its first
+  // always lands before the gym gets around to approving its first
   // campaign, so window.start would silently exclude the one payment this
   // guarantee exists to refund. Getting this wrong here is worse than
   // getting it wrong on the display, because guarantee_claims is a one-shot,
   // never-re-armed slot (see the insert above) — a claim that finds nothing
-  // to refund still burns the practice's only chance.
+  // to refund still burns the gym's only chance.
   const { data: allPayments } = await admin
     .from("subscription_payments")
     .select("*")
-    .eq("practice_id", practice.id)
-    .gte("paid_at", practice.premium_started_at ?? status.window.start.toISOString())
+    .eq("gym_id", gym.id)
+    .gte("paid_at", gym.premium_started_at ?? status.window.start.toISOString())
     .lte("paid_at", status.window.end.toISOString());
 
   // Narrow to the same billing period loadGuaranteeStatus judged as "paid", so
   // the refund can never hand back more than the guarantee was measured against
-  // (an extra pre-window month, for a practice slow to launch its first
+  // (an extra pre-window month, for a gym slow to launch its first
   // campaign, must not be refunded).
   type PaymentRow = {
     id: string;
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     .eq("id", claim.id);
 
   await recordAudit({
-    practiceId: practice.id,
+    gymId: gym.id,
     actorId: session.userId,
     actorEmail: session.email,
     action: "guarantee.claimed",

@@ -1,14 +1,14 @@
 /**
  * The signature device.
  *
- * One patient's history as a line: two visits close together, then a long
+ * One member's history as a line: two visits close together, then a long
  * dashed nothing, then a booking. It is the product in one picture, and the
  * only place the warm accent is allowed to appear.
  */
-export function PatientTimeline({
+export function MemberTimeline({
   className = "",
   gapLabel = "no contact for 17 months",
-  endLabel = "rebooked",
+  endLabel = "returned",
 }: {
   className?: string;
   gapLabel?: string;
@@ -21,7 +21,7 @@ export function PatientTimeline({
       aria-label={`Two early visits, then ${gapLabel}, then ${endLabel}.`}
       className={`w-full ${className}`}
     >
-      {/* The visits the practice already had */}
+      {/* The visits the gym already had */}
       <line
         x1="20"
         y1="44"

@@ -1,40 +1,40 @@
 import "server-only";
 
 import { supabaseAdmin } from "../supabase";
-import type { RawPatient } from "./types";
+import type { RawMember } from "./types";
 
 /**
- * Writing parsed patients into the database.
+ * Writing parsed members into the database.
  *
  * Uses the service-role client because this runs as a batch and needs to upsert
- * thousands of rows without a round trip per row. The practice id is pinned by
+ * thousands of rows without a round trip per row. The gym id is pinned by
  * the caller from a verified session and is never read from the request body:
  * that is the only thing standing between this and a cross-tenant write, so it
  * does not move.
  *
- * Repeat imports update rather than duplicate. A practice re-exporting their
+ * Repeat imports update rather than duplicate. A gym re-exporting their
  * list every month is the normal case, not the exception.
  */
 
 const BATCH_SIZE = 500;
-/** Enough for the practice to see which records to fix, not a copy of the file. */
+/** Enough for the gym to see which records to fix, not a copy of the file. */
 const MAX_FAILURES = 50;
 
-/** One record the upsert could not write, with something the practice can act on. */
+/** One record the upsert could not write, with something the gym can act on. */
 export type UpsertFailure = { ref: string; reason: string };
 
 export type UpsertResult = {
   imported: number;
   updated: number;
   failed: number;
-  /** Ids of patients created by this run, for the timeline. */
-  newPatientIds: string[];
+  /** Ids of members created by this run, for the timeline. */
+  newMemberIds: string[];
   /** Per-record reasons for any failures, so a bad row is diagnosable. */
   failures: UpsertFailure[];
 };
 
 type Row = {
-  practice_id: string;
+  gym_id: string;
   import_id: string;
   external_ref: string | null;
   first_name: string | null;
@@ -47,51 +47,51 @@ type Row = {
 };
 
 function toRow(
-  patient: RawPatient,
-  practiceId: string,
+  member: RawMember,
+  gymId: string,
   importId: string,
   source: string,
 ): Row {
   return {
-    practice_id: practiceId,
+    gym_id: gymId,
     import_id: importId,
-    external_ref: patient.externalRef,
-    first_name: patient.firstName,
-    last_name: patient.lastName,
-    email: patient.email,
-    phone: patient.phone,
-    last_visit_at: patient.lastVisitAt,
-    visit_count: patient.visitCount,
+    external_ref: member.externalRef,
+    first_name: member.firstName,
+    last_name: member.lastName,
+    email: member.email,
+    phone: member.phone,
+    last_visit_at: member.lastVisitAt,
+    visit_count: member.visitCount,
     source,
   };
 }
 
 /**
- * There are two ways a patient can already exist: by the practice's own
+ * There are two ways a member can already exist: by the gym's own
  * reference, or by email. Rows are split so each batch upserts against exactly
  * one conflict target, because Postgres takes one per statement.
  *
- * An upsert only writes the columns given here, so a patient's status,
- * contacted_at and reactivated_at survive a re-import untouched. Re-importing
+ * An upsert only writes the columns given here, so a member's status,
+ * contacted_at and returned_at survive a re-import untouched. Re-importing
  * must never resurrect somebody who unsubscribed.
  */
-export async function upsertPatients(
-  patients: RawPatient[],
-  options: { practiceId: string; importId: string; source: string },
+export async function upsertMembers(
+  members: RawMember[],
+  options: { gymId: string; importId: string; source: string },
 ): Promise<UpsertResult> {
-  const withRef = patients.filter((p) => p.externalRef);
-  const withoutRef = patients.filter((p) => !p.externalRef && p.email);
+  const withRef = members.filter((p) => p.externalRef);
+  const withoutRef = members.filter((p) => !p.externalRef && p.email);
 
   const result: UpsertResult = {
     imported: 0,
     updated: 0,
     failed: 0,
-    newPatientIds: [],
+    newMemberIds: [],
     failures: [],
   };
 
-  await run(withRef, "practice_id,external_ref", options, result);
-  await run(withoutRef, "practice_id,email", options, result);
+  await run(withRef, "gym_id,external_ref", options, result);
+  await run(withoutRef, "gym_id,email", options, result);
 
   return result;
 }
@@ -103,41 +103,41 @@ export async function upsertPatients(
  * row in the file is the more recent data.
  */
 function dedupeByConflictKey(
-  patients: RawPatient[],
-  keyOf: (p: RawPatient) => string,
-): RawPatient[] {
-  const byKey = new Map<string, RawPatient>();
-  for (const patient of patients) byKey.set(keyOf(patient), patient);
+  members: RawMember[],
+  keyOf: (p: RawMember) => string,
+): RawMember[] {
+  const byKey = new Map<string, RawMember>();
+  for (const member of members) byKey.set(keyOf(member), member);
   return [...byKey.values()];
 }
 
 async function run(
-  patients: RawPatient[],
+  members: RawMember[],
   onConflict: string,
-  options: { practiceId: string; importId: string; source: string },
+  options: { gymId: string; importId: string; source: string },
   result: UpsertResult,
 ): Promise<void> {
   const client = supabaseAdmin();
-  const keyOf: (p: RawPatient) => string = onConflict.endsWith("email")
+  const keyOf: (p: RawMember) => string = onConflict.endsWith("email")
     ? (p) => (p.email ?? "").toLowerCase()
     : (p) => p.externalRef ?? "";
-  const deduped = dedupeByConflictKey(patients, keyOf);
+  const deduped = dedupeByConflictKey(members, keyOf);
 
   for (let start = 0; start < deduped.length; start += BATCH_SIZE) {
     const slice = deduped.slice(start, start + BATCH_SIZE);
-    const rows = slice.map((patient) =>
-      toRow(patient, options.practiceId, options.importId, options.source),
+    const rows = slice.map((member) =>
+      toRow(member, options.gymId, options.importId, options.source),
     );
 
     const { data, error } = await client
-      .from("patients")
+      .from("members")
       .upsert(rows, { onConflict, ignoreDuplicates: false })
       .select("id, created_at, updated_at");
 
     if (error) {
       // A whole batch failing usually means one offending row (a row that
       // collides with the *other* unique index, e.g. an external-ref row whose
-      // email already belongs to a different patient). Retry the slice one row
+      // email already belongs to a different member). Retry the slice one row
       // at a time so a single bad record can't drop the other 499, and record
       // which record failed and why instead of a silent aggregate.
       console.error("[import] batch failed, retrying row by row", error.code);
@@ -151,7 +151,7 @@ async function run(
     for (const row of data ?? []) {
       if (row.created_at === row.updated_at) {
         result.imported += 1;
-        result.newPatientIds.push(row.id as string);
+        result.newMemberIds.push(row.id as string);
       } else {
         result.updated += 1;
       }
@@ -162,15 +162,15 @@ async function run(
 /** Fallback for a batch that errored: isolate each row so one can't sink many. */
 async function runRowByRow(
   client: ReturnType<typeof supabaseAdmin>,
-  slice: RawPatient[],
+  slice: RawMember[],
   onConflict: string,
-  options: { practiceId: string; importId: string; source: string },
+  options: { gymId: string; importId: string; source: string },
   result: UpsertResult,
 ): Promise<void> {
-  for (const patient of slice) {
-    const row = toRow(patient, options.practiceId, options.importId, options.source);
+  for (const member of slice) {
+    const row = toRow(member, options.gymId, options.importId, options.source);
     const { data, error } = await client
-      .from("patients")
+      .from("members")
       .upsert(row, { onConflict, ignoreDuplicates: false })
       .select("id, created_at, updated_at")
       .maybeSingle();
@@ -179,10 +179,10 @@ async function runRowByRow(
       result.failed += 1;
       if (result.failures.length < MAX_FAILURES) {
         result.failures.push({
-          ref: patient.externalRef ?? patient.email ?? "(no reference)",
+          ref: member.externalRef ?? member.email ?? "(no reference)",
           reason:
             error.code === "23505"
-              ? "email already belongs to another patient in this practice"
+              ? "email already belongs to another member in this gym"
               : error.message,
         });
       }
@@ -192,7 +192,7 @@ async function runRowByRow(
     if (data) {
       if (data.created_at === data.updated_at) {
         result.imported += 1;
-        result.newPatientIds.push(data.id as string);
+        result.newMemberIds.push(data.id as string);
       } else {
         result.updated += 1;
       }
@@ -201,32 +201,32 @@ async function runRowByRow(
 }
 
 /**
- * Gives every newly created patient a starting point on their timeline.
+ * Gives every newly created member a starting point on their timeline.
  *
- * Only new ones: a practice re-uploading the same list every month would
- * otherwise stack an "imported" event on every patient every time, and the
+ * Only new ones: a gym re-uploading the same list every month would
+ * otherwise stack an "imported" event on every member every time, and the
  * timeline stops meaning anything.
  *
- * Best effort. An import that stored patients correctly must not be reported as
+ * Best effort. An import that stored members correctly must not be reported as
  * failed because its timeline rows did not write.
  */
 export async function recordImportEvents(
-  practiceId: string,
+  gymId: string,
   importId: string,
-  patientIds: string[],
+  memberIds: string[],
 ): Promise<void> {
-  if (patientIds.length === 0) return;
+  if (memberIds.length === 0) return;
   const client = supabaseAdmin();
 
-  for (let start = 0; start < patientIds.length; start += BATCH_SIZE) {
-    const events = patientIds.slice(start, start + BATCH_SIZE).map((id) => ({
-      practice_id: practiceId,
-      patient_id: id,
+  for (let start = 0; start < memberIds.length; start += BATCH_SIZE) {
+    const events = memberIds.slice(start, start + BATCH_SIZE).map((id) => ({
+      gym_id: gymId,
+      member_id: id,
       type: "imported",
       meta: { import_id: importId },
     }));
 
-    const { error } = await client.from("patient_events").insert(events);
+    const { error } = await client.from("member_events").insert(events);
     if (error) {
       console.error("[import] events failed", error.message);
       return;

@@ -8,9 +8,9 @@ import { SUPPORT_TOPICS, type SupportTopic } from "./support-topics";
 /**
  * The always-there help launcher (roadmap #5).
  *
- * Curated, not AI: it answers from a fixed set of questions a practice actually
+ * Curated, not AI: it answers from a fixed set of questions a gym actually
  * asks (support-topics.ts), and falls back to a plain email when it cannot.
- * That fallback is a mailto, which opens the practice's own mail client so they
+ * That fallback is a mailto, which opens the gym's own mail client so they
  * send it themselves. casdey never sends anything on their behalf from here.
  *
  * It is chrome, not content: the launcher sits on the same inverted petrol

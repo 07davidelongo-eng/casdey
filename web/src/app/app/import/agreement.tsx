@@ -9,17 +9,17 @@ import { agreeToProcessingAction, type AgreementState } from "./actions";
 const INITIAL: AgreementState = { error: null };
 
 /**
- * The gate in front of every patient upload.
+ * The gate in front of every member upload.
  *
  * Deliberately not a wall of legal text nobody reads. It says the four things
- * that are actually true and actually matter, in the practice's own terms, and
+ * that are actually true and actually matter, in the gym's own terms, and
  * links to the full processor terms for anyone who wants them.
  */
 export function ProcessingAgreement({
-  practiceName,
+  gymName,
   canAgree,
 }: {
-  practiceName: string;
+  gymName: string;
   canAgree: boolean;
 }) {
   const id = useId();
@@ -30,7 +30,7 @@ export function ProcessingAgreement({
 
   return (
     <Card>
-      <CardTitle>Before you upload patient data</CardTitle>
+      <CardTitle>Before you upload member data</CardTitle>
       <p className="mt-1 text-[0.9375rem] text-graphite">
         You are about to send us records about real people. Here is exactly
         where that leaves both of us.
@@ -39,9 +39,9 @@ export function ProcessingAgreement({
       <ul className="mt-5 space-y-3 text-[0.9375rem] text-graphite">
         <Point>
           <strong className="font-semibold text-ink">
-            {practiceName} stays in charge of this data.
+            {gymName} stays in charge of this data.
           </strong>{" "}
-          casdey only processes it to do what you ask: find dormant patients and
+          casdey only processes it to do what you ask: find lapsed members and
           contact them on your behalf. Nothing else, ever.
         </Point>
         <Point>
@@ -57,7 +57,7 @@ export function ProcessingAgreement({
         </Point>
         <Point>
           <strong className="font-semibold text-ink">
-            You confirm you may contact these patients
+            You confirm you may contact these members
           </strong>{" "}
           about their care with you. That part is yours to know, not ours.
         </Point>
@@ -78,7 +78,7 @@ export function ProcessingAgreement({
             className="mt-1.5 h-4 w-4 shrink-0 accent-[var(--teal)]"
           />
           <span>
-            I confirm the above on behalf of {practiceName}, and I accept the{" "}
+            I confirm the above on behalf of {gymName}, and I accept the{" "}
             <Link
               href="/terms/processing"
               className="text-teal underline underline-offset-4"
@@ -102,7 +102,7 @@ export function ProcessingAgreement({
         ) : (
           <div className="mt-5">
             <Notice tone="warn">
-              Only the practice owner can accept this.
+              Only the gym owner can accept this.
             </Notice>
           </div>
         )}

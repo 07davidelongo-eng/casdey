@@ -6,7 +6,7 @@ import { Button } from "./ui";
 
 /**
  * The hero's single field. It does not submit a signup on its own: it carries
- * the address over to /waitlist, where the practice name and the consent notice
+ * the address over to /waitlist, where the gym name and the consent notice
  * live. One field here, the full form there.
  */
 export function HeroEmailCapture() {
@@ -36,7 +36,7 @@ export function HeroEmailCapture() {
         autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="you@yourpractice.co.uk"
+        placeholder="you@yourgym.co.uk"
         className="min-w-0 flex-1 rounded-[10px] border border-ash bg-white px-4 py-3 text-[0.9375rem] text-ink placeholder:text-stone transition-colors duration-200 hover:border-stone focus:border-teal focus:outline-none"
       />
       <Button type="submit" className="shrink-0">

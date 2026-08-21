@@ -3,46 +3,46 @@
 import { useActionState, useId } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
-import type { Practice } from "@/lib/types";
-import { currencySymbol, practiceCurrency } from "@/lib/money";
+import type { Gym } from "@/lib/types";
+import { currencySymbol, gymCurrency } from "@/lib/money";
 import { saveSettingsAction, type SettingsState } from "./actions";
 
 const INITIAL: SettingsState = { error: null, saved: false };
 
 export function SettingsForm({
-  practice,
+  gym,
   readOnly,
 }: {
-  practice: Practice;
+  gym: Gym;
   readOnly: boolean;
 }) {
   const id = useId();
   const [state, action, pending] = useActionState(saveSettingsAction, INITIAL);
   const disabled = readOnly || pending;
 
-  const symbol = currencySymbol(practiceCurrency(practice));
-  const appointmentValue =
-    practice.appointment_value_minor != null
-      ? String(practice.appointment_value_minor / 100)
+  const symbol = currencySymbol(gymCurrency(gym));
+  const bookingValue =
+    gym.booking_value_minor != null
+      ? String(gym.booking_value_minor / 100)
       : "";
 
   return (
     <form action={action} className="space-y-6">
       <Card>
-        <CardTitle>How patients see you</CardTitle>
+        <CardTitle>How members see you</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
-          casdey sends on your behalf. This is the name and address a patient
+          casdey sends on your behalf. This is the name and address a member
           sees.
         </p>
 
         <div className="mb-5">
           <label htmlFor={`${id}-name`} className="field-label">
-            Practice name
+            Gym name
           </label>
           <input
             id={`${id}-name`}
             name="name"
-            defaultValue={practice.name}
+            defaultValue={gym.name}
             required
             maxLength={200}
             disabled={disabled}
@@ -57,14 +57,14 @@ export function SettingsForm({
           <input
             id={`${id}-sender`}
             name="senderName"
-            defaultValue={practice.sender_name ?? practice.name}
+            defaultValue={gym.sender_name ?? gym.name}
             required
             maxLength={120}
             disabled={disabled}
             className="field"
           />
           <p className="field-hint">
-            What appears in the patient&apos;s inbox. Usually your practice
+            What appears in the member&apos;s inbox. Usually your gym
             name.
           </p>
         </div>
@@ -77,22 +77,22 @@ export function SettingsForm({
             id={`${id}-reply`}
             name="replyToEmail"
             type="email"
-            defaultValue={practice.reply_to_email ?? practice.contact_email}
+            defaultValue={gym.reply_to_email ?? gym.contact_email}
             required
             maxLength={320}
             disabled={disabled}
             className="field"
           />
           <p className="field-hint">
-            A patient replying to book lands here. Watch this inbox.
+            A member replying to book lands here. Watch this inbox.
           </p>
         </div>
       </Card>
 
       <Card>
-        <CardTitle>What counts as dormant</CardTitle>
+        <CardTitle>What counts as lapsed</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
-          casdey looks for patients who came a few times and then stopped. These
+          casdey looks for members who came a few times and then stopped. These
           two numbers decide who that is. Changing them changes every count in
           the app straight away.
         </p>
@@ -105,12 +105,12 @@ export function SettingsForm({
             <div className="flex items-center gap-3">
               <input
                 id={`${id}-months`}
-                name="dormantAfterMonths"
+                name="lapsedAfterMonths"
                 type="number"
                 min={3}
                 max={60}
                 step={1}
-                defaultValue={practice.dormant_after_months}
+                defaultValue={gym.lapsed_after_months}
                 required
                 disabled={disabled}
                 className="field literal"
@@ -131,7 +131,7 @@ export function SettingsForm({
                 min={1}
                 max={20}
                 step={1}
-                defaultValue={practice.max_visits}
+                defaultValue={gym.max_visits}
                 required
                 disabled={disabled}
                 className="field literal"
@@ -143,17 +143,17 @@ export function SettingsForm({
       </Card>
 
       <Card>
-        <CardTitle>What a returning patient is worth</CardTitle>
+        <CardTitle>What a returning member is worth</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
-          The typical value of one recovered appointment. casdey multiplies it
-          by the patients it books back in to estimate the revenue on your
+          The typical value of one recovered booking. casdey multiplies it
+          by the members it books back in to estimate the revenue on your
           dashboard, and it is what the profit-or-nothing guarantee is measured
           against. An average is fine, you can change it whenever.
         </p>
 
         <div className="max-w-[16rem]">
           <label htmlFor={`${id}-value`} className="field-label">
-            Value of a recovered appointment
+            Value of a recovered booking
           </label>
           <div className="flex items-center gap-3">
             <span className="literal text-[1.0625rem] text-graphite">
@@ -161,13 +161,13 @@ export function SettingsForm({
             </span>
             <input
               id={`${id}-value`}
-              name="appointmentValue"
+              name="bookingValue"
               type="number"
               min={0}
               max={1000000}
               step="0.01"
               inputMode="decimal"
-              defaultValue={appointmentValue}
+              defaultValue={bookingValue}
               placeholder="120"
               disabled={disabled}
               className="field literal"
@@ -198,7 +198,7 @@ export function SettingsForm({
             min={1}
             max={1000}
             step={1}
-            defaultValue={practice.daily_send_cap}
+            defaultValue={gym.daily_send_cap}
             required
             disabled={disabled}
             className="field literal"

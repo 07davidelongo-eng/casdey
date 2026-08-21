@@ -4,9 +4,9 @@ import {
   currencySymbol,
   estimatedRecoveredMinor,
   formatMoney,
-  practiceCurrency,
+  gymCurrency,
 } from "./money";
-import type { Practice } from "./types";
+import type { Gym } from "./types";
 
 describe("formatMoney", () => {
   it("shows a round amount with no decimal part", () => {
@@ -31,19 +31,19 @@ describe("currencySymbol", () => {
   });
 });
 
-describe("practiceCurrency", () => {
+describe("gymCurrency", () => {
   it("uses the billing currency once it is set", () => {
-    expect(practiceCurrency({ plan_currency: "eur", country: "GB" })).toBe("eur");
+    expect(gymCurrency({ plan_currency: "eur", country: "GB" })).toBe("eur");
   });
 
   it("falls back to the country before checkout", () => {
-    expect(practiceCurrency({ plan_currency: null, country: "GB" })).toBe("gbp");
-    expect(practiceCurrency({ plan_currency: null, country: "DE" })).toBe("eur");
+    expect(gymCurrency({ plan_currency: null, country: "GB" })).toBe("gbp");
+    expect(gymCurrency({ plan_currency: null, country: "DE" })).toBe("eur");
   });
 });
 
 describe("estimatedRecoveredMinor", () => {
-  it("multiplies rebookings by the appointment value", () => {
+  it("multiplies returns by the booking value", () => {
     expect(estimatedRecoveredMinor(8, 12000)).toBe(96000);
   });
 
@@ -52,12 +52,12 @@ describe("estimatedRecoveredMinor", () => {
     expect(estimatedRecoveredMinor(8, 0)).toBeNull();
   });
 
-  it("is a real figure of zero when nobody has rebooked yet", () => {
+  it("is a real figure of zero when nobody has returned yet", () => {
     expect(estimatedRecoveredMinor(0, 12000)).toBe(0);
   });
 });
 
-// A compile-time guard that practiceCurrency accepts a full Practice, not only
+// A compile-time guard that gymCurrency accepts a full Gym, not only
 // the picked shape the tests above pass.
-const _fullPractice = (p: Practice) => practiceCurrency(p);
-void _fullPractice;
+const _fullGym = (p: Gym) => gymCurrency(p);
+void _fullGym;

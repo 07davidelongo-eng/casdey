@@ -24,8 +24,8 @@ export function BookingForm({
   days: DayGroup[];
   services: ServiceOption[];
   currency: Currency;
-  /** The practice's own timezone. The confirmation must show the time the
-   *  patient actually picked in the practice's clock, not the browser's own,
+  /** The gym's own timezone. The confirmation must show the time the
+   *  member actually picked in the gym's clock, not the browser's own,
    *  which can silently disagree with it by an hour or more. */
   timezone: string;
 }) {

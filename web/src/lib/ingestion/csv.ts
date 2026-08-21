@@ -4,19 +4,19 @@ import type {
   ColumnMapping,
   DateFormat,
   ParseResult,
-  RawPatient,
+  RawMember,
 } from "./types";
 
 /**
- * Turning one row of a practice's export into a patient.
+ * Turning one row of a gym's export into a member.
  *
  * Pure functions, no database, no framework. This is the code that decides what
- * a patient's last visit date actually is, and every dormancy calculation and
+ * a member's last visit date actually is, and every lapse calculation and
  * every campaign audience is built on top of it. It is unit tested in csv.test.ts
  * for that reason.
  */
 
-/** Deliberately permissive, matching the waitlist. Rejecting a real address costs a patient. */
+/** Deliberately permissive, matching the waitlist. Rejecting a real address costs a member. */
 const EMAIL_RE = /^[^\s@]+@[^\s@,]+\.[^\s@,]{2,}$/;
 
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -38,7 +38,7 @@ function iso(year: number, month: number, day: number): string {
 }
 
 /**
- * Parses a date in the format the practice told us their file uses.
+ * Parses a date in the format the gym told us their file uses.
  *
  * Returns null rather than throwing: a bad date is a skipped row with a
  * readable reason, not a failed import.
@@ -71,7 +71,7 @@ export function parseDate(
   const day = format === "dmy" ? Number(first) : Number(second);
   const month = format === "dmy" ? Number(second) : Number(first);
 
-  // A two-digit year is ambiguous forever. Patient records are historical, so
+  // A two-digit year is ambiguous forever. Member records are historical, so
   // a year that would land in the future is read as the previous century.
   let year = Number(rawYear);
   if (rawYear.length === 2) {
@@ -84,17 +84,14 @@ export function parseDate(
 }
 
 /**
- * A practice's export writes phone numbers the way the front desk dials
- * them: local format ("07700 900123"), not E.164 ("+447700900123"). Twilio's
- * WhatsApp API rejects anything else outright, and the inbound webhook
- * matches a reply back to a conversation by exact phone string (see
- * whatsapp_conversations.phone in ../whatsapp/), so a local-format number
- * would silently break both directions of the WhatsApp channel.
+ * A gym's export writes phone numbers the way the front desk dials them: local
+ * format ("07700 900123"), not E.164 ("+447700900123"). Numbers are normalised
+ * to E.164 at import so storage stays consistent whatever the source file's
+ * formatting, using the gym's own country as the default region.
  *
- * Falls back to the trimmed raw value when it cannot be parsed: a phone
- * number that will not resolve to E.164 still gets stored (harmless for
- * email-channel patients, and better than losing the row) rather than
- * blocking the import the way a bad required date does.
+ * Falls back to the trimmed raw value when it cannot be parsed: a phone number
+ * that will not resolve to E.164 still gets stored (better than losing the row)
+ * rather than blocking the import the way a bad required date does.
  */
 export function normalizePhoneForCountry(
   raw: string,
@@ -107,10 +104,10 @@ export function normalizePhoneForCountry(
     defaultCountry: defaultCountry as CountryCode,
   });
   // isPossible (structurally a phone number) rather than isValid (matches an
-  // actually-assigned range): a practice's real patient may well carry a
+  // actually-assigned range): a gym's real member may well carry a
   // number in a newer or less common range that the library's static
   // allocation tables do not recognise yet. Either way it is not casdey's
-  // place to decide a patient's own number is not real.
+  // place to decide a member's own number is not real.
   return parsed?.isPossible() ? parsed.number : trimmed;
 }
 
@@ -135,7 +132,7 @@ export function normalizeRow(
   mapping: ColumnMapping,
   dateFormat: DateFormat,
   rowNumber: number,
-  /** The practice's country, used to read a local-format phone number.
+  /** The gym's country, used to read a local-format phone number.
    *  Omitted in the client-side preview, which never displays phone. */
   defaultCountry?: string,
 ): ParseResult {
@@ -152,7 +149,7 @@ export function normalizeRow(
     return issue("lastVisitAt", `Could not read "${rawDate}" as a date`);
   }
 
-  // A visit that has not happened yet is a data error, not a dormant patient.
+  // A visit that has not happened yet is a data error, not a lapsed member.
   // Tomorrow is allowed, to absorb timezone drift in the export.
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
   if (lastVisitAt > tomorrow) {
@@ -170,10 +167,10 @@ export function normalizeRow(
 
   const externalRef = cell(row, mapping.externalRef) || null;
 
-  // Without one of these there is no way to identify the patient on a repeat
+  // Without one of these there is no way to identify the member on a repeat
   // import, and no way to contact them. The row is not worth storing.
   if (!email && !externalRef) {
-    return issue("email", "No email address and no patient reference");
+    return issue("email", "No email address and no member reference");
   }
 
   let first: string | null = cell(row, mapping.firstName) || null;
@@ -184,7 +181,7 @@ export function normalizeRow(
     last = split.last;
   }
 
-  // At least one, because a patient who came once still counts as having come.
+  // At least one, because a member who came once still counts as having come.
   let visitCount = 1;
   const rawVisits = cell(row, mapping.visitCount);
   if (rawVisits) {
@@ -200,7 +197,7 @@ export function normalizeRow(
     ? (defaultCountry ? normalizePhoneForCountry(rawPhone, defaultCountry) : rawPhone).slice(0, 40)
     : null;
 
-  const patient: RawPatient = {
+  const member: RawMember = {
     externalRef,
     firstName: first ? first.slice(0, 120) : null,
     lastName: last ? last.slice(0, 120) : null,
@@ -210,24 +207,24 @@ export function normalizeRow(
     visitCount,
   };
 
-  return { ok: true, patient };
+  return { ok: true, member };
 }
 
 /**
  * Best guess at which column is which, offered as a starting point in the UI.
- * Always shown to the practice for confirmation, never applied silently.
+ * Always shown to the gym for confirmation, never applied silently.
  */
 // [\s_-]* rather than \s* on purpose: CSV exports as often write these
 // headers as "first_name" or "first-name" (snake/kebab case) as "First Name"
 // (space-separated), and a plain \s* only matched the latter.
 const HINTS: { field: keyof ColumnMapping; patterns: RegExp[] }[] = [
-  { field: "externalRef", patterns: [/^(patient[\s_-]*)?(id|ref|reference|number|no)$/i, /patient.*(id|ref)/i] },
+  { field: "externalRef", patterns: [/^(member[\s_-]*)?(id|ref|reference|number|no)$/i, /member.*(id|ref)/i] },
   { field: "firstName", patterns: [/^(first|given|fore)[\s_-]*name$/i, /^first$/i] },
   { field: "lastName", patterns: [/^(last|sur|family)[\s_-]*name$/i, /^surname$/i, /^last$/i] },
-  { field: "fullName", patterns: [/^(full[\s_-]*)?name$/i, /^patient([\s_-]*name)?$/i] },
+  { field: "fullName", patterns: [/^(full[\s_-]*)?name$/i, /^member([\s_-]*name)?$/i] },
   { field: "email", patterns: [/e-?mail/i] },
   { field: "phone", patterns: [/phone|mobile|tel/i] },
-  { field: "lastVisitAt", patterns: [/last.*(visit|appointment|seen)/i, /(visit|appointment).*date/i, /^date$/i] },
+  { field: "lastVisitAt", patterns: [/last.*(visit|booking|seen)/i, /(visit|booking).*date/i, /^date$/i] },
   { field: "visitCount", patterns: [/visit.*(count|s\b)/i, /(number|no).*visits/i, /^visits$/i] },
 ];
 

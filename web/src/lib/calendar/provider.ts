@@ -14,8 +14,8 @@ import { decryptToken, encryptToken } from "./tokens";
 /**
  * The calendar the app actually books against, hiding token refresh.
  *
- * Mirrors emailProvider()/whatsappProvider(): `calendarFor(practiceId)` returns
- * a live handle when a practice has connected Google, or null when it has not,
+ * Mirrors emailProvider(): `calendarFor(gymId)` returns
+ * a live handle when a gym has connected Google, or null when it has not,
  * so callers branch on presence instead of scattering "is it connected" checks.
  *
  * Access tokens expire in an hour; the refresh token does not. This module is
@@ -39,12 +39,12 @@ export type ConnectedCalendar = {
 
 /** The full row including encrypted tokens. Server-side only, never to a page. */
 async function loadConnection(
-  practiceId: string,
+  gymId: string,
 ): Promise<CalendarConnection | null> {
   const { data } = await supabaseAdmin()
     .from("calendar_connections")
     .select("*")
-    .eq("practice_id", practiceId)
+    .eq("gym_id", gymId)
     .maybeSingle();
   return (data as CalendarConnection) ?? null;
 }
@@ -85,9 +85,9 @@ async function validAccessToken(connection: CalendarConnection): Promise<string>
 }
 
 export async function calendarFor(
-  practiceId: string,
+  gymId: string,
 ): Promise<ConnectedCalendar | null> {
-  const connection = await loadConnection(practiceId);
+  const connection = await loadConnection(gymId);
   if (
     !connection ||
     connection.status !== "active" ||
@@ -126,7 +126,7 @@ export async function calendarFor(
   };
 }
 
-/** The non-secret view of a practice's connection, safe to render in Settings. */
+/** The non-secret view of a gym's connection, safe to render in Settings. */
 export type CalendarConnectionView = {
   connected: boolean;
   email: string | null;
@@ -134,9 +134,9 @@ export type CalendarConnectionView = {
 };
 
 export async function calendarConnectionView(
-  practiceId: string,
+  gymId: string,
 ): Promise<CalendarConnectionView> {
-  const connection = await loadConnection(practiceId);
+  const connection = await loadConnection(gymId);
   const connected =
     Boolean(connection) &&
     connection!.status === "active" &&

@@ -4,24 +4,24 @@ import { CancelForm } from "./form";
 import "@/styles/product.css";
 
 export const metadata = {
-  title: "Manage your appointment",
+  title: "Manage your booking",
   robots: { index: false, follow: false },
 };
 
-type AppointmentRow = {
+type BookingRow = {
   id: string;
   start_at: string;
   status: string;
-  practices: { name: string; timezone: string } | { name: string; timezone: string }[] | null;
+  gyms: { name: string; timezone: string } | { name: string; timezone: string }[] | null;
 };
 
 /**
  * Where the "change or cancel" link in a booking confirmation goes.
  *
- * A separate token namespace from /book/[token]: that one is the patient's
- * standing link for booking a new time, this one is single-appointment and
+ * A separate token namespace from /book/[token]: that one is the member's
+ * standing link for booking a new time, this one is single-booking and
  * only ever sent in the confirmation for that booking. Public, same reasoning
- * as /u/[token] and /book/[token]: the token is the only credential a patient
+ * as /u/[token] and /book/[token]: the token is the only credential a member
  * needs.
  */
 export default async function ManageBookingPage(
@@ -30,48 +30,48 @@ export default async function ManageBookingPage(
   const { token } = await props.params;
 
   const { data } = await supabaseAdmin()
-    .from("appointments")
-    .select("id, start_at, status, practices ( name, timezone )")
+    .from("bookings")
+    .select("id, start_at, status, gyms ( name, timezone )")
     .eq("booking_token", token)
     .maybeSingle();
 
-  const appointment = data as AppointmentRow | null;
+  const booking = data as BookingRow | null;
 
-  if (!appointment) {
+  if (!booking) {
     return (
       <Shell>
         <h1 className="display text-[1.375rem]">This link is not valid</h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
-          It may already have been used, or belong to an older appointment.
+          It may already have been used, or belong to an older booking.
         </p>
       </Shell>
     );
   }
 
-  const practiceField = appointment.practices;
-  const practice = Array.isArray(practiceField) ? practiceField[0] : practiceField;
-  const practiceName = practice?.name ?? "the practice";
-  const when = practice
-    ? formatWhen(new Date(appointment.start_at), practice.timezone)
-    : appointment.start_at;
+  const gymField = booking.gyms;
+  const gym = Array.isArray(gymField) ? gymField[0] : gymField;
+  const gymName = gym?.name ?? "the gym";
+  const when = gym
+    ? formatWhen(new Date(booking.start_at), gym.timezone)
+    : booking.start_at;
 
-  if (appointment.status === "cancelled") {
+  if (booking.status === "cancelled") {
     return (
       <Shell>
         <h1 className="display text-[1.375rem]">Already cancelled</h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
-          This appointment with {practiceName} has already been cancelled.
+          This booking with {gymName} has already been cancelled.
         </p>
       </Shell>
     );
   }
 
-  if (appointment.status !== "booked") {
+  if (booking.status !== "booked") {
     return (
       <Shell>
         <h1 className="display text-[1.375rem]">Nothing to change</h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
-          This appointment has already happened, so there is nothing left to
+          This booking has already happened, so there is nothing left to
           cancel.
         </p>
       </Shell>
@@ -80,9 +80,9 @@ export default async function ManageBookingPage(
 
   return (
     <Shell>
-      <h1 className="display text-[1.375rem]">Your appointment</h1>
+      <h1 className="display text-[1.375rem]">Your booking</h1>
       <p className="mt-3 text-[0.9375rem] text-graphite">
-        {when} at {practiceName}.
+        {when} at {gymName}.
       </p>
       <p className="mt-3 text-[0.9375rem] text-graphite">
         To change the time, use the booking link from your original message to

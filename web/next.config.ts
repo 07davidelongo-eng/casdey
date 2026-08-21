@@ -27,33 +27,35 @@ const nextConfig: NextConfig = {
   },
 
   async redirects() {
-    return [
-      // The landing page lives at the root. /homepage is kept as an alias so a
-      // link written that way still lands somewhere sensible.
+    // The landing page lives at the root. /homepage is kept as an alias so a
+    // link written that way still lands somewhere sensible.
+    const always = [
       { source: "/homepage", destination: "/", permanent: false },
+    ];
 
-      // Temporary: casdey.com is unpublished down to just /waitlist while the
-      // dental-to-fitness niche pivot is being decided (see CLAUDE.md, "Niche
-      // pivot under consideration"). Everything else, marketing pages, the
-      // SaaS product, login/auth, booking, unsubscribe, redirects there.
-      // /privacy stays reachable since the waitlist form links to it, and
-      // /api/* is untouched since none of it is browsable UI. Temporary
-      // (307/308) redirects, not permanent, so this is a one-line revert:
-      // delete this block once the site is ready to republish.
+    // Unpublish everything down to just /waitlist — but ONLY in production.
+    // casdey.com is still deliberately unpublished while the gym/fitness V1 is
+    // being built locally, so production keeps serving only /waitlist (and
+    // /privacy, which the form links to). Locally (`next dev`) this block is
+    // skipped, so the full gym landing page and /app are browsable for
+    // development. /api/* is untouched in both cases. Reversible: to republish
+    // production, delete this `unpublish` block.
+    // Temporary (307/308) redirects, not permanent.
+    const unpublish = [
       { source: "/", destination: "/waitlist", permanent: false },
       { source: "/app", destination: "/waitlist", permanent: false },
       { source: "/app/:path*", destination: "/waitlist", permanent: false },
       { source: "/auth/:path*", destination: "/waitlist", permanent: false },
       { source: "/book/:path*", destination: "/waitlist", permanent: false },
       { source: "/login", destination: "/waitlist", permanent: false },
-      {
-        source: "/reset-password",
-        destination: "/waitlist",
-        permanent: false,
-      },
+      { source: "/reset-password", destination: "/waitlist", permanent: false },
       { source: "/terms/:path*", destination: "/waitlist", permanent: false },
       { source: "/u/:path*", destination: "/waitlist", permanent: false },
     ];
+
+    return process.env.NODE_ENV === "production"
+      ? [...always, ...unpublish]
+      : always;
   },
 };
 

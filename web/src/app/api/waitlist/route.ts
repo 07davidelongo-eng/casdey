@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import {
   addToWaitlist,
-  confirmToPractice,
+  confirmToGym,
   notifyTeam,
   validate,
 } from "@/lib/waitlist";
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     if (!result.duplicate) {
       await Promise.allSettled([
         notifyTeam(checked.value),
-        confirmToPractice(checked.value),
+        confirmToGym(checked.value),
       ]);
     }
 

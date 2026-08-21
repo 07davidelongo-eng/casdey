@@ -4,28 +4,28 @@ import { useActionState, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import {
-  deletePatientAction,
-  markRebookedAction,
-  type PatientActionState,
+  deleteMemberAction,
+  markReturnedAction,
+  type MemberActionState,
 } from "./actions";
 
-const INITIAL: PatientActionState = { error: null };
+const INITIAL: MemberActionState = { error: null };
 
-export function PatientActions({
-  patientId,
+export function MemberActions({
+  memberId,
   name,
-  alreadyRebooked,
+  alreadyReturned,
 }: {
-  patientId: string;
+  memberId: string;
   name: string;
-  alreadyRebooked: boolean;
+  alreadyReturned: boolean;
 }) {
-  const [rebookState, rebookAction, rebooking] = useActionState(
-    markRebookedAction,
+  const [returnState, returnAction, returning] = useActionState(
+    markReturnedAction,
     INITIAL,
   );
   const [deleteState, deleteAction, deleting] = useActionState(
-    deletePatientAction,
+    deleteMemberAction,
     INITIAL,
   );
   const [confirming, setConfirming] = useState(false);
@@ -36,31 +36,31 @@ export function PatientActions({
         <CardTitle>Did they book again?</CardTitle>
         <p className="mt-1 mb-4 text-[0.875rem] text-stone">
           casdey cannot see your diary, so this is the one thing it has to be
-          told. It is what the rebooked count is built from.
+          told. It is what the returned count is built from.
         </p>
 
-        {alreadyRebooked ? (
+        {alreadyReturned ? (
           <p className="text-[0.9375rem] text-graphite">
-            Already recorded as rebooked.
+            Already recorded as returned.
           </p>
         ) : (
-          <form action={rebookAction}>
-            <input type="hidden" name="patientId" value={patientId} />
-            <Button type="submit" variant="quiet" disabled={rebooking}>
-              {rebooking ? "Saving" : "Mark as rebooked"}
+          <form action={returnAction}>
+            <input type="hidden" name="memberId" value={memberId} />
+            <Button type="submit" variant="quiet" disabled={returning}>
+              {returning ? "Saving" : "Mark as returned"}
             </Button>
           </form>
         )}
 
-        {rebookState.error ? (
+        {returnState.error ? (
           <p role="alert" className="notice notice-error mt-3">
-            {rebookState.error}
+            {returnState.error}
           </p>
         ) : null}
       </Card>
 
       <Card>
-        <CardTitle>Erase this patient</CardTitle>
+        <CardTitle>Erase this member</CardTitle>
         <p className="mt-1 mb-4 text-[0.875rem] text-stone">
           Deletes {name} and their whole history, permanently. Their address is
           kept on the do-not-contact list so a future import cannot bring them
@@ -73,7 +73,7 @@ export function PatientActions({
           </Button>
         ) : (
           <form action={deleteAction} className="flex flex-wrap gap-2">
-            <input type="hidden" name="patientId" value={patientId} />
+            <input type="hidden" name="memberId" value={memberId} />
             <Button type="submit" variant="danger" disabled={deleting}>
               {deleting ? "Erasing" : "Yes, erase for good"}
             </Button>

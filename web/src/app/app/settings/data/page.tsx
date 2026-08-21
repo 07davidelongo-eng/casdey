@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requirePractice } from "@/lib/dal";
+import { requireGym } from "@/lib/dal";
 import { Card, CardTitle, formatDate } from "@/components/app/ui";
 import { PurgeForm } from "./purge-form";
 
@@ -15,52 +15,52 @@ type AuditRow = {
 };
 
 const ACTION_LABEL: Record<string, string> = {
-  "practice.created": "Practice set up",
-  "practice.updated": "Settings changed",
+  "gym.created": "Gym set up",
+  "gym.updated": "Settings changed",
   "processing.agreed": "Data protection terms accepted",
-  "patients.imported": "Patients imported",
-  "patient.deleted": "A patient was erased",
-  "patients.purged": "All patient data deleted",
-  "patients.exported": "Patient data exported",
+  "members.imported": "Members imported",
+  "member.deleted": "A member was erased",
+  "members.purged": "All member data deleted",
+  "members.exported": "Member data exported",
   "campaign.created": "Campaign created",
   "campaign.test_sent": "Sent a test of a campaign to yourself",
   "campaign.approved": "Campaign approved and started",
   "campaign.paused": "Campaign paused",
   "campaign.cancelled": "Campaign cancelled",
-  "patient.unsubscribed": "A patient unsubscribed",
+  "member.unsubscribed": "A member unsubscribed",
   "billing.started": "Billing set up",
   "billing.updated": "Billing changed",
   "guarantee.claimed": "Guarantee refund claimed",
 };
 
 export default async function DataSettingsPage() {
-  const { practice, session, role } = await requirePractice();
+  const { gym, session, role } = await requireGym();
 
   const { data } = await session.supabase
     .from("audit_log")
     .select("id, created_at, action, actor_email, meta")
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
   const entries = (data ?? []) as AuditRow[];
 
-  const { count: patientCount } = await session.supabase
-    .from("patients")
+  const { count: memberCount } = await session.supabase
+    .from("members")
     .select("id", { count: "exact", head: true })
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .eq("is_test", false);
 
   return (
     <div className="max-w-[42rem] space-y-6">
       <Card>
-        <CardTitle>Where your patient data lives</CardTitle>
+        <CardTitle>Where your member data lives</CardTitle>
         <ul className="mt-4 space-y-2.5 text-[0.9375rem] text-graphite">
           <li>
             Stored in Ireland, in the EU, encrypted at rest and in transit.
           </li>
           <li>
-            {practice.name} is the data controller. casdey is the processor, and
+            {gym.name} is the data controller. casdey is the processor, and
             only ever acts on your instructions.
           </li>
           <li>
@@ -89,11 +89,11 @@ export default async function DataSettingsPage() {
             .
           </li>
         </ul>
-        {practice.processing_agreed_at ? (
+        {gym.processing_agreed_at ? (
           <p className="field-hint">
             Terms accepted{" "}
             <span className="literal">
-              {formatDate(practice.processing_agreed_at)}
+              {formatDate(gym.processing_agreed_at)}
             </span>
             .
           </p>
@@ -103,14 +103,14 @@ export default async function DataSettingsPage() {
       <Card>
         <CardTitle>Take your data with you</CardTitle>
         <p className="mt-1 mb-4 text-[0.9375rem] text-graphite">
-          Everything casdey holds about your patients, as a CSV you can open
+          Everything casdey holds about your members, as a CSV you can open
           anywhere. Downloading it is recorded below.
         </p>
         <a
           href="/api/export"
           className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-ash bg-white px-4 py-2.5 text-[0.9375rem] font-semibold text-ink transition-[transform,border-color] duration-200 hover:-translate-y-px hover:border-stone"
         >
-          Download patient data
+          Download member data
         </a>
       </Card>
 
@@ -119,22 +119,22 @@ export default async function DataSettingsPage() {
         <p className="mt-1 mb-4 text-[0.9375rem] text-graphite">
           Permanently erases all{" "}
           <span className="literal font-medium text-ink">
-            {patientCount ?? 0}
+            {memberCount ?? 0}
           </span>{" "}
-          patient records, their history, and anything still queued to send.
+          member records, their history, and anything still queued to send.
           This cannot be undone and we cannot recover it for you.
         </p>
         <PurgeForm
-          practiceName={practice.name}
+          gymName={gym.name}
           canPurge={role === "owner"}
-          patientCount={patientCount ?? 0}
+          memberCount={memberCount ?? 0}
         />
       </Card>
 
       <section>
         <h2 className="display mb-1 text-[1.25rem]">Who did what</h2>
         <p className="mb-4 text-[0.9375rem] text-graphite">
-          Every action touching patient data, kept for 24 months. This log
+          Every action touching member data, kept for 24 months. This log
           cannot be edited or deleted, including by us.
         </p>
 
@@ -160,7 +160,7 @@ export default async function DataSettingsPage() {
                     </td>
                     <td>{ACTION_LABEL[entry.action] ?? entry.action}</td>
                     <td className="literal text-[0.8125rem]">
-                      {entry.actor_email ?? "the patient"}
+                      {entry.actor_email ?? "the member"}
                     </td>
                   </tr>
                 ))}

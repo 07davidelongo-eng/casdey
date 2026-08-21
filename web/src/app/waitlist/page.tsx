@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { WaitlistForm } from "@/components/waitlist-form";
-import { PatientTimeline } from "@/components/marks/patient-timeline";
+import { MemberTimeline } from "@/components/marks/member-timeline";
 import { Container, Eyebrow } from "@/components/ui";
 
 // Without its own openGraph/twitter blocks, this page inherits the root
@@ -111,7 +111,7 @@ export default async function WaitlistPage({ searchParams }: PageProps<"/waitlis
                 </p>
 
                 <div className="mt-10 rounded-[20px] bg-white p-6 shadow-raised">
-                  <PatientTimeline
+                  <MemberTimeline
                     gapLabel="cancelled 8 months ago"
                     endLabel="rejoined"
                   />

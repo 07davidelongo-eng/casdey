@@ -7,15 +7,14 @@ import {
 /**
  * Encrypting the Google OAuth tokens before they touch the database.
  *
- * A refresh token is a long-lived key to a practice's calendar. Storing it in
+ * A refresh token is a long-lived key to a gym's calendar. Storing it in
  * plaintext means a single leaked database dump hands over write access to
  * every connected diary. So it is encrypted at rest with AES-256-GCM under a
  * key that lives only in the environment (CALENDAR_TOKEN_KEY), never in the DB.
  *
  * Not "server-only": the pure encrypt/decrypt pair takes the key as an
- * argument so it can be unit tested directly, the same reason
- * whatsapp/signature.ts stays importable. The env-reading wrappers below are
- * what the app actually calls.
+ * argument so it can be unit tested directly. The env-reading wrappers below
+ * are what the app actually calls.
  */
 
 const IV_BYTES = 12; // GCM standard nonce length

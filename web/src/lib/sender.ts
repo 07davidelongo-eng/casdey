@@ -4,7 +4,7 @@ import { supabaseAdmin } from "./supabase";
 import { bookingUrl, emailProvider, unsubscribeUrl } from "./messaging";
 import { composeBody, contextFor, renderTemplate } from "./template";
 import { capabilities } from "./plan";
-import type { Practice } from "./types";
+import type { Gym } from "./types";
 
 /**
  * Drains the send queue.
@@ -15,11 +15,11 @@ import type { Practice } from "./types";
  * Every message passes four checks before it leaves, in this order, because
  * each one is a different way of emailing somebody we must not email:
  *
- *   1. The practice is still paying. A cancelled account stops sending.
+ *   1. The gym is still paying. A cancelled account stops sending.
  *   2. The campaign is still approved and running.
  *   3. The address is not suppressed. Checked here and not only at queue time,
  *      because somebody can unsubscribe in between.
- *   4. The patient still exists and still consents.
+ *   4. The member still exists and still consents.
  */
 
 const BATCH_LIMIT = 25;
@@ -33,9 +33,9 @@ export type SendReport = {
 
 type QueuedMessage = {
   id: string;
-  practice_id: string;
+  gym_id: string;
   campaign_id: string;
-  patient_id: string;
+  member_id: string;
   to_email: string;
   unsubscribe_token: string;
   attempts: number;
@@ -58,7 +58,7 @@ export async function drainQueue(
   const { data, error } = await client
     .from("campaign_messages")
     .select(
-      "id, practice_id, campaign_id, patient_id, to_email, unsubscribe_token, attempts",
+      "id, gym_id, campaign_id, member_id, to_email, unsubscribe_token, attempts",
     )
     .eq("status", "queued")
     .lte("send_after", nowIso)
@@ -72,8 +72,8 @@ export async function drainQueue(
 
   const provider = emailProvider();
 
-  // Cached per run: a batch is usually one or two practices and one campaign.
-  const practices = new Map<string, Practice | null>();
+  // Cached per run: a batch is usually one or two gyms and one campaign.
+  const gyms = new Map<string, Gym | null>();
   const campaigns = new Map<
     string,
     { status: string; subject: string; body: string; approved_at: string | null } | null
@@ -83,7 +83,7 @@ export async function drainQueue(
   for (const message of messages) {
     // Atomically claim the row before doing anything with it. Two overlapping
     // drains (the hourly cron and a manual trigger, or a Vercel retry) both read
-    // the same queued rows; without this the same patient gets emailed twice.
+    // the same queued rows; without this the same member gets emailed twice.
     // The claim moves send_after to the lease, and the `.lte(send_after, nowIso)`
     // guard is what makes it exclusive: whichever drain commits first bumps the
     // value out of range, so the other claims nothing and skips the row.
@@ -98,16 +98,16 @@ export async function drainQueue(
 
     if (!claimed) continue; // another drain already took this message
 
-    const practice = await cached(practices, message.practice_id, async () => {
+    const gym = await cached(gyms, message.gym_id, async () => {
       const { data: row } = await client
-        .from("practices")
+        .from("gyms")
         .select("*")
-        .eq("id", message.practice_id)
+        .eq("id", message.gym_id)
         .maybeSingle();
-      return (row as Practice) ?? null;
+      return (row as Gym) ?? null;
     });
 
-    if (!practice || !capabilities(practice).canSendCampaigns) {
+    if (!gym || !capabilities(gym).canSendCampaigns) {
       await hold(message.id, "Plan does not allow sending");
       report.skipped += 1;
       continue;
@@ -133,20 +133,20 @@ export async function drainQueue(
       continue;
     }
 
-    // Per-practice daily ceiling, counted fresh so a restart cannot double it.
-    const used = await cached(sentToday, message.practice_id, async () => {
+    // Per-gym daily ceiling, counted fresh so a restart cannot double it.
+    const used = await cached(sentToday, message.gym_id, async () => {
       const since = new Date();
       since.setUTCHours(0, 0, 0, 0);
       const { count } = await client
         .from("campaign_messages")
         .select("id", { count: "exact", head: true })
-        .eq("practice_id", message.practice_id)
+        .eq("gym_id", message.gym_id)
         .eq("status", "sent")
         .gte("sent_at", since.toISOString());
       return count ?? 0;
     });
 
-    if (used >= practice.daily_send_cap) {
+    if (used >= gym.daily_send_cap) {
       report.skipped += 1;
       continue;
     }
@@ -154,7 +154,7 @@ export async function drainQueue(
     const { data: suppression } = await client
       .from("suppressions")
       .select("email")
-      .eq("practice_id", message.practice_id)
+      .eq("gym_id", message.gym_id)
       .eq("email", message.to_email.toLowerCase())
       .maybeSingle();
 
@@ -167,13 +167,13 @@ export async function drainQueue(
       continue;
     }
 
-    const { data: patient } = await client
-      .from("patients")
+    const { data: member } = await client
+      .from("members")
       .select("id, first_name, last_visit_at, consent_email, status, booking_token")
-      .eq("id", message.patient_id)
+      .eq("id", message.member_id)
       .maybeSingle();
 
-    if (!patient || !patient.consent_email || patient.status === "opted_out") {
+    if (!member || !member.consent_email || member.status === "opted_out") {
       await client
         .from("campaign_messages")
         .update({ status: "suppressed" })
@@ -183,10 +183,10 @@ export async function drainQueue(
     }
 
     const context = contextFor(
-      { first_name: patient.first_name, last_visit_at: patient.last_visit_at },
-      practice,
+      { first_name: member.first_name, last_visit_at: member.last_visit_at },
+      gym,
       new Date(),
-      practice.booking_enabled ? bookingUrl(patient.booking_token) : null,
+      gym.booking_enabled ? bookingUrl(member.booking_token) : null,
     );
 
     try {
@@ -197,11 +197,11 @@ export async function drainQueue(
           body: campaign.body,
           context,
           unsubscribeUrl: unsubscribeUrl(message.unsubscribe_token),
-          replyTo: practice.reply_to_email,
+          replyTo: gym.reply_to_email,
           providerCanSetReplyTo: provider.canSetReplyTo,
         }),
-        fromName: practice.sender_name ?? practice.name,
-        replyTo: practice.reply_to_email,
+        fromName: gym.sender_name ?? gym.name,
+        replyTo: gym.reply_to_email,
       });
 
       const now = new Date().toISOString();
@@ -211,22 +211,22 @@ export async function drainQueue(
         .update({ status: "sent", sent_at: now, attempts: message.attempts + 1 })
         .eq("id", message.id);
 
-      // Only ever moves someone forward. A patient already marked reactivated
+      // Only ever moves someone forward. A member already marked returned
       // must not be dragged back to "contacted" by a later send.
       await client
-        .from("patients")
+        .from("members")
         .update({ status: "contacted", contacted_at: now })
-        .eq("id", patient.id)
+        .eq("id", member.id)
         .eq("status", "active");
 
-      await client.from("patient_events").insert({
-        practice_id: message.practice_id,
-        patient_id: patient.id,
+      await client.from("member_events").insert({
+        gym_id: message.gym_id,
+        member_id: member.id,
         type: "message_sent",
         meta: { campaign_id: message.campaign_id },
       });
 
-      sentToday.set(message.practice_id, used + 1);
+      sentToday.set(message.gym_id, used + 1);
       report.sent += 1;
     } catch (sendError) {
       const detail =
@@ -247,9 +247,9 @@ export async function drainQueue(
         .eq("id", message.id);
 
       if (attempts >= 3) {
-        await client.from("patient_events").insert({
-          practice_id: message.practice_id,
-          patient_id: message.patient_id,
+        await client.from("member_events").insert({
+          gym_id: message.gym_id,
+          member_id: message.member_id,
           type: "message_failed",
           meta: { campaign_id: message.campaign_id },
         });

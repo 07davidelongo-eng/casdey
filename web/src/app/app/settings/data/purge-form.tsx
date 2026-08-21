@@ -3,40 +3,40 @@
 import { useActionState, useId, useState } from "react";
 
 import { Button, Notice } from "@/components/app/ui";
-import { purgePatientsAction, type PurgeState } from "./actions";
+import { purgeMembersAction, type PurgeState } from "./actions";
 
 const INITIAL: PurgeState = { error: null, purged: null };
 
 export function PurgeForm({
-  practiceName,
+  gymName,
   canPurge,
-  patientCount,
+  memberCount,
 }: {
-  practiceName: string;
+  gymName: string;
   canPurge: boolean;
-  patientCount: number;
+  memberCount: number;
 }) {
   const id = useId();
-  const [state, action, pending] = useActionState(purgePatientsAction, INITIAL);
+  const [state, action, pending] = useActionState(purgeMembersAction, INITIAL);
   const [armed, setArmed] = useState(false);
 
   if (state.purged !== null) {
     return (
       <Notice>
-        Deleted {state.purged} patient{state.purged === 1 ? "" : " records"}.
+        Deleted {state.purged} member{state.purged === 1 ? "" : " records"}.
         Nothing is left.
       </Notice>
     );
   }
 
   if (!canPurge) {
-    return <Notice tone="warn">Only the practice owner can do this.</Notice>;
+    return <Notice tone="warn">Only the gym owner can do this.</Notice>;
   }
 
-  if (patientCount === 0) {
+  if (memberCount === 0) {
     return (
       <p className="text-[0.9375rem] text-stone">
-        There is no patient data to delete.
+        There is no member data to delete.
       </p>
     );
   }
@@ -44,7 +44,7 @@ export function PurgeForm({
   if (!armed) {
     return (
       <Button variant="danger" onClick={() => setArmed(true)}>
-        Delete all patient data
+        Delete all member data
       </Button>
     );
   }
@@ -53,7 +53,7 @@ export function PurgeForm({
     <form action={action}>
       <label htmlFor={`${id}-confirm`} className="field-label">
         Type{" "}
-        <span className="literal text-ink">{practiceName}</span> to confirm
+        <span className="literal text-ink">{gymName}</span> to confirm
       </label>
       <input
         id={`${id}-confirm`}
@@ -62,7 +62,7 @@ export function PurgeForm({
         autoComplete="off"
         disabled={pending}
         className="field"
-        placeholder={practiceName}
+        placeholder={gymName}
       />
 
       {state.error ? (

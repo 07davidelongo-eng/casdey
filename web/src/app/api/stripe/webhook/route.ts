@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Stripe's view of the world, written back onto the practice.
+ * Stripe's view of the world, written back onto the gym.
  *
  * This endpoint is the only thing that may change `subscription_status`.
  * Anything else guessing at it ends up with an account that says "active" while
@@ -129,9 +129,9 @@ async function handle(event: Stripe.Event): Promise<void> {
       if (!customerId) return;
 
       // The matching subscription.updated normally carries the real status.
-      // This is here so a practice is not left looking healthy if it does not.
+      // This is here so a gym is not left looking healthy if it does not.
       await supabaseAdmin()
-        .from("practices")
+        .from("gyms")
         .update({ subscription_status: "past_due" })
         .eq("stripe_customer_id", customerId)
         .in("subscription_status", ["active", "trialing"]);
@@ -192,22 +192,22 @@ async function recordInvoicePayment(invoice: Stripe.Invoice): Promise<void> {
         : settlement.charge?.id
       : null;
 
-  const { data: practice, error: lookupError } = await supabaseAdmin()
-    .from("practices")
+  const { data: gym, error: lookupError } = await supabaseAdmin()
+    .from("gyms")
     .select("id, premium_started_at")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
   if (lookupError) {
-    throw new Error(`practice lookup failed: ${lookupError.message}`);
+    throw new Error(`gym lookup failed: ${lookupError.message}`);
   }
-  if (!practice) return; // No practice on this customer yet; nothing to record against.
+  if (!gym) return; // No gym on this customer yet; nothing to record against.
 
   const { error: insertError } = await supabaseAdmin()
     .from("subscription_payments")
     .upsert(
       {
-        practice_id: practice.id,
+        gym_id: gym.id,
         stripe_invoice_id: invoice.id,
         stripe_payment_intent_id: paymentIntentId,
         stripe_charge_id: chargeId,
@@ -224,11 +224,11 @@ async function recordInvoicePayment(invoice: Stripe.Invoice): Promise<void> {
 
   // Set once, never overwritten: the guarantee clock's earliest possible
   // start is the first real payment, full stop.
-  if (!practice.premium_started_at) {
+  if (!gym.premium_started_at) {
     await supabaseAdmin()
-      .from("practices")
+      .from("gyms")
       .update({ premium_started_at: paidAt ?? new Date().toISOString() })
-      .eq("id", practice.id)
+      .eq("id", gym.id)
       .is("premium_started_at", null);
   }
 }
@@ -260,10 +260,10 @@ function toIso(seconds: number | null | undefined): string | null {
 
 async function syncSubscription(
   subscription: Stripe.Subscription,
-  fallbackPracticeId?: string,
+  fallbackGymId?: string,
 ): Promise<void> {
-  const practiceId =
-    subscription.metadata?.practice_id ?? fallbackPracticeId ?? null;
+  const gymId =
+    subscription.metadata?.gym_id ?? fallbackGymId ?? null;
 
   const customerId =
     typeof subscription.customer === "string"
@@ -286,15 +286,15 @@ async function syncSubscription(
     plan_interval: price?.recurring?.interval === "year" ? "year" : "month",
   };
 
-  const query = supabaseAdmin().from("practices").update(update);
+  const query = supabaseAdmin().from("gyms").update(update);
 
   // Prefer the id Stripe is carrying for us. Fall back to the customer, which
   // covers a subscription created by hand in the dashboard.
-  const { error } = practiceId
-    ? await query.eq("id", practiceId)
+  const { error } = gymId
+    ? await query.eq("id", gymId)
     : await query.eq("stripe_customer_id", customerId);
 
   if (error) {
-    throw new Error(`practice update failed: ${error.code} ${error.message}`);
+    throw new Error(`gym update failed: ${error.code} ${error.message}`);
   }
 }

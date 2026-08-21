@@ -1,5 +1,5 @@
 import { currencyFor, type Currency } from "./countries";
-import type { Practice } from "./types";
+import type { Gym } from "./types";
 
 /**
  * Money, in one place.
@@ -12,14 +12,14 @@ import type { Practice } from "./types";
  */
 
 /**
- * A practice's currency. It follows the billing currency once that is set at
+ * A gym's currency. It follows the billing currency once that is set at
  * checkout, and the country before that, so pricing reads the same currency the
- * practice will be charged in.
+ * gym will be charged in.
  */
-export function practiceCurrency(
-  practice: Pick<Practice, "plan_currency" | "country">,
+export function gymCurrency(
+  gym: Pick<Gym, "plan_currency" | "country">,
 ): Currency {
-  return practice.plan_currency ?? currencyFor(practice.country);
+  return gym.plan_currency ?? currencyFor(gym.country);
 }
 
 const LOCALE: Record<Currency, string> = { gbp: "en-GB", eur: "en-IE" };
@@ -46,18 +46,18 @@ export function currencySymbol(currency: Currency): string {
 }
 
 /**
- * The revenue estimate: patients rebooked times the practice's typical
- * recovered-appointment value. Null when there is no value to multiply by, so
+ * The revenue estimate: members returned times the gym's typical
+ * recovered-booking value. Null when there is no value to multiply by, so
  * callers show a prompt to set one rather than a confident "£0".
  *
  * Deliberately an estimate, not billed amounts: casdey does not yet know the
- * exact treatment each returning patient booked, so it values them all at the
- * practice's own typical figure and says so wherever the number appears.
+ * exact membership or class each returning member bought, so it values them all
+ * at the gym's own typical figure and says so wherever the number appears.
  */
 export function estimatedRecoveredMinor(
-  rebooked: number,
-  appointmentValueMinor: number | null,
+  returned: number,
+  bookingValueMinor: number | null,
 ): number | null {
-  if (!appointmentValueMinor || appointmentValueMinor <= 0) return null;
-  return rebooked * appointmentValueMinor;
+  if (!bookingValueMinor || bookingValueMinor <= 0) return null;
+  return returned * bookingValueMinor;
 }

@@ -1,19 +1,19 @@
-import { requirePractice } from "@/lib/dal";
+import { requireGym } from "@/lib/dal";
 import { ImportWizard } from "@/components/app/import-wizard";
 import { ProcessingAgreement } from "./agreement";
 import { Card, PageHeader, formatDate } from "@/components/app/ui";
-import { dentallySource } from "@/lib/ingestion/dentally";
+import { mindbodySource } from "@/lib/ingestion/mindbody";
 import type { ImportRun } from "@/lib/types";
 
-export const metadata = { title: "Import patients" };
+export const metadata = { title: "Import members" };
 
 export default async function ImportPage() {
-  const { practice, session, role } = await requirePractice();
+  const { gym, session, role } = await requireGym();
 
   const { data } = await session.supabase
     .from("imports")
     .select("*")
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -23,16 +23,16 @@ export default async function ImportPage() {
     <>
       <PageHeader
         eyebrow="Import"
-        title="Bring your patient list in"
-        lede="casdey reads a CSV export from any practice software. Your list stays in the EU and is never shared with anyone."
+        title="Bring your member list in"
+        lede="casdey reads a CSV export from any gym software. Your list stays in the EU and is never shared with anyone."
       />
 
-      {/* Importing and seeing who is dormant is open to every plan, including
+      {/* Importing and seeing who is lapsed is open to every plan, including
           Free. Sending is where Premium is required, and that gate lives on the
           campaigns side. */}
-      {!practice.processing_agreed_at ? (
+      {!gym.processing_agreed_at ? (
         <ProcessingAgreement
-          practiceName={practice.name}
+          gymName={gym.name}
           canAgree={role === "owner"}
         />
       ) : (
@@ -47,7 +47,7 @@ export default async function ImportPage() {
         <Card className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[0.9375rem] font-semibold text-ink">
-              {dentallySource.label}
+              {mindbodySource.label}
             </p>
             <p className="text-[0.875rem] text-stone">
               Not connected yet. Until it is, the CSV export above does the same

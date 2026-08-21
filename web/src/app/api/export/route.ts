@@ -1,25 +1,25 @@
-import { requirePractice } from "@/lib/dal";
+import { requireGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
-import { isDormant, monthsSince, ruleFor } from "@/lib/dormancy";
-import type { Patient } from "@/lib/types";
+import { isLapsed, monthsSince, ruleFor } from "@/lib/lapse";
+import type { Member } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * The practice's own data, back in their hands.
+ * The gym's own data, back in their hands.
  *
- * Portability is a GDPR right, and the practice is the controller here, so this
- * is not a favour. It returns everything casdey holds about their patients in
+ * Portability is a GDPR right, and the gym is the controller here, so this
+ * is not a favour. It returns everything casdey holds about their members in
  * the format they gave it to us in, plus what casdey worked out.
  *
- * The download is logged. A full export of patient data leaving the system is
+ * The download is logged. A full export of member data leaving the system is
  * exactly the event an audit trail exists to record.
  */
 
 const COLUMNS = [
-  "patient_reference",
+  "member_reference",
   "first_name",
   "last_name",
   "email",
@@ -27,10 +27,10 @@ const COLUMNS = [
   "last_visit",
   "visit_count",
   "months_away",
-  "dormant",
+  "lapsed",
   "status",
   "contacted_at",
-  "rebooked_at",
+  "returned_at",
 ];
 
 /** RFC 4180: quote everything, double any internal quote. Never guess. */
@@ -40,12 +40,12 @@ function csvCell(value: unknown): string {
 }
 
 export async function GET(): Promise<Response> {
-  const { practice, session } = await requirePractice();
+  const { gym, session } = await requireGym();
 
   const { data, error } = await supabaseAdmin()
-    .from("patients")
+    .from("members")
     .select("*")
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .eq("is_test", false)
     .order("last_visit_at", { ascending: true });
 
@@ -54,25 +54,25 @@ export async function GET(): Promise<Response> {
     return new Response("Export failed", { status: 503 });
   }
 
-  const patients = (data ?? []) as Patient[];
-  const rule = ruleFor(practice);
+  const members = (data ?? []) as Member[];
+  const rule = ruleFor(gym);
 
   const lines = [COLUMNS.join(",")];
-  for (const patient of patients) {
+  for (const member of members) {
     lines.push(
       [
-        patient.external_ref,
-        patient.first_name,
-        patient.last_name,
-        patient.email,
-        patient.phone,
-        patient.last_visit_at,
-        patient.visit_count,
-        monthsSince(patient.last_visit_at),
-        isDormant(patient, rule) ? "yes" : "no",
-        patient.status,
-        patient.contacted_at,
-        patient.reactivated_at,
+        member.external_ref,
+        member.first_name,
+        member.last_name,
+        member.email,
+        member.phone,
+        member.last_visit_at,
+        member.visit_count,
+        monthsSince(member.last_visit_at),
+        isLapsed(member, rule) ? "yes" : "no",
+        member.status,
+        member.contacted_at,
+        member.returned_at,
       ]
         .map(csvCell)
         .join(","),
@@ -80,11 +80,11 @@ export async function GET(): Promise<Response> {
   }
 
   await recordAudit({
-    practiceId: practice.id,
+    gymId: gym.id,
     actorId: session.userId,
     actorEmail: session.email,
-    action: "patients.exported",
-    meta: { rows: patients.length },
+    action: "members.exported",
+    meta: { rows: members.length },
   });
 
   const stamp = new Date().toISOString().slice(0, 10);
@@ -94,7 +94,7 @@ export async function GET(): Promise<Response> {
   return new Response(body, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="casdey-patients-${stamp}.csv"`,
+      "Content-Disposition": `attachment; filename="casdey-members-${stamp}.csv"`,
       "Cache-Control": "no-store",
     },
   });

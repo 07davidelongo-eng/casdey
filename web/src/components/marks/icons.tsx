@@ -22,7 +22,7 @@ function Svg({
   );
 }
 
-/** A patient list with one row picked out. */
+/** A member list with one row picked out. */
 export function IconFind(props: IconProps) {
   return (
     <Svg {...props}>
@@ -64,7 +64,7 @@ export function IconShield(props: IconProps) {
   );
 }
 
-/** Read-only access to the practice's records. */
+/** Read-only access to the gym's records. */
 export function IconReadOnly(props: IconProps) {
   return (
     <Svg {...props}>

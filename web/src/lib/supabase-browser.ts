@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Browser Supabase client, used only for the auth handshake: sign in, sign up,
- * password reset, and the Google redirect. Patient data is never fetched from
+ * password reset, and the Google redirect. Member data is never fetched from
  * the browser, it is rendered on the server.
  */
 

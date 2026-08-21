@@ -8,7 +8,7 @@ import { sendTestAction, type TestSendState } from "../actions";
 const INITIAL: TestSendState = { error: null, sentTo: null };
 
 /**
- * Roadmap #4: let the practice walk through the patient's side before anyone
+ * Roadmap #4: let the gym walk through the member's side before anyone
  * real gets this. What lands in their inbox is the real thing, same subject,
  * same reply-to, a working unsubscribe link, just for their own address and
  * marked "[Test]" so it is never mistaken for an actual reply.
@@ -26,7 +26,7 @@ export function TestSendForm({
     <Card>
       <CardTitle>See it for yourself first</CardTitle>
       <p className="mt-1 mb-4 text-[0.9375rem] text-graphite">
-        Send this to your own inbox ({email}) exactly as a patient would get
+        Send this to your own inbox ({email}) exactly as a member would get
         it: same subject, same reply-to, and a working unsubscribe link. It
         does not go to anyone else and does not count against your send cap.
       </p>
@@ -43,7 +43,7 @@ export function TestSendForm({
           <Notice>
             Sent to {state.sentTo}. Only the subject is marked &ldquo;[Test]&rdquo;,
             so you can reply to it and click the unsubscribe link the same way
-            a patient would.
+            a member would.
           </Notice>
         </div>
       ) : null}

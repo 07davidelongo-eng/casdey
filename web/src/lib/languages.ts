@@ -1,10 +1,10 @@
 /**
- * The languages a practice can write a campaign in.
+ * The languages a gym can write a campaign in.
  *
  * casdey sells into the UK and Ireland plus the EU countries the outreach has
- * reached, so the message needs to go out in the patient's own language, not
- * only English. The default follows the practice's country, the same way the
- * billing currency does, but the practice can override it per campaign.
+ * reached, so the message needs to go out in the member's own language, not
+ * only English. The default follows the gym's country, the same way the
+ * billing currency does, but the gym can override it per campaign.
  */
 
 export type LanguageCode = "en" | "nl" | "de" | "fr" | "es" | "pt" | "it";
@@ -33,9 +33,9 @@ export function languageEndonym(code: string): string {
 }
 
 /**
- * The language a practice most likely writes to its patients in, from its
- * country. A starting point the practice can change, not a rule. Belgium is
- * split, and French is the safer default for a dental practice there.
+ * The language a gym most likely writes to its members in, from its
+ * country. A starting point the gym can change, not a rule. Belgium is
+ * split, and French is the safer default for a gym there.
  */
 const COUNTRY_LANGUAGE: Record<string, LanguageCode> = {
   GB: "en",

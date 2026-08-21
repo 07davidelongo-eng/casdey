@@ -6,10 +6,10 @@ import { Button } from "@/components/app/ui";
 
 /**
  * Two clicks, not one: the first arms it, the second actually fires the
- * refund. The same shape as the patient-data purge form in
+ * refund. The same shape as the member-data purge form in
  * ../data/purge-form.tsx, just without a typed confirmation — this returns
- * the practice's own money to them, so the stakes (and the friction) are
- * lower than permanently deleting patient data.
+ * the gym's own money to them, so the stakes (and the friction) are
+ * lower than permanently deleting member data.
  */
 export function GuaranteeClaimForm() {
   const [armed, setArmed] = useState(false);

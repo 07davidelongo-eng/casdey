@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requirePractice } from "@/lib/dal";
+import { requireGym } from "@/lib/dal";
 import {
   ButtonLink,
   Card,
@@ -14,12 +14,12 @@ import type { Campaign } from "@/lib/types";
 export const metadata = { title: "Campaigns" };
 
 export default async function CampaignsPage() {
-  const { practice, session } = await requirePractice();
+  const { gym, session } = await requireGym();
 
   const { data } = await session.supabase
     .from("campaigns")
     .select("*")
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .order("created_at", { ascending: false });
 
   const campaigns = (data ?? []) as Campaign[];
@@ -36,7 +36,7 @@ export default async function CampaignsPage() {
       {campaigns.length === 0 ? (
         <EmptyState
           title="No campaigns yet"
-          body="Once your patient list is in, a campaign is three fields and a read-through before anything goes out."
+          body="Once your member list is in, a campaign is three fields and a read-through before anything goes out."
           action={
             <ButtonLink href="/app/campaigns/new">
               Build your first one
@@ -50,7 +50,7 @@ export default async function CampaignsPage() {
               <tr>
                 <th>Campaign</th>
                 <th>Status</th>
-                <th>Patients</th>
+                <th>Members</th>
                 <th>Created</th>
               </tr>
             </thead>
@@ -69,7 +69,7 @@ export default async function CampaignsPage() {
                     <CampaignPill status={campaign.status} />
                   </td>
                   <td className="literal text-[0.8125rem]">
-                    {campaign.audience?.patientCount ?? 0}
+                    {campaign.audience?.memberCount ?? 0}
                   </td>
                   <td className="literal text-[0.8125rem]">
                     {formatDate(campaign.created_at)}

@@ -1,4 +1,4 @@
-import { DormantChart } from "../marks/dormant-chart";
+import { LapsedChart } from "../marks/lapsed-chart";
 import { IconFind, IconMessage } from "../marks/icons";
 import { Wordmark } from "../wordmark";
 import { Container, Eyebrow, SectionHeading } from "../ui";
@@ -56,7 +56,7 @@ export function WhyCasdey() {
             </p>
             <p className="mt-6 max-w-xs text-[1.0625rem] leading-relaxed text-graphite">
               Your first week costs nothing. If casdey has not done something
-              useful for your practice by the end of it, you walk away.
+              useful for your gym by the end of it, you walk away.
             </p>
           </div>
 
@@ -67,7 +67,7 @@ export function WhyCasdey() {
             <Flow />
             <p className="max-w-md text-[0.9375rem] leading-relaxed text-graphite">
               casdey reads your records, decides who is worth contacting, and
-              writes to each one in your name. When a patient says yes, the
+              writes to each one in your name. When a member says yes, the
               reply lands with your front desk, so the only thing your team
               touches is the booking itself.
             </p>
@@ -79,12 +79,13 @@ export function WhyCasdey() {
                 The tail is the opportunity.
               </h3>
               <p className="mt-4 text-[0.9375rem] leading-relaxed text-graphite">
-                Sort any practice list by time since last visit and the same
-                shape appears. Recalls cover the left. Nothing covers the right.
+                Sort any gym list by time since last visit and the same
+                shape appears. Your gym software covers the active left. Nothing
+                covers the lapsed right.
               </p>
             </div>
             <div className="rounded-[16px] bg-paper p-6 sm:p-8">
-              <DormantChart />
+              <LapsedChart />
             </div>
           </div>
         </div>

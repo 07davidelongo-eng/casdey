@@ -3,7 +3,7 @@
 -- Two pieces of state this needs that nothing else in the schema already
 -- tracks:
 --
---   1. When a practice actually started paying. The free week is casdey's to
+--   1. When a gym actually started paying. The free week is casdey's to
 --      give and is never charged, so it cannot be the guarantee's clock. The
 --      guarantee only starts once real money has changed hands AND a campaign
 --      is actually running (see src/lib/guarantee.ts for why both).
@@ -20,10 +20,10 @@
 -- The one thing that DOES need to persist is the claim itself, because firing
 -- a real refund is a fact, not a computation.
 
-alter table public.practices
+alter table public.gyms
   add column if not exists premium_started_at timestamptz;
 
-comment on column public.practices.premium_started_at is
+comment on column public.gyms.premium_started_at is
   'When the first real (non-trial) Premium payment was collected, set once by the invoice.paid webhook handler and never overwritten. The guarantee clock can only start on or after this date, never during the free week.';
 
 -- ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ comment on column public.practices.premium_started_at is
 create table if not exists public.subscription_payments (
   id                      uuid primary key default gen_random_uuid(),
   created_at              timestamptz not null default now(),
-  practice_id             uuid not null references public.practices (id) on delete cascade,
+  gym_id             uuid not null references public.gyms (id) on delete cascade,
 
   stripe_invoice_id       text not null unique,
   -- Exactly one of these two is set, depending on how Stripe settled the
@@ -52,14 +52,14 @@ create table if not exists public.subscription_payments (
   refunded_minor          integer not null default 0 check (refunded_minor >= 0)
 );
 
-create index if not exists subscription_payments_practice_idx
-  on public.subscription_payments (practice_id, paid_at);
+create index if not exists subscription_payments_gym_idx
+  on public.subscription_payments (gym_id, paid_at);
 
 alter table public.subscription_payments enable row level security;
 
 create policy subscription_payments_select on public.subscription_payments
   for select to authenticated
-  using (public.is_practice_member(practice_id));
+  using (public.is_gym_user(gym_id));
 
 grant select, insert, update on public.subscription_payments to service_role;
 grant select on public.subscription_payments to authenticated;
@@ -74,7 +74,7 @@ comment on table public.subscription_payments is
 create table if not exists public.guarantee_claims (
   id                        uuid primary key default gen_random_uuid(),
   created_at                timestamptz not null default now(),
-  practice_id               uuid not null references public.practices (id) on delete cascade,
+  gym_id               uuid not null references public.gyms (id) on delete cascade,
   created_by                uuid references auth.users (id) on delete set null,
 
   window_start              timestamptz not null,
@@ -87,22 +87,22 @@ create table if not exists public.guarantee_claims (
   status                    text not null default 'processing'
                               check (status in ('processing','refunded','failed')),
 
-  -- One claim per practice, full stop. The guarantee window is derived from
-  -- the practice's FIRST paid campaign, so under normal operation there is
+  -- One claim per gym, full stop. The guarantee window is derived from
+  -- the gym's FIRST paid campaign, so under normal operation there is
   -- only ever one window to claim against; this constraint is also what makes
   -- the self-service claim endpoint safe against a doubled click or a retried
   -- request racing itself; see src/app/api/guarantee/claim/route.ts.
-  unique (practice_id)
+  unique (gym_id)
 );
 
 alter table public.guarantee_claims enable row level security;
 
 create policy guarantee_claims_select on public.guarantee_claims
   for select to authenticated
-  using (public.is_practice_member(practice_id));
+  using (public.is_gym_user(gym_id));
 
 grant select, insert, update on public.guarantee_claims to service_role;
 grant select on public.guarantee_claims to authenticated;
 
 comment on table public.guarantee_claims is
-  'A profit-or-nothing guarantee claim and its refund. At most one per practice. Written only by src/app/api/guarantee/claim/route.ts.';
+  'A profit-or-nothing guarantee claim and its refund. At most one per gym. Written only by src/app/api/guarantee/claim/route.ts.';

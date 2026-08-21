@@ -1,17 +1,17 @@
 import type { BookingHours, Weekday } from "../types";
 
 /**
- * Computing the open slots a patient may pick from.
+ * Computing the open slots a member may pick from.
  *
  * This is the heart of booking and the easiest place to get quietly wrong, so
- * it is pure: given the practice's weekly hours, its timezone, the slot shape,
+ * it is pure: given the gym's weekly hours, its timezone, the slot shape,
  * and the busy intervals (Google free/busy merged with existing casdey
- * appointments), it returns the bookable slots as absolute instants. No
+ * bookings), it returns the bookable slots as absolute instants. No
  * database, no network, no clock except the `now` passed in, so every rule
  * below is unit tested (see availability.test.ts).
  *
- * Timezone handling: hours are wall-clock local to the practice ("09:00" means
- * 9am where the practice is), so each candidate is built in local time and then
+ * Timezone handling: hours are wall-clock local to the gym ("09:00" means
+ * 9am where the gym is), so each candidate is built in local time and then
  * converted to a UTC instant using the zone's offset AT THAT DATE, which is
  * what makes the set shift correctly across a daylight-saving boundary.
  */
@@ -64,7 +64,7 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
 /**
  * A wall-clock local time (year/month/day/hour/minute in `timeZone`) as a UTC
  * instant. One offset iteration is enough away from the ~1h DST-transition
- * windows, which no practice books appointments inside.
+ * windows, which no gym books bookings inside.
  */
 function localToUtc(
   year: number,
@@ -151,7 +151,7 @@ export function openSlots(
 
   const slots: Interval[] = [];
 
-  // Walk calendar dates in the practice's own timezone. Start a day early so a
+  // Walk calendar dates in the gym's own timezone. Start a day early so a
   // window that began before `now` but still has bookable slots is not missed,
   // and end a day late so the horizon's final day is fully covered.
   for (let offset = -1; offset <= config.horizonDays + 1; offset++) {

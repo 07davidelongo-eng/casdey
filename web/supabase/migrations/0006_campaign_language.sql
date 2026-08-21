@@ -1,8 +1,8 @@
 -- Campaign language.
 --
--- A practice serving EU patients writes to them in their own language, not only
+-- A gym serving EU members writes to them in their own language, not only
 -- English. The language is chosen per campaign (it drives the AI draft and is
--- kept on the record), defaulting to the practice's country language. The body
+-- kept on the record), defaulting to the gym's country language. The body
 -- itself already carries the final wording, so this is metadata, not the source
 -- of truth for what gets sent.
 

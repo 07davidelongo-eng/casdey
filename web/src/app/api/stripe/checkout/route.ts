@@ -17,24 +17,24 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Upgrades a practice to Premium.
+ * Upgrades a gym to Premium.
  *
  * This is a straight paid subscription: the free week happened earlier and was
  * casdey's to give, so there is no Stripe trial here and the card is charged
- * now. An early-adopter practice gets its lifetime discount coupon applied, so
+ * now. An early-adopter gym gets its lifetime discount coupon applied, so
  * the reduced price rides on the subscription for as long as it stays.
  *
- * The currency is decided here from the practice's country, never from the
+ * The currency is decided here from the gym's country, never from the
  * request body: otherwise anyone could post their way onto the cheaper plan.
  */
 export async function POST(request: NextRequest): Promise<Response> {
-  const { practice, session } = await requireOwner();
+  const { gym, session } = await requireOwner();
 
   const form = await request.formData().catch(() => null);
   const rawInterval = form?.get("interval");
   const interval: PlanInterval = rawInterval === "year" ? "year" : "month";
 
-  const currency = currencyFor(practice.country);
+  const currency = currencyFor(gym.country);
   const plan = findPlan(currency, interval);
   if (!plan) {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
@@ -44,28 +44,28 @@ export async function POST(request: NextRequest): Promise<Response> {
   const origin = request.nextUrl.origin;
 
   try {
-    // Reuse the customer if this practice has been here before, so a second
+    // Reuse the customer if this gym has been here before, so a second
     // attempt does not scatter duplicate customers across the account.
-    let customerId = practice.stripe_customer_id;
+    let customerId = gym.stripe_customer_id;
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: practice.contact_email,
-        name: practice.name,
-        metadata: { practice_id: practice.id, country: practice.country },
+        email: gym.contact_email,
+        name: gym.name,
+        metadata: { gym_id: gym.id, country: gym.country },
       });
       customerId = customer.id;
 
       await supabaseAdmin()
-        .from("practices")
+        .from("gyms")
         .update({ stripe_customer_id: customerId })
-        .eq("id", practice.id);
+        .eq("id", gym.id);
     }
 
     // The lifetime discount, only for a flagged early adopter and only while the
     // programme is still running. Once applied to the subscription it persists
     // for the life of that subscription, which is what makes it "lifetime".
     const coupon =
-      practice.early_adopter && earlyAdopterProgramActive()
+      gym.early_adopter && earlyAdopterProgramActive()
         ? couponIdFor(currency)
         : undefined;
 
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceIdFor(plan), quantity: 1 }],
-      subscription_data: { metadata: { practice_id: practice.id } },
+      subscription_data: { metadata: { gym_id: gym.id } },
       // A coupon and manual promotion codes cannot both be offered at once, so
       // the automatic early-adopter discount takes precedence when it applies.
       ...(coupon
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         : { allow_promotion_codes: true }),
       // Belt and braces: the webhook reads this if the subscription metadata is
       // ever missing.
-      metadata: { practice_id: practice.id },
-      client_reference_id: practice.id,
+      metadata: { gym_id: gym.id },
+      client_reference_id: gym.id,
       success_url: `${origin}/app/settings/billing?upgraded=1`,
       cancel_url: `${origin}/app/settings/billing?cancelled=1`,
     });
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     await recordAudit({
-      practiceId: practice.id,
+      gymId: gym.id,
       actorId: session.userId,
       actorEmail: session.email,
       action: "billing.started",

@@ -4,12 +4,11 @@ import type { Interval } from "./availability";
  * The one place that talks to Google Calendar.
  *
  * Raw fetch, no `googleapis` SDK, the same choice already made for Resend
- * (../messaging.ts) and Twilio (../whatsapp/twilio.ts): the handful of
- * endpoints booking needs are smaller to hand-roll than the whole SDK is to
- * carry.
+ * (../messaging.ts): the handful of endpoints booking needs are smaller to
+ * hand-roll than the whole SDK is to carry.
  *
  * Scopes requested are the narrowest that work: create/delete our own events
- * and read free/busy, plus openid+email so the practice can see which Google
+ * and read free/busy, plus openid+email so the gym can see which Google
  * account is connected. Not full `calendar` access.
  *
  * The pure, network-free helpers (`buildConsentUrl`, `parseFreeBusy`) are

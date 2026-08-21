@@ -4,31 +4,31 @@ import { Container, Eyebrow, SectionHeading } from "../ui";
 const FACTS = [
   {
     value: "UK & EU",
-    label: "Where your patient data is stored and processed. It does not leave without a lawful basis.",
+    label: "Where your member data is stored and processed. It does not leave without a lawful basis.",
   },
   {
     value: "Calendar-only",
-    label: "The only thing casdey will ever write to, and only to book a patient back in. Patient records stay read-only, always.",
+    label: "The only thing casdey will ever write to, and only to book a member back in. Member records stay read-only, always.",
   },
   {
     value: "Zero",
-    label: "Clinical notes, treatment plans and medical history touched. Names, appointment dates and treatment prices only.",
+    label: "Health records, payment details or card numbers touched. Names, visit dates and membership prices only.",
   },
 ];
 
-export function PatientData() {
+export function MemberData() {
   return (
-    <section id="patient-data" className="scroll-mt-24 py-20 sm:py-28">
+    <section id="member-data" className="scroll-mt-24 py-20 sm:py-28">
       <Container>
         <div className="mx-auto max-w-2xl text-center">
-          <Eyebrow>Patient data</Eyebrow>
+          <Eyebrow>Member data</Eyebrow>
           <SectionHeading className="mt-4 text-ink">
-            Built for health data from the first line of code.
+            Built to protect your members&apos; data from the first line of code.
           </SectionHeading>
           <p className="mt-6 text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-            casdey handles health-adjacent personal data, so compliance is not
-            something bolted on later. These are the rules casdey is built on.
-            We would rather you hold us to them now than find out afterwards.
+            casdey handles your members&apos; personal data, so protecting it is
+            not something bolted on later. These are the rules casdey is built
+            on. We would rather you hold us to them now than find out afterwards.
           </p>
         </div>
 
@@ -52,7 +52,7 @@ export function PatientData() {
           </div>
           <p className="text-[0.9375rem] leading-relaxed text-graphite">
             You stay the data controller and casdey acts as your processor,
-            under a written agreement. When casdey books a patient in, that
+            under a written agreement. When casdey books a member in, that
             calendar access is scoped to creating bookings, nothing else. An
             opt-out is permanent, and
             ending the contract deletes the records. UK GDPR, EU GDPR and

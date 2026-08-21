@@ -9,7 +9,7 @@
  * Rules carried over from the guide:
  *   - Three planes. Paper is the ground, white is raised, Deep is inverted and
  *     used once (the sidebar).
- *   - Amber marks a rebooked patient and nothing else. It is never a button and
+ *   - Amber marks a returned member and nothing else. It is never a button and
  *     never a background.
  *   - Transform and opacity only, 200ms, cubic-bezier(.22,1,.36,1).
  *
@@ -182,8 +182,8 @@
     color: var(--teal);
   }
 
-  /* The one place Amber is allowed: a dormant patient who booked again. */
-  .pill-rebooked {
+  /* The one place Amber is allowed: a lapsed member who booked again. */
+  .pill-returned {
     background: color-mix(in srgb, var(--amber) 16%, var(--paper));
     color: color-mix(in srgb, var(--amber) 62%, var(--ink));
   }

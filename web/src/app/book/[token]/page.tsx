@@ -1,35 +1,35 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { practiceOpenSlots } from "@/lib/calendar/practice-slots";
-import { practiceCurrency } from "@/lib/money";
-import type { Practice } from "@/lib/types";
+import { gymOpenSlots } from "@/lib/calendar/gym-slots";
+import { gymCurrency } from "@/lib/money";
+import type { Gym } from "@/lib/types";
 import { BookingForm, type DayGroup, type ServiceOption } from "./form";
 
 import "@/styles/product.css";
 
 export const metadata = {
-  title: "Book an appointment",
+  title: "Book a time",
   robots: { index: false, follow: false },
 };
 
 /**
- * Where the booking link in a patient's message goes.
+ * Where the booking link in a member's message goes.
  *
  * Public by design, same reasoning as /u/[token]: the person here is a
- * patient, not a casdey user, and the per-patient token is the only
+ * member, not a casdey user, and the per-member token is the only
  * credential they need. Slots are computed fresh on every load (never
- * cached), because the whole point is that they reflect the practice's real
+ * cached), because the whole point is that they reflect the gym's real
  * diary at the moment someone is looking.
  */
 export default async function BookPage(props: PageProps<"/book/[token]">) {
   const { token } = await props.params;
 
-  const { data: patient } = await supabaseAdmin()
-    .from("patients")
-    .select("id, practice_id, first_name")
+  const { data: member } = await supabaseAdmin()
+    .from("members")
+    .select("id, gym_id, first_name")
     .eq("booking_token", token)
     .maybeSingle();
 
-  if (!patient) {
+  if (!member) {
     return (
       <Shell>
         <h1 className="display text-[1.375rem]">This link is not valid</h1>
@@ -41,20 +41,20 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
     );
   }
 
-  const { data: practiceRow } = await supabaseAdmin()
-    .from("practices")
+  const { data: gymRow } = await supabaseAdmin()
+    .from("gyms")
     .select("*")
-    .eq("id", patient.practice_id)
+    .eq("id", member.gym_id)
     .maybeSingle();
 
-  const practice = practiceRow as Practice | null;
+  const gym = gymRow as Gym | null;
 
-  if (!practice || !practice.booking_enabled) {
+  if (!gym || !gym.booking_enabled) {
     return (
       <Shell>
         <h1 className="display text-[1.375rem]">Booking is not available</h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
-          {practice?.name ?? "This practice"} is not taking online bookings
+          {gym?.name ?? "This gym"} is not taking online bookings
           right now. Reply to the message you received and we will find you a
           time.
         </p>
@@ -63,17 +63,17 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
   }
 
   const [slots, { data: services }] = await Promise.all([
-    practiceOpenSlots(practice),
+    gymOpenSlots(gym),
     supabaseAdmin()
-      .from("practice_services")
+      .from("services")
       .select("id, name, price_minor")
-      .eq("practice_id", practice.id)
+      .eq("gym_id", gym.id)
       .order("position", { ascending: true }),
   ]);
 
   const days = groupSlotsByDay(
     slots.map((s) => s.start),
-    practice.timezone,
+    gym.timezone,
   );
 
   const serviceOptions: ServiceOption[] = (services ?? []).map((s) => ({
@@ -84,8 +84,8 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
 
   return (
     <Shell wide>
-      <p className="label mb-2 text-teal">{practice.name}</p>
-      <h1 className="display text-[1.75rem]">Book your appointment</h1>
+      <p className="label mb-2 text-teal">{gym.name}</p>
+      <h1 className="display text-[1.75rem]">Book your booking</h1>
       <p className="mt-2 text-[0.9375rem] text-graphite">
         Pick a time that works for you. It is confirmed the moment you choose
         it, no waiting to hear back.
@@ -102,8 +102,8 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
             token={token}
             days={days}
             services={serviceOptions}
-            currency={practiceCurrency(practice)}
-            timezone={practice.timezone}
+            currency={gymCurrency(gym)}
+            timezone={gym.timezone}
           />
         </div>
       )}
@@ -127,9 +127,9 @@ function Shell({
   );
 }
 
-/** Groups slot start times into day buckets, labelled in the practice's own
+/** Groups slot start times into day buckets, labelled in the gym's own
  *  timezone so "today"/"tomorrow" and the date shown always match what the
- *  patient's clock will say when the appointment arrives. */
+ *  member's clock will say when the booking arrives. */
 function groupSlotsByDay(starts: Date[], timeZone: string): DayGroup[] {
   const dayFmt = new Intl.DateTimeFormat("en-GB", {
     timeZone,

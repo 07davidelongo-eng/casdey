@@ -1,21 +1,21 @@
 import Link from "next/link";
 
-import type { Practice } from "@/lib/types";
+import type { Gym } from "@/lib/types";
 import { effectivePlan, trialDaysLeft } from "@/lib/plan";
 
 /**
  * A one-line status strip, shown only when there is something worth saying. A
- * practice comfortably inside its free week, or paid up on Premium, gets no
+ * gym comfortably inside its free week, or paid up on Premium, gets no
  * banner at all.
  *
  * Tone rule from the brand guide: state the position, offer the fix, get out of
  * the way. No urgency theatre.
  */
-export function BillingBanner({ practice }: { practice: Practice }) {
-  const plan = effectivePlan(practice);
+export function BillingBanner({ gym }: { gym: Gym }) {
+  const plan = effectivePlan(gym);
 
   if (plan === "trial") {
-    const left = trialDaysLeft(practice);
+    const left = trialDaysLeft(gym);
     // Quiet for most of the week, then a gentle nudge near the end.
     if (left === null || left > 3) return null;
     return (
@@ -34,7 +34,7 @@ export function BillingBanner({ practice }: { practice: Practice }) {
   }
 
   if (plan === "premium") {
-    if (practice.subscription_status !== "past_due") return null;
+    if (gym.subscription_status !== "past_due") return null;
     return (
       <Banner tone="warn">
         <span>
@@ -50,7 +50,7 @@ export function BillingBanner({ practice }: { practice: Practice }) {
   return (
     <Banner tone="info">
       <span>
-        You are on the Free plan. Import and see who is dormant as much as you
+        You are on the Free plan. Import and see who is lapsed as much as you
         like. Sending is Premium.
       </span>
       <BannerLink href="/app/settings/billing">Go Premium</BannerLink>

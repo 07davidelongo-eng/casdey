@@ -12,17 +12,17 @@ export const dynamic = "force-dynamic";
 const STATE_COOKIE = "casdey_gcal_state";
 
 /**
- * Where Google sends the browser back after the practice grants access.
+ * Where Google sends the browser back after the gym grants access.
  *
  * Re-authenticates the owner (so a stray callback cannot attach a calendar to
- * someone else's practice), checks the state cookie set in ./connect, then
+ * someone else's gym), checks the state cookie set in ./connect, then
  * exchanges the code for tokens and stores them encrypted. Google only returns
  * a refresh token when prompted with `prompt=consent` (which ./connect sets),
  * so a missing one is treated as a failure to reconnect rather than silently
  * storing a connection that will stop working in an hour.
  */
 export async function GET(request: NextRequest): Promise<Response> {
-  const { practice, session } = await requireOwner();
+  const { gym, session } = await requireOwner();
   const origin = request.nextUrl.origin;
   const back = new URL("/app/settings/booking", origin);
 
@@ -67,12 +67,12 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
 
     // Upsert: reconnecting replaces the old tokens rather than erroring on the
-    // one-connection-per-practice unique constraint.
+    // one-connection-per-gym unique constraint.
     const { error } = await supabaseAdmin()
       .from("calendar_connections")
       .upsert(
         {
-          practice_id: practice.id,
+          gym_id: gym.id,
           provider: "google",
           google_calendar_id: "primary",
           access_token_enc: encryptToken(tokens.accessToken),
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest): Promise<Response> {
           connected_email: tokens.email,
           status: "active",
         },
-        { onConflict: "practice_id" },
+        { onConflict: "gym_id" },
       );
 
     if (error) {
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
 
     await recordAudit({
-      practiceId: practice.id,
+      gymId: gym.id,
       actorId: session.userId,
       actorEmail: session.email,
       action: "calendar.connected",

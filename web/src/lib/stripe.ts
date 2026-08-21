@@ -8,9 +8,9 @@ import type { Currency } from "./countries";
  * Stripe wiring: the paid Premium tier.
  *
  * Premium is £250/mo or €290/mo, or £225/mo and €262/mo billed annually. It is
- * a real subscription entered when a practice upgrades from the Free plan; the
+ * a real subscription entered when a gym upgrades from the Free plan; the
  * free week that precedes Free is casdey's to give and never touches Stripe
- * (see src/lib/plan.ts). Practices flagged early_adopter carry a lifetime
+ * (see src/lib/plan.ts). Gyms flagged early_adopter carry a lifetime
  * discount coupon on that subscription.
  *
  * None of these numbers appear in public marketing copy. They are shown in the
@@ -41,7 +41,7 @@ export type PlanInterval = "month" | "year";
 export type Plan = {
   currency: Currency;
   interval: PlanInterval;
-  /** What the practice sees per month, which is the number they compare. */
+  /** What the gym sees per month, which is the number they compare. */
   monthlyDisplay: string;
   /** What actually leaves the account, and how often. */
   chargeDisplay: string;

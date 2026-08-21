@@ -1,7 +1,7 @@
 /**
  * The markets casdey sells into: the UK and Ireland, plus the EU countries the
  * outreach has already reached. Currency follows the country, because that is
- * what a practice expects to be billed in, and it is the only thing the country
+ * what a gym expects to be billed in, and it is the only thing the country
  * decides.
  */
 

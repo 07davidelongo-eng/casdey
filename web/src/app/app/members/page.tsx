@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { requirePractice } from "@/lib/dal";
-import { dormancyCutoff, monthsSince, ruleFor } from "@/lib/dormancy";
+import { requireGym } from "@/lib/dal";
+import { lapseCutoff, monthsSince, ruleFor } from "@/lib/lapse";
 import {
   ButtonLink,
   Card,
@@ -9,52 +9,52 @@ import {
   PageHeader,
   Pill,
   formatDate,
-  patientName,
+  memberName,
 } from "@/components/app/ui";
-import type { Patient } from "@/lib/types";
+import type { Member } from "@/lib/types";
 
-export const metadata = { title: "Patients" };
+export const metadata = { title: "Members" };
 
 const PAGE_SIZE = 50;
 
-type Filter = "dormant" | "all" | "contacted" | "rebooked";
+type Filter = "lapsed" | "all" | "contacted" | "returned";
 
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: "dormant", label: "Gone quiet" },
+  { value: "lapsed", label: "Gone quiet" },
   { value: "contacted", label: "Contacted" },
-  { value: "rebooked", label: "Rebooked" },
+  { value: "returned", label: "Returned" },
   { value: "all", label: "Everyone" },
 ];
 
-export default async function PatientsPage(props: PageProps<"/app/patients">) {
+export default async function MembersPage(props: PageProps<"/app/members">) {
   const params = await props.searchParams;
-  const { practice, session } = await requirePractice();
+  const { gym, session } = await requireGym();
 
   const filter: Filter = FILTERS.some((f) => f.value === params.filter)
     ? (params.filter as Filter)
-    : "dormant";
+    : "lapsed";
 
   const page = Math.max(1, Number(params.page ?? 1) || 1);
   const from = (page - 1) * PAGE_SIZE;
 
-  const rule = ruleFor(practice);
-  const cutoff = dormancyCutoff(rule);
+  const rule = ruleFor(gym);
+  const cutoff = lapseCutoff(rule);
 
   let query = session.supabase
-    .from("patients")
+    .from("members")
     .select("*", { count: "exact" })
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .eq("is_test", false);
 
-  if (filter === "dormant") {
+  if (filter === "lapsed") {
     query = query
       .neq("status", "opted_out")
       .lte("visit_count", rule.maxVisits)
       .lte("last_visit_at", cutoff);
   } else if (filter === "contacted") {
     query = query.eq("status", "contacted");
-  } else if (filter === "rebooked") {
-    query = query.eq("status", "reactivated");
+  } else if (filter === "returned") {
+    query = query.eq("status", "returned");
   }
 
   const { data, count } = await query
@@ -62,28 +62,28 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
     .order("last_visit_at", { ascending: true, nullsFirst: false })
     .range(from, from + PAGE_SIZE - 1);
 
-  const patients = (data ?? []) as Patient[];
+  const members = (data ?? []) as Member[];
   const total = count ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <>
       <PageHeader
-        eyebrow="Patients"
+        eyebrow="Members"
         title="Your list"
         lede="Sorted by how long they have been away. The longest gaps are at the top."
         actions={
-          filter === "dormant" && total > 0 ? (
+          filter === "lapsed" && total > 0 ? (
             <ButtonLink href="/app/campaigns/new">Build a campaign</ButtonLink>
           ) : undefined
         }
       />
 
-      <nav className="mb-5 flex flex-wrap gap-2" aria-label="Filter patients">
+      <nav className="mb-5 flex flex-wrap gap-2" aria-label="Filter members">
         {FILTERS.map((option) => (
           <Link
             key={option.value}
-            href={`/app/patients?filter=${option.value}`}
+            href={`/app/members?filter=${option.value}`}
             aria-current={filter === option.value ? "page" : undefined}
             className={`rounded-[10px] border px-3.5 py-2 text-[0.875rem] font-medium transition-[transform,border-color] duration-200 hover:-translate-y-px ${
               filter === option.value
@@ -96,17 +96,17 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
         ))}
       </nav>
 
-      {patients.length === 0 ? (
+      {members.length === 0 ? (
         <EmptyState
           title={
-            filter === "dormant"
+            filter === "lapsed"
               ? "Nobody has gone quiet"
               : "Nothing here yet"
           }
           body={
-            filter === "dormant"
-              ? `No patient matches your current rule: no visit for ${practice.dormant_after_months} months and at most ${practice.max_visits} on record.`
-              : "Once casdey starts writing to patients, they show up here."
+            filter === "lapsed"
+              ? `No member matches your current rule: no visit for ${gym.lapsed_after_months} months and at most ${gym.max_visits} on record.`
+              : "Once casdey starts writing to members, they show up here."
           }
           action={<ButtonLink href="/app/import">Import your list</ButtonLink>}
         />
@@ -114,14 +114,14 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
         <>
           <p className="mb-3 text-[0.875rem] text-stone">
             <span className="literal">{total}</span>{" "}
-            {total === 1 ? "patient" : "patients"}
+            {total === 1 ? "member" : "members"}
           </p>
 
           <Card className="!p-0 overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Patient</th>
+                  <th>Member</th>
                   <th>Email</th>
                   <th>Last visit</th>
                   <th>Away</th>
@@ -130,34 +130,34 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
                 </tr>
               </thead>
               <tbody>
-                {patients.map((patient) => {
-                  const away = monthsSince(patient.last_visit_at);
+                {members.map((member) => {
+                  const away = monthsSince(member.last_visit_at);
                   return (
-                    <tr key={patient.id}>
+                    <tr key={member.id}>
                       <td className="font-medium text-ink">
                         <Link
-                          href={`/app/patients/${patient.id}`}
+                          href={`/app/members/${member.id}`}
                           className="hover:text-teal hover:underline"
                         >
-                          {patientName(patient)}
+                          {memberName(member)}
                         </Link>
                       </td>
                       <td className="literal text-[0.8125rem]">
-                        {patient.email ?? (
+                        {member.email ?? (
                           <span className="text-stone">no email</span>
                         )}
                       </td>
                       <td className="literal text-[0.8125rem]">
-                        {formatDate(patient.last_visit_at)}
+                        {formatDate(member.last_visit_at)}
                       </td>
                       <td className="literal text-[0.8125rem]">
                         {away === null ? "unknown" : `${away} mo`}
                       </td>
                       <td className="literal text-[0.8125rem]">
-                        {patient.visit_count}
+                        {member.visit_count}
                       </td>
                       <td>
-                        <StatusPill patient={patient} />
+                        <StatusPill member={member} />
                       </td>
                     </tr>
                   );
@@ -172,7 +172,7 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
               aria-label="Pages"
             >
               <PageLink
-                href={`/app/patients?filter=${filter}&page=${page - 1}`}
+                href={`/app/members?filter=${filter}&page=${page - 1}`}
                 disabled={page === 1}
               >
                 Previous
@@ -181,7 +181,7 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
                 Page {page} of {pages}
               </span>
               <PageLink
-                href={`/app/patients?filter=${filter}&page=${page + 1}`}
+                href={`/app/members?filter=${filter}&page=${page + 1}`}
                 disabled={page === pages}
               >
                 Next
@@ -194,12 +194,12 @@ export default async function PatientsPage(props: PageProps<"/app/patients">) {
   );
 }
 
-function StatusPill({ patient }: { patient: Patient }) {
-  if (patient.status === "reactivated")
-    return <Pill tone="rebooked">Rebooked</Pill>;
-  if (patient.status === "opted_out") return <Pill>Opted out</Pill>;
-  if (patient.status === "contacted") return <Pill tone="teal">Contacted</Pill>;
-  if (!patient.email) return <Pill>No email</Pill>;
+function StatusPill({ member }: { member: Member }) {
+  if (member.status === "returned")
+    return <Pill tone="returned">Returned</Pill>;
+  if (member.status === "opted_out") return <Pill>Opted out</Pill>;
+  if (member.status === "contacted") return <Pill tone="teal">Contacted</Pill>;
+  if (!member.email) return <Pill>No email</Pill>;
   return <Pill>Not contacted</Pill>;
 }
 

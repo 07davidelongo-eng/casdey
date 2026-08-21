@@ -9,10 +9,10 @@ const INITIAL: UnsubscribeState = { done: false, error: null };
 
 export function UnsubscribeForm({
   token,
-  practiceName,
+  gymName,
 }: {
   token: string;
-  practiceName: string;
+  gymName: string;
 }) {
   const [state, action, pending] = useActionState(unsubscribeAction, INITIAL);
 
@@ -21,8 +21,8 @@ export function UnsubscribeForm({
       <div className="card p-7">
         <h1 className="display text-[1.375rem]">Done</h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
-          You will not get any more of these from {practiceName}. Nothing else
-          changes: this does not affect your care, appointments or records with
+          You will not get any more of these from {gymName}. Nothing else
+          changes: this does not affect your care, bookings or records with
           them.
         </p>
       </div>
@@ -33,9 +33,9 @@ export function UnsubscribeForm({
     <div className="card p-7">
       <h1 className="display text-[1.5rem]">Stop these emails?</h1>
       <p className="mt-3 text-[0.9375rem] text-graphite">
-        {practiceName} will stop sending you check-up reminders. Your care and
-        your records with them are not affected, and you can still book an
-        appointment any time.
+        {gymName} will stop sending you these reminders. Your membership and
+        your records with them are not affected, and you can still book any
+        time.
       </p>
 
       <form action={action} className="mt-6">

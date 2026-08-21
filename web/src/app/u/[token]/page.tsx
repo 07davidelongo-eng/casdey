@@ -9,9 +9,9 @@ export const metadata = {
 };
 
 /**
- * Where the link at the bottom of every patient email goes.
+ * Where the link at the bottom of every member email goes.
  *
- * Public by design. The page tells them which practice this is about before
+ * Public by design. The page tells them which gym this is about before
  * they confirm, so they are not choosing blind, and confirmation is a POST
  * rather than the page load itself: mail scanners follow links automatically,
  * and a GET that unsubscribes would take people off lists they never asked to
@@ -24,15 +24,15 @@ export default async function UnsubscribePage(
 
   const { data } = await supabaseAdmin()
     .from("campaign_messages")
-    .select("practice_id, practices ( name )")
+    .select("gym_id, gyms ( name )")
     .eq("unsubscribe_token", token)
     .maybeSingle();
 
   // The embed is typed as an array even though the foreign key makes it one row.
-  const practices = data?.practices as { name?: string }[] | { name?: string } | null | undefined;
-  const practiceName = Array.isArray(practices)
-    ? practices[0]?.name
-    : practices?.name;
+  const gyms = data?.gyms as { name?: string }[] | { name?: string } | null | undefined;
+  const gymName = Array.isArray(gyms)
+    ? gyms[0]?.name
+    : gyms?.name;
 
   return (
     <div className="flex min-h-full flex-1 items-center justify-center px-5 py-14">
@@ -48,7 +48,7 @@ export default async function UnsubscribePage(
         ) : (
           <UnsubscribeForm
             token={token}
-            practiceName={practiceName ?? "this practice"}
+            gymName={gymName ?? "this gym"}
           />
         )}
       </div>

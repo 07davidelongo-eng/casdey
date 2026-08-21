@@ -23,7 +23,7 @@ const Schema = z.object({
 });
 
 /**
- * Saves a practice's booking configuration: the on/off switch, the slot shape,
+ * Saves a gym's booking configuration: the on/off switch, the slot shape,
  * and the weekly hours. One open window per weekday for now (the schema stores
  * an array, so a lunch-break split can be added later without a migration).
  *
@@ -35,7 +35,7 @@ export async function saveBookingSettingsAction(
   _previous: BookingSettingsState,
   formData: FormData,
 ): Promise<BookingSettingsState> {
-  const { practice, session } = await requireOwner();
+  const { gym, session } = await requireOwner();
 
   const parsed = Schema.safeParse({
     enabled: formData.get("enabled") === "on",
@@ -74,7 +74,7 @@ export async function saveBookingSettingsAction(
   }
 
   const { error } = await supabaseAdmin()
-    .from("practices")
+    .from("gyms")
     .update({
       booking_enabled: parsed.data.enabled,
       booking_slot_minutes: parsed.data.slotMinutes,
@@ -83,7 +83,7 @@ export async function saveBookingSettingsAction(
       booking_horizon_days: parsed.data.horizonDays,
       booking_hours: hours,
     })
-    .eq("id", practice.id);
+    .eq("id", gym.id);
 
   if (error) {
     console.error("[booking settings] update failed", error.message);
@@ -91,7 +91,7 @@ export async function saveBookingSettingsAction(
   }
 
   await recordAudit({
-    practiceId: practice.id,
+    gymId: gym.id,
     actorId: session.userId,
     actorEmail: session.email,
     action: "booking.settings_updated",

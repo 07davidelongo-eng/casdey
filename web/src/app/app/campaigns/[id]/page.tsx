@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { requirePractice } from "@/lib/dal";
+import { requireGym } from "@/lib/dal";
 import { CampaignPill } from "@/components/app/campaign-pill";
 import { CampaignControls } from "./controls";
 import { TestSendForm } from "./test-send-form";
-import { WhatsAppTestForm } from "./whatsapp-test-form";
 import {
   Card,
   CardTitle,
@@ -19,29 +18,28 @@ export default async function CampaignPage(
   props: PageProps<"/app/campaigns/[id]">,
 ) {
   const { id } = await props.params;
-  const { practice, session } = await requirePractice();
+  const { gym, session } = await requireGym();
 
   const { data } = await session.supabase
     .from("campaigns")
     .select("*")
     .eq("id", id)
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .maybeSingle();
 
   if (!data) notFound();
   const campaign = data as Campaign;
-  const isWhatsApp = campaign.channel === "whatsapp";
 
-  // patients!inner(is_test) + the eq below excludes the self-test send's own
+  // members!inner(is_test) + the eq below excludes the self-test send's own
   // message row (see /app/campaigns/[id]/test-send-form.tsx): without it, the
-  // synthetic patient's one-off "sent" row gets counted alongside the real
-  // audience and these stats stop matching the "will go to N patients" count
+  // synthetic member's one-off "sent" row gets counted alongside the real
+  // audience and these stats stop matching the "will go to N members" count
   // shown before approval.
   const { data: messages } = await session.supabase
     .from("campaign_messages")
-    .select("status, patients!inner(is_test)")
+    .select("status, members!inner(is_test)")
     .eq("campaign_id", campaign.id)
-    .eq("patients.is_test", false);
+    .eq("members.is_test", false);
 
   const counts = (messages ?? []).reduce<Record<string, number>>(
     (totals, row) => {
@@ -76,7 +74,7 @@ export default async function CampaignPage(
         />
       </div>
 
-      {campaign.status !== "draft" && !isWhatsApp ? (
+      {campaign.status !== "draft" ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <Stat label="Sent" value={sent} tone="teal" />
           <Stat label="Still queued" value={queued} />
@@ -89,48 +87,31 @@ export default async function CampaignPage(
       ) : null}
 
       <Card>
-        <CardTitle>{isWhatsApp ? "The opening template" : "The message"}</CardTitle>
+        <CardTitle>The message</CardTitle>
         <div className="mt-4 rounded-[14px] border border-ash bg-paper p-5">
-          {isWhatsApp ? (
-            <p className="literal text-[0.875rem] text-graphite">
-              Template: {campaign.whatsapp_template_name ?? "not configured"}
-            </p>
-          ) : (
-            <>
-              <p className="mb-4 border-b border-ash pb-3 text-[0.9375rem] font-semibold text-ink">
-                {campaign.subject}
-              </p>
-              <pre className="font-[family-name:var(--font-inter)] text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-graphite">
-                {campaign.body}
-              </pre>
-            </>
-          )}
+          <p className="mb-4 border-b border-ash pb-3 text-[0.9375rem] font-semibold text-ink">
+            {campaign.subject}
+          </p>
+          <pre className="font-[family-name:var(--font-inter)] text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-graphite">
+            {campaign.body}
+          </pre>
         </div>
         <p className="field-hint">
-          {isWhatsApp
-            ? "Once a patient replies, casdey's assistant carries the conversation from here and hands off the moment they show interest in booking."
-            : "Merge fields are filled in per patient, and the unsubscribe line is added to every message."}
+          Merge fields are filled in per member, and the unsubscribe line is
+          added to every message.
         </p>
       </Card>
 
       <div className="mt-6">
-        {isWhatsApp ? (
-          <WhatsAppTestForm
-            campaignId={campaign.id}
-            whatsappEnabled={practice.whatsapp_enabled}
-          />
-        ) : (
-          <TestSendForm campaignId={campaign.id} email={session.email} />
-        )}
+        <TestSendForm campaignId={campaign.id} email={session.email} />
       </div>
 
       <div className="mt-6">
         <CampaignControls
           campaignId={campaign.id}
           status={campaign.status}
-          channel={campaign.channel}
-          audienceCount={campaign.audience?.patientCount ?? 0}
-          dailyCap={practice.daily_send_cap}
+          audienceCount={campaign.audience?.memberCount ?? 0}
+          dailyCap={gym.daily_send_cap}
         />
       </div>
     </div>

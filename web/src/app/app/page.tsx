@@ -1,12 +1,12 @@
-import { requirePractice } from "@/lib/dal";
-import { practiceStats } from "@/lib/stats";
-import { monthsSince, ruleFor } from "@/lib/dormancy";
+import { requireGym } from "@/lib/dal";
+import { gymStats } from "@/lib/stats";
+import { monthsSince, ruleFor } from "@/lib/lapse";
 import {
   estimatedRecoveredMinor,
   formatMoney,
-  practiceCurrency,
+  gymCurrency,
 } from "@/lib/money";
-import { PatientTimeline } from "@/components/app/patient-timeline";
+import { MemberTimeline } from "@/components/app/member-timeline";
 import {
   ButtonLink,
   Card,
@@ -16,42 +16,42 @@ import {
   PageHeader,
   Stat,
   formatDate,
-  patientName,
+  memberName,
 } from "@/components/app/ui";
-import type { Patient } from "@/lib/types";
+import type { Member } from "@/lib/types";
 
 export const metadata = { title: "Overview" };
 
 export default async function DashboardPage(props: PageProps<"/app">) {
   const params = await props.searchParams;
-  const { practice, session } = await requirePractice();
+  const { gym, session } = await requireGym();
 
-  const rule = ruleFor(practice);
-  const stats = await practiceStats(session.supabase, practice.id, rule);
+  const rule = ruleFor(gym);
+  const stats = await gymStats(session.supabase, gym.id, rule);
 
-  // The most recent rebooking, if there is one. This is the only place the app
+  // The most recent return, if there is one. This is the only place the app
   // gets to show the thing it exists to cause.
-  const { data: rebookedRows } = await session.supabase
-    .from("patients")
+  const { data: returnedRows } = await session.supabase
+    .from("members")
     .select("*")
-    .eq("practice_id", practice.id)
+    .eq("gym_id", gym.id)
     .eq("is_test", false)
-    .eq("status", "reactivated")
-    .order("reactivated_at", { ascending: false })
+    .eq("status", "returned")
+    .order("returned_at", { ascending: false })
     .limit(1);
 
-  const rebooked = (rebookedRows?.[0] ?? null) as Patient | null;
+  const returned = (returnedRows?.[0] ?? null) as Member | null;
 
-  const currency = practiceCurrency(practice);
+  const currency = gymCurrency(gym);
   const recoveredMinor = estimatedRecoveredMinor(
-    stats.rebooked,
-    practice.appointment_value_minor,
+    stats.returned,
+    gym.booking_value_minor,
   );
 
-  if (stats.patients === 0) {
+  if (stats.members === 0) {
     return (
       <>
-        <PageHeader eyebrow="Overview" title={practice.name} />
+        <PageHeader eyebrow="Overview" title={gym.name} />
         {params.welcome ? (
           <div className="mb-6">
             <Notice>
@@ -62,7 +62,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         ) : null}
         <EmptyState
           title="Nothing to work with yet"
-          body="Import your patient list and casdey will show you who came once or twice and never came back."
+          body="Import your member list and casdey will show you who came once or twice and never came back."
           action={<ButtonLink href="/app/import">Import your list</ButtonLink>}
         />
       </>
@@ -73,9 +73,9 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     <>
       <PageHeader
         eyebrow="Overview"
-        title={practice.name}
-        lede={`Dormant means no visit for ${practice.dormant_after_months} months, and at most ${practice.max_visits} ${
-          practice.max_visits === 1 ? "visit" : "visits"
+        title={gym.name}
+        lede={`Lapsed means no visit for ${gym.lapsed_after_months} months, and at most ${gym.max_visits} ${
+          gym.max_visits === 1 ? "visit" : "visits"
         } on record. Change that in settings.`}
         actions={
           <ButtonLink href="/app/campaigns/new">Build a campaign</ButtonLink>
@@ -91,13 +91,13 @@ export default async function DashboardPage(props: PageProps<"/app">) {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Patients" value={stats.patients} />
+        <Stat label="Members" value={stats.members} />
         <Stat
           label="Gone quiet"
-          value={stats.dormant}
+          value={stats.lapsed}
           tone="teal"
           hint={
-            stats.reachable < stats.dormant
+            stats.reachable < stats.lapsed
               ? `${stats.reachable} have an email address`
               : "all reachable by email"
           }
@@ -108,9 +108,9 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           hint="sent at least one message"
         />
         <Stat
-          label="Rebooked"
-          value={stats.rebooked}
-          tone="rebooked"
+          label="Returned"
+          value={stats.returned}
+          tone="returned"
           hint="came back after we wrote"
         />
       </div>
@@ -122,10 +122,10 @@ export default async function DashboardPage(props: PageProps<"/app">) {
             {formatMoney(recoveredMinor, currency)}
           </p>
           <p className="mt-3 max-w-xl text-[0.8125rem] text-stone">
-            {stats.rebooked} {stats.rebooked === 1 ? "patient" : "patients"}{" "}
-            rebooked, valued at your typical{" "}
-            {formatMoney(practice.appointment_value_minor ?? 0, currency)} a
-            recovered appointment. An estimate, not amounts casdey has billed.
+            {stats.returned} {stats.returned === 1 ? "member" : "members"}{" "}
+            returned, valued at your typical{" "}
+            {formatMoney(gym.booking_value_minor ?? 0, currency)} a
+            recovered booking. An estimate, not amounts casdey has billed.
           </p>
         </Card>
       ) : (
@@ -133,31 +133,31 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           <div>
             <CardTitle>See the money, not just the count</CardTitle>
             <p className="text-[0.9375rem] text-graphite">
-              Tell casdey what a returning patient is typically worth and the
+              Tell casdey what a returning member is typically worth and the
               dashboard shows the revenue you have recovered, not only how many
               came back.
             </p>
           </div>
           <ButtonLink href="/app/settings" variant="quiet">
-            Set appointment value
+            Set booking value
           </ButtonLink>
         </Card>
       )}
 
-      {rebooked ? (
+      {returned ? (
         <Card className="mt-6">
           <CardTitle>Most recent return</CardTitle>
           <p className="mt-1 mb-5 text-[0.9375rem] text-graphite">
-            {patientName(rebooked)} came back on{" "}
+            {memberName(returned)} came back on{" "}
             <span className="literal text-ink">
-              {formatDate(rebooked.reactivated_at)}
+              {formatDate(returned.returned_at)}
             </span>
             .
           </p>
-          <PatientTimeline
-            visitCount={rebooked.visit_count}
-            monthsAway={monthsSince(rebooked.last_visit_at)}
-            rebooked
+          <MemberTimeline
+            visitCount={returned.visit_count}
+            monthsAway={monthsSince(returned.last_visit_at)}
+            returned
           />
         </Card>
       ) : null}
@@ -170,7 +170,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
               <span className="literal font-medium text-ink">
                 {stats.reachable}
               </span>{" "}
-              dormant {stats.reachable === 1 ? "patient has" : "patients have"}{" "}
+              lapsed {stats.reachable === 1 ? "member has" : "members have"}{" "}
               an email address on file. A campaign writes to them once, and
               stops.
             </p>
@@ -181,8 +181,8 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         <Card className="mt-6">
           <CardTitle>No email addresses yet</CardTitle>
           <p className="text-[0.9375rem] text-graphite">
-            {stats.dormant} dormant{" "}
-            {stats.dormant === 1 ? "patient" : "patients"}, none with an email
+            {stats.lapsed} lapsed{" "}
+            {stats.lapsed === 1 ? "member" : "members"}, none with an email
             address casdey can use. Re-import with the email column mapped and
             they become contactable.
           </p>

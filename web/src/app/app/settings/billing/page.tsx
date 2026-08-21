@@ -1,4 +1,4 @@
-import { requirePractice } from "@/lib/dal";
+import { requireGym } from "@/lib/dal";
 import { currencyFor } from "@/lib/countries";
 import {
   earlyAdopterProgramActive,
@@ -8,7 +8,7 @@ import {
 } from "@/lib/plan";
 import { isStripeConfigured, plansFor } from "@/lib/stripe";
 import { loadGuaranteeStatus } from "@/lib/guarantee-data";
-import { formatMoney, practiceCurrency } from "@/lib/money";
+import { formatMoney, gymCurrency } from "@/lib/money";
 import {
   Button,
   Card,
@@ -25,16 +25,16 @@ export default async function BillingPage(
   props: PageProps<"/app/settings/billing">,
 ) {
   const params = await props.searchParams;
-  const { practice, role, session } = await requirePractice();
+  const { gym, role, session } = await requireGym();
 
-  const plan = effectivePlan(practice);
-  const currency = currencyFor(practice.country);
+  const plan = effectivePlan(gym);
+  const currency = currencyFor(gym.country);
   const plans = plansFor(currency);
-  const daysLeft = trialDaysLeft(practice);
-  const discounted = practice.early_adopter && earlyAdopterProgramActive();
+  const daysLeft = trialDaysLeft(gym);
+  const discounted = gym.early_adopter && earlyAdopterProgramActive();
   const errorMessage = typeof params.error === "string" ? params.error : null;
-  const guarantee = await loadGuaranteeStatus(session.supabase, practice);
-  const guaranteeCurrency = practiceCurrency(practice);
+  const guarantee = await loadGuaranteeStatus(session.supabase, gym);
+  const guaranteeCurrency = gymCurrency(gym);
 
   return (
     <div className="max-w-[44rem] space-y-6">
@@ -94,15 +94,15 @@ export default async function BillingPage(
           </p>
         ) : (
           <p className="text-[0.9375rem] text-graphite">
-            {practice.subscription_status === "past_due"
+            {gym.subscription_status === "past_due"
               ? "Your last payment did not go through. Sending is paused until the card is updated."
               : "Premium is active. Sending is on."}
-            {practice.current_period_end ? (
+            {gym.current_period_end ? (
               <>
                 {" "}
                 Next payment{" "}
                 <span className="literal text-ink">
-                  {formatDate(practice.current_period_end)}
+                  {formatDate(gym.current_period_end)}
                 </span>
                 .
               </>
@@ -176,7 +176,7 @@ export default async function BillingPage(
           ) : guarantee.state === "needs_review" ? (
             <p className="text-[0.9375rem] text-graphite">
               Your guarantee window has closed. To check whether you are owed a
-              refund we need your typical appointment value, which is not set
+              refund we need your typical booking value, which is not set
               yet. Add it under Settings, then get in touch and we will handle
               the refund for you.
             </p>
@@ -231,7 +231,7 @@ export default async function BillingPage(
 
           {role !== "owner" ? (
             <Notice tone="warn">
-              Only the practice owner can set up billing.
+              Only the gym owner can set up billing.
             </Notice>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">

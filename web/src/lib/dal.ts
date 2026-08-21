@@ -5,12 +5,12 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { supabaseServer } from "./supabase-server";
-import type { Practice } from "./types";
+import type { Gym } from "./types";
 
 /**
  * Data access layer.
  *
- * Every route that touches practice data starts here. The auth check lives in
+ * Every route that touches gym data starts here. The auth check lives in
  * this file rather than in the app layout on purpose: layouts do not re-render
  * on client-side navigation, and a layout cannot stop the segments below it
  * from rendering or from appearing in the RSC payload. A layout-only check is
@@ -30,9 +30,9 @@ export type Session = {
   supabase: SupabaseClient;
 };
 
-export type PracticeContext = {
+export type GymContext = {
   session: Session;
-  practice: Practice;
+  gym: Gym;
   role: "owner" | "staff";
 };
 
@@ -73,39 +73,39 @@ export const requireSession = cache(async (): Promise<Session> => {
 });
 
 /**
- * The practice this user belongs to, read through the user-scoped client so RLS
+ * The gym this user belongs to, read through the user-scoped client so RLS
  * does the tenant filtering rather than a `where` clause we could forget.
  *
- * One practice per user in v1. `practice_members` is already shaped for more.
+ * One gym per user in v1. `gym_users` is already shaped for more.
  */
-export const getPracticeContext = cache(
-  async (): Promise<PracticeContext | null> => {
+export const getGymContext = cache(
+  async (): Promise<GymContext | null> => {
     const session = await getSession();
     if (!session) return null;
 
     const { data, error } = await session.supabase
-      .from("practice_members")
-      .select("role, practices (*)")
+      .from("gym_users")
+      .select("role, gyms (*)")
       .eq("user_id", session.userId)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
 
     if (error) {
-      console.error("[dal] practice lookup failed", error.message);
+      console.error("[dal] gym lookup failed", error.message);
       return null;
     }
-    if (!data?.practices) return null;
+    if (!data?.gyms) return null;
 
     // The embed is typed as an array by the generated client even though the
     // foreign key makes it a single row.
-    const practice = (
-      Array.isArray(data.practices) ? data.practices[0] : data.practices
-    ) as Practice;
+    const gym = (
+      Array.isArray(data.gyms) ? data.gyms[0] : data.gyms
+    ) as Gym;
 
     return {
       session,
-      practice,
+      gym,
       role: data.role as "owner" | "staff",
     };
   },
@@ -113,27 +113,27 @@ export const getPracticeContext = cache(
 
 /**
  * Everything under /app except onboarding itself. Sends a signed-in user with
- * no practice yet into onboarding.
+ * no gym yet into onboarding.
  */
-export async function requirePractice(): Promise<PracticeContext> {
+export async function requireGym(): Promise<GymContext> {
   await requireSession();
-  const context = await getPracticeContext();
+  const context = await getGymContext();
   if (!context) redirect("/app/onboarding");
   return context;
 }
 
 /**
  * Access to the app itself is never gated on paying: the Free plan is a real
- * resting state, and a Free practice still imports its list and sees who has
+ * resting state, and a Free gym still imports its list and sees who has
  * gone quiet. What Free cannot do is SEND, and that is checked at the send
  * paths against `capabilities()` in ./plan.ts, not here. This alias remains so
- * callers that mean "a practice must exist" read clearly.
+ * callers that mean "a gym must exist" read clearly.
  */
-export const requireActivePractice = requirePractice;
+export const requireActiveGym = requireGym;
 
 /** Owner-only actions: billing, deletion, processor agreement. */
-export async function requireOwner(): Promise<PracticeContext> {
-  const context = await requirePractice();
+export async function requireOwner(): Promise<GymContext> {
+  const context = await requireGym();
   if (context.role !== "owner") redirect("/app");
   return context;
 }

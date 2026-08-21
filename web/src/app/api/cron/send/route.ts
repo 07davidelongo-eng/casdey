@@ -22,7 +22,7 @@ export const maxDuration = 60;
 function authorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   // Refusing when unset is the safe default: an unauthenticated endpoint that
-  // sends email to patients is not something to leave open by accident.
+  // sends email to members is not something to leave open by accident.
   if (!secret) return false;
 
   const header = request.headers.get("authorization") ?? "";

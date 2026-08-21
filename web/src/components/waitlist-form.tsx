@@ -41,7 +41,7 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: String(data.get("email") ?? "").trim(),
-          practice: String(data.get("practice") ?? "").trim(),
+          gym: String(data.get("gym") ?? "").trim(),
           software: String(data.get("software") ?? "").trim(),
           // Honeypot. A real person never sees this field, so anything in it
           // means the submission is automated.
@@ -107,12 +107,12 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
     >
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
-          <label className={LABEL} htmlFor={`${prefix}-practice`}>
+          <label className={LABEL} htmlFor={`${prefix}-gym`}>
             Gym or studio name
           </label>
           <input
-            id={`${prefix}-practice`}
-            name="practice"
+            id={`${prefix}-gym`}
+            name="gym"
             type="text"
             required
             autoComplete="organization"

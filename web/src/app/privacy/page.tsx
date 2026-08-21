@@ -6,10 +6,10 @@ import { Container } from "@/components/ui";
 
 /*
  * Scope note: this notice covers the *waitlist* only, i.e. the details a
- * practice gives us on casdey.com before the product exists. Processing of
- * patient records is a separate matter, governed by the data processing
- * agreement each practice signs, and must get its own notice before any
- * practice is onboarded.
+ * gym gives us on casdey.com before the product exists. Processing of
+ * member records is a separate matter, governed by the data processing
+ * agreement each gym signs, and must get its own notice before any
+ * gym is onboarded.
  *
  * Before this page goes live, Davide needs to fill in:
  *   - the legal/trading identity of the controller and a postal address
@@ -53,10 +53,10 @@ export default function PrivacyPage() {
             </h1>
             <P>
               This notice covers the details you give us when you join the
-              casdey waitlist. It does not cover patient records. casdey does
-              not hold any patient data yet, and when it does, that processing
+              casdey waitlist. It does not cover member records. casdey does
+              not hold any member data yet, and when it does, that processing
               will be governed by a separate data processing agreement with each
-              practice.
+              gym.
             </P>
 
             <H2>Who we are</H2>
@@ -75,8 +75,8 @@ export default function PrivacyPage() {
 
             <H2>What we collect</H2>
             <P>
-              Only what the waitlist form asks for: your practice name, your
-              work email address, and optionally the practice software you use.
+              Only what the waitlist form asks for: your gym name, your
+              work email address, and optionally the gym software you use.
               We also record the date you joined. There is nothing else, no
               tracking pixels, no advertising cookies, and no analytics that
               profiles you.
@@ -84,8 +84,8 @@ export default function PrivacyPage() {
 
             <H2>Why we collect it</H2>
             <P>
-              To email you when casdey is ready for your practice, and to decide
-              which practice software to support first. Our lawful basis is your
+              To email you when casdey is ready for your gym, and to decide
+              which gym software to support first. Our lawful basis is your
               consent, given by submitting the form for that stated purpose. You
               can withdraw it at any time and we will delete your entry.
             </P>

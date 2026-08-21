@@ -12,7 +12,7 @@ export type ServicesState = { error: string | null; saved: boolean };
 /**
  * One row from the form. Existing rows carry their id so a price edit updates in
  * place and keeps the id anything else might reference; new rows have no id yet.
- * Price arrives in major units (what the practice typed) and is stored in minor.
+ * Price arrives in major units (what the gym typed) and is stored in minor.
  */
 const Row = z.object({
   id: z.uuid().nullable(),
@@ -25,12 +25,12 @@ const Row = z.object({
 
 const Schema = z
   .array(Row)
-  .max(300, "That is more services than casdey will store for one practice.");
+  .max(300, "That is more services than casdey will store for one gym.");
 
 export async function saveServices(
   rows: unknown,
 ): Promise<ServicesState> {
-  const { practice, session } = await requireOwner();
+  const { gym, session } = await requireOwner();
 
   const parsed = Schema.safeParse(rows);
   if (!parsed.success) {
@@ -40,11 +40,11 @@ export async function saveServices(
   const submitted = parsed.data;
   const client = supabaseAdmin();
 
-  // What the practice has now, to work out what to remove.
+  // What the gym has now, to work out what to remove.
   const { data: existingRows, error: readError } = await client
-    .from("practice_services")
+    .from("services")
     .select("id")
-    .eq("practice_id", practice.id);
+    .eq("gym_id", gym.id);
 
   if (readError) {
     console.error("[services] read failed", readError.message);
@@ -56,21 +56,21 @@ export async function saveServices(
     submitted.map((r) => r.id).filter((id): id is string => id !== null),
   );
 
-  // Rows the practice removed in the form are the existing ids no longer present.
+  // Rows the gym removed in the form are the existing ids no longer present.
   const toDelete = [...existingIds].filter((id) => !keptIds.has(id));
 
   // Upsert every submitted row. Rows with an id update in place; rows without one
   // are inserted. Position is the order they appear in the form.
   const toUpsert = submitted.map((row, index) => ({
     ...(row.id ? { id: row.id } : {}),
-    practice_id: practice.id,
+    gym_id: gym.id,
     name: row.name,
     price_minor: Math.round(row.price * 100),
     position: index,
   }));
 
   if (toUpsert.length > 0) {
-    const { error } = await client.from("practice_services").upsert(toUpsert);
+    const { error } = await client.from("services").upsert(toUpsert);
     if (error) {
       console.error("[services] upsert failed", error.message);
       return { error: "We could not save that. Try again.", saved: false };
@@ -79,9 +79,9 @@ export async function saveServices(
 
   if (toDelete.length > 0) {
     const { error } = await client
-      .from("practice_services")
+      .from("services")
       .delete()
-      .eq("practice_id", practice.id)
+      .eq("gym_id", gym.id)
       .in("id", toDelete);
     if (error) {
       console.error("[services] delete failed", error.message);
@@ -90,10 +90,10 @@ export async function saveServices(
   }
 
   await recordAudit({
-    practiceId: practice.id,
+    gymId: gym.id,
     actorId: session.userId,
     actorEmail: session.email,
-    action: "practice.services_updated",
+    action: "gym.services_updated",
     meta: { count: submitted.length },
   });
 

@@ -47,7 +47,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
           response.cookies.set(name, value, options);
         }
         // Supabase passes no-store headers alongside rotated auth cookies.
-        // Without them a CDN could cache one practice's session and hand it to
+        // Without them a CDN could cache one gym's session and hand it to
         // another.
         for (const [header, value] of Object.entries(headers ?? {})) {
           response.headers.set(header, value);

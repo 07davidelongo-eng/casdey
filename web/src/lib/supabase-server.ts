@@ -11,8 +11,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * This is the client every user-facing read and write goes through. Its
  * counterpart, `supabaseAdmin()` in ./supabase.ts, uses the service role and
  * bypasses RLS entirely, and is only for webhooks, cron and batch import.
- * Reaching for the wrong one is how a practice ends up reading another
- * practice's patients, so the two are deliberately named nothing alike.
+ * Reaching for the wrong one is how a gym ends up reading another
+ * gym's members, so the two are deliberately named nothing alike.
  *
  * A new client per request, never a module-level singleton: sharing one across
  * requests would leak one user's session into another's render.

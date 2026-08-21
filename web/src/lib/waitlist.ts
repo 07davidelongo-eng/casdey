@@ -14,7 +14,7 @@ import { sendMail } from "./zoho-mail";
 
 export type WaitlistInput = {
   email: string;
-  practice: string;
+  gym: string;
   software: string;
 };
 
@@ -23,24 +23,24 @@ const EMAIL_RE = /^[^\s@]+@[^\s@,]+\.[^\s@,]{2,}$/;
 
 export function validate(input: {
   email?: unknown;
-  practice?: unknown;
+  gym?: unknown;
   software?: unknown;
 }): { ok: true; value: WaitlistInput } | { ok: false; error: string } {
   const email = typeof input.email === "string" ? input.email.trim() : "";
-  const practice =
-    typeof input.practice === "string" ? input.practice.trim() : "";
+  const gym =
+    typeof input.gym === "string" ? input.gym.trim() : "";
   const software =
     typeof input.software === "string" ? input.software.trim() : "";
 
-  if (!practice) return { ok: false, error: "Add your gym or studio name." };
-  if (practice.length > 200)
+  if (!gym) return { ok: false, error: "Add your gym or studio name." };
+  if (gym.length > 200)
     return { ok: false, error: "That name is too long." };
   if (!email || !EMAIL_RE.test(email) || email.length > 320)
     return { ok: false, error: "That email address does not look right." };
   if (software.length > 200)
     return { ok: false, error: "That software name is too long." };
 
-  return { ok: true, value: { email: email.toLowerCase(), practice, software } };
+  return { ok: true, value: { email: email.toLowerCase(), gym, software } };
 }
 
 /** Returns whether this was a repeat signup, so the emails are not sent twice. */
@@ -48,7 +48,9 @@ export async function addToWaitlist(
   input: WaitlistInput,
 ): Promise<{ duplicate: boolean }> {
   const { error } = await supabaseAdmin().from("waitlist_signups").insert({
-    practice_name: input.practice,
+    // The live waitlist_signups table keeps its original column names
+    // (practice_name / practice_software); only the gym-facing copy changed.
+    practice_name: input.gym,
     email: input.email,
     practice_software: input.software || null,
     source: "casdey.com",
@@ -67,24 +69,24 @@ export async function addToWaitlist(
 export async function notifyTeam(input: WaitlistInput): Promise<void> {
   await sendMail({
     to: process.env.WAITLIST_NOTIFY_TO ?? "info@casdey.com",
-    subject: `Waitlist: ${input.practice}`,
+    subject: `Waitlist: ${input.gym}`,
     text: [
-      `${input.practice} joined the waitlist.`,
+      `${input.gym} joined the waitlist.`,
       "",
       `Email: ${input.email}`,
-      `Practice software: ${input.software || "not given"}`,
+      `Gym software: ${input.software || "not given"}`,
       `Joined: ${new Date().toISOString()}`,
     ].join("\n"),
   });
 }
 
-/** Confirms to the practice that they are on the list. Best effort. */
-export async function confirmToPractice(input: WaitlistInput): Promise<void> {
+/** Confirms to the gym that they are on the list. Best effort. */
+export async function confirmToGym(input: WaitlistInput): Promise<void> {
   await sendMail({
     to: input.email,
     subject: "You are on the casdey waitlist",
     text: [
-      `Thanks for joining, ${input.practice}.`,
+      `Thanks for joining, ${input.gym}.`,
       "",
       "casdey is being built now. When it is ready for gyms and studios like yours, you will get an email from me with the free first week attached. No card and no commitment, and nothing else from us in the meantime.",
       "",

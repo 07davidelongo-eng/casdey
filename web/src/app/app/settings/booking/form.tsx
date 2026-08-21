@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
-import type { Practice, Weekday } from "@/lib/types";
+import type { Gym, Weekday } from "@/lib/types";
 import { saveBookingSettingsAction, type BookingSettingsState } from "./actions";
 
 const INITIAL: BookingSettingsState = { error: null, saved: false };
@@ -19,10 +19,10 @@ const DAYS: { key: Weekday; label: string }[] = [
 ];
 
 export function BookingSettingsForm({
-  practice,
+  gym,
   readOnly,
 }: {
-  practice: Practice;
+  gym: Gym;
   readOnly: boolean;
 }) {
   const [state, action, pending] = useActionState(
@@ -36,7 +36,7 @@ export function BookingSettingsForm({
       <Card>
         <CardTitle>Self-serve booking</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
-          When this is on, casdey adds a booking link to your messages. A patient
+          When this is on, casdey adds a booking link to your messages. A member
           picks a time from your open hours and it is booked straight away: into
           casdey, and into your Google Calendar if you have connected one above.
         </p>
@@ -45,13 +45,13 @@ export function BookingSettingsForm({
           <input
             type="checkbox"
             name="enabled"
-            defaultChecked={practice.booking_enabled}
+            defaultChecked={gym.booking_enabled}
             disabled={disabled}
             className="mt-1 h-4 w-4 rounded border-ash text-teal focus:ring-teal"
           />
           <span>
             <span className="block text-[0.9375rem] font-semibold text-ink">
-              Let patients book themselves
+              Let members book themselves
             </span>
             <span className="field-hint block">
               Off by default. Turn it on once your hours below are set.
@@ -63,14 +63,14 @@ export function BookingSettingsForm({
       <Card>
         <CardTitle>Your open hours</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
-          The times patients can pick from, in your local timezone
-          (<span className="literal">{practice.timezone}</span>). Tick a day to
+          The times members can pick from, in your local timezone
+          (<span className="literal">{gym.timezone}</span>). Tick a day to
           open it.
         </p>
 
         <div className="space-y-3">
           {DAYS.map(({ key, label }) => {
-            const window = practice.booking_hours[key]?.[0];
+            const window = gym.booking_hours[key]?.[0];
             return (
               <div key={key} className="flex flex-wrap items-center gap-3">
                 <label className="flex w-32 items-center gap-2">
@@ -111,16 +111,16 @@ export function BookingSettingsForm({
         <div className="grid gap-5 sm:grid-cols-2">
           <NumberField
             name="slotMinutes"
-            label="Appointment length (minutes)"
-            defaultValue={practice.booking_slot_minutes}
+            label="Booking length (minutes)"
+            defaultValue={gym.booking_slot_minutes}
             min={5}
             max={480}
             disabled={disabled}
           />
           <NumberField
             name="bufferMinutes"
-            label="Gap between appointments (minutes)"
-            defaultValue={practice.booking_buffer_minutes}
+            label="Gap between bookings (minutes)"
+            defaultValue={gym.booking_buffer_minutes}
             min={0}
             max={240}
             disabled={disabled}
@@ -128,7 +128,7 @@ export function BookingSettingsForm({
           <NumberField
             name="minNoticeHours"
             label="Least notice before a slot (hours)"
-            defaultValue={practice.booking_min_notice_hours}
+            defaultValue={gym.booking_min_notice_hours}
             min={0}
             max={720}
             disabled={disabled}
@@ -136,7 +136,7 @@ export function BookingSettingsForm({
           <NumberField
             name="horizonDays"
             label="How far ahead to offer (days)"
-            defaultValue={practice.booking_horizon_days}
+            defaultValue={gym.booking_horizon_days}
             min={1}
             max={120}
             disabled={disabled}

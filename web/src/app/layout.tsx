@@ -39,12 +39,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 const description =
-  "casdey finds the patients who visited your practice once or twice and never rebooked, then writes to them in your name so the ones worth winning back reply straight to your front desk. No manual chasing, no ad spend.";
+  "casdey finds the members who visited your gym once or twice and never returned, then writes to them in your name so the ones worth winning back reply straight to your front desk. No manual chasing, no ad spend.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://casdey.com"),
   title: {
-    default: "casdey · dormant-patient reactivation for dental practices",
+    default: "casdey · lapsed-member reactivation for gyms and studios",
     template: "%s · casdey",
   },
   description,
@@ -59,14 +59,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "casdey",
-    title: "casdey · reactivate the patients you already earned",
+    title: "casdey · reactivate the members you already earned",
     description,
     url: "/",
     locale: "en_GB",
   },
   twitter: {
     card: "summary_large_image",
-    title: "casdey · reactivate the patients you already earned",
+    title: "casdey · reactivate the members you already earned",
     description,
   },
   robots: { index: true, follow: true },

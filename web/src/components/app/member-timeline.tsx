@@ -1,24 +1,24 @@
 /**
  * The brand's signature element, made real.
  *
- * The guide draws one patient's history as a line: a couple of visits, a long
+ * The guide draws one member's history as a line: a couple of visits, a long
  * dashed gap, and an amber ring at the moment they book again. That drawing is
  * the whole product in one picture, and it is the only place amber is allowed
  * to appear.
  *
- * Here it is driven by an actual patient's actual numbers rather than being an
- * illustration of one. Nothing on it is invented: if there is no rebooking, the
+ * Here it is driven by an actual member's actual numbers rather than being an
+ * illustration of one. Nothing on it is invented: if there is no return, the
  * amber ring is simply absent.
  */
-export function PatientTimeline({
+export function MemberTimeline({
   visitCount,
   monthsAway,
-  rebooked = false,
+  returned = false,
   className = "",
 }: {
   visitCount: number;
   monthsAway: number | null;
-  rebooked?: boolean;
+  returned?: boolean;
   className?: string;
 }) {
   // Two dots reads as "a couple of visits" at this size. More than four and
@@ -44,7 +44,7 @@ export function PatientTimeline({
       viewBox="0 0 340 62"
       className={`h-[62px] w-full max-w-[340px] ${className}`}
       role="img"
-      aria-label={`${visitLabel}, then ${gapLabel}${rebooked ? ", then rebooked" : ""}`}
+      aria-label={`${visitLabel}, then ${gapLabel}${returned ? ", then returned" : ""}`}
     >
       {/* The visits: solid, teal, close together. */}
       {dots > 1 ? (
@@ -62,7 +62,7 @@ export function PatientTimeline({
       <line
         x1={lastVisitX}
         y1={y}
-        x2={rebooked ? endX - 13 : endX}
+        x2={returned ? endX - 13 : endX}
         y2={y}
         stroke="var(--ash)"
         strokeWidth="2"
@@ -80,7 +80,7 @@ export function PatientTimeline({
         />
       ))}
 
-      {rebooked ? (
+      {returned ? (
         <>
           <circle
             cx={endX}
@@ -114,7 +114,7 @@ export function PatientTimeline({
         {gapLabel}
       </text>
 
-      {rebooked ? (
+      {returned ? (
         <text
           x={endX}
           y={y - 17}
@@ -124,7 +124,7 @@ export function PatientTimeline({
           textAnchor="middle"
           fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
         >
-          rebooked
+          returned
         </text>
       ) : null}
     </svg>

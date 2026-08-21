@@ -6,7 +6,7 @@ const base = {
   uid: "appt-123",
   start: new Date("2026-08-17T09:00:00.000Z"),
   end: new Date("2026-08-17T09:30:00.000Z"),
-  summary: "Appointment with Bridge Street Dental",
+  summary: "Booking with Iron Works Gym",
   stamp: new Date("2026-08-15T12:00:00.000Z"),
 };
 
@@ -30,10 +30,10 @@ describe("buildIcs", () => {
   it("escapes commas, semicolons, backslashes and newlines", () => {
     const ics = buildIcs({
       ...base,
-      summary: "Check-up; cleaning, and x-ray",
+      summary: "PT session; strength, and mobility",
       description: "Line one\nLine two\\end",
     });
-    expect(ics).toContain("SUMMARY:Check-up\\; cleaning\\, and x-ray");
+    expect(ics).toContain("SUMMARY:PT session\\; strength\\, and mobility");
     expect(ics).toContain("DESCRIPTION:Line one\\nLine two\\\\end");
   });
 

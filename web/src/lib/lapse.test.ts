@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  applyDormancyFilter,
-  dormancyCutoff,
+  applyLapseFilter,
+  lapseCutoff,
   isContactable,
-  isDormant,
+  isLapsed,
   monthsSince,
-  type DormancyRule,
-} from "./dormancy";
-import type { Patient } from "./types";
+  type LapseRule,
+} from "./lapse";
+import type { Member } from "./types";
 
-const RULE: DormancyRule = { dormantAfterMonths: 12, maxVisits: 2 };
+const RULE: LapseRule = { lapsedAfterMonths: 12, maxVisits: 2 };
 const NOW = new Date("2026-08-13T10:00:00Z");
 
-function patient(overrides: Partial<Patient> = {}): Patient {
+function member(overrides: Partial<Member> = {}): Member {
   return {
     id: "p1",
-    practice_id: "pr1",
+    gym_id: "pr1",
     external_ref: null,
     first_name: "Jane",
     last_name: "Okafor",
@@ -26,9 +26,8 @@ function patient(overrides: Partial<Patient> = {}): Patient {
     visit_count: 2,
     status: "active",
     contacted_at: null,
-    reactivated_at: null,
+    returned_at: null,
     consent_email: true,
-    consent_whatsapp: true,
     source: "csv",
     is_test: false,
     booking_token: "tok-p1",
@@ -38,14 +37,14 @@ function patient(overrides: Partial<Patient> = {}): Patient {
   };
 }
 
-describe("dormancyCutoff", () => {
+describe("lapseCutoff", () => {
   it("goes back the configured number of months", () => {
-    expect(dormancyCutoff(RULE, NOW)).toBe("2025-08-13");
+    expect(lapseCutoff(RULE, NOW)).toBe("2025-08-13");
   });
 
   it("crosses a year boundary", () => {
     const now = new Date("2026-02-10T00:00:00Z");
-    expect(dormancyCutoff({ ...RULE, dormantAfterMonths: 3 }, now)).toBe(
+    expect(lapseCutoff({ ...RULE, lapsedAfterMonths: 3 }, now)).toBe(
       "2025-11-10",
     );
   });
@@ -54,87 +53,87 @@ describe("dormancyCutoff", () => {
     // One month before 31 March is 28 February, not 3 March. JavaScript's own
     // date maths gets this wrong, which is why the function does it by hand.
     const now = new Date("2026-03-31T00:00:00Z");
-    expect(dormancyCutoff({ ...RULE, dormantAfterMonths: 1 }, now)).toBe(
+    expect(lapseCutoff({ ...RULE, lapsedAfterMonths: 1 }, now)).toBe(
       "2026-02-28",
     );
   });
 
   it("keeps 29 February when the target year is a leap year", () => {
     const now = new Date("2025-03-29T00:00:00Z");
-    expect(dormancyCutoff({ ...RULE, dormantAfterMonths: 13 }, now)).toBe(
+    expect(lapseCutoff({ ...RULE, lapsedAfterMonths: 13 }, now)).toBe(
       "2024-02-29",
     );
   });
 });
 
-describe("isDormant", () => {
-  it("catches a patient who came twice and stopped", () => {
-    expect(isDormant(patient(), RULE, NOW)).toBe(true);
+describe("isLapsed", () => {
+  it("catches a member who came twice and stopped", () => {
+    expect(isLapsed(member(), RULE, NOW)).toBe(true);
   });
 
   it("ignores someone who came back recently", () => {
-    expect(isDormant(patient({ last_visit_at: "2026-06-01" }), RULE, NOW)).toBe(
+    expect(isLapsed(member({ last_visit_at: "2026-06-01" }), RULE, NOW)).toBe(
       false,
     );
   });
 
   it("ignores a regular, however long ago they last came", () => {
-    // Nine visits is a loyal patient having a gap, not a drop-off.
+    // Nine visits is a loyal member having a gap, not a drop-off.
     expect(
-      isDormant(patient({ visit_count: 9, last_visit_at: "2020-01-01" }), RULE, NOW),
+      isLapsed(member({ visit_count: 9, last_visit_at: "2020-01-01" }), RULE, NOW),
     ).toBe(false);
   });
 
-  it("treats the cutoff date itself as dormant", () => {
+  it("treats the cutoff date itself as lapsed", () => {
     expect(
-      isDormant(patient({ last_visit_at: dormancyCutoff(RULE, NOW) }), RULE, NOW),
+      isLapsed(member({ last_visit_at: lapseCutoff(RULE, NOW) }), RULE, NOW),
     ).toBe(true);
   });
 
-  it("treats the day after the cutoff as not dormant", () => {
-    expect(isDormant(patient({ last_visit_at: "2025-08-14" }), RULE, NOW)).toBe(
+  it("treats the day after the cutoff as not lapsed", () => {
+    expect(isLapsed(member({ last_visit_at: "2025-08-14" }), RULE, NOW)).toBe(
       false,
     );
   });
 
   it("never counts someone who opted out", () => {
     expect(
-      isDormant(patient({ status: "opted_out" }), RULE, NOW),
+      isLapsed(member({ status: "opted_out" }), RULE, NOW),
     ).toBe(false);
   });
 
   it("still counts someone already contacted, so a campaign can follow up", () => {
-    expect(isDormant(patient({ status: "contacted" }), RULE, NOW)).toBe(true);
+    expect(isLapsed(member({ status: "contacted" }), RULE, NOW)).toBe(true);
   });
 
-  it("ignores a patient with no visit on record", () => {
-    expect(isDormant(patient({ last_visit_at: null }), RULE, NOW)).toBe(false);
+  it("ignores a member with no visit on record", () => {
+    expect(isLapsed(member({ last_visit_at: null }), RULE, NOW)).toBe(false);
   });
 
-  it("follows the practice's own window", () => {
-    const wide: DormancyRule = { dormantAfterMonths: 24, maxVisits: 2 };
-    // Away 19 months: dormant under a 12-month window, not under a 24-month one.
-    const away19 = patient({ last_visit_at: "2025-01-13" });
-    expect(isDormant(away19, RULE, NOW)).toBe(true);
-    expect(isDormant(away19, wide, NOW)).toBe(false);
+  it("follows the gym's own window", () => {
+    const wide: LapseRule = { lapsedAfterMonths: 24, maxVisits: 2 };
+    // Away 19 months: lapsed under a 12-month window, not under a 24-month one.
+    const away19 = member({ last_visit_at: "2025-01-13" });
+    expect(isLapsed(away19, RULE, NOW)).toBe(true);
+    expect(isLapsed(away19, wide, NOW)).toBe(false);
   });
 
   it("tolerates a timestamp where a date was expected", () => {
     expect(
-      isDormant(patient({ last_visit_at: "2024-01-05T09:30:00Z" }), RULE, NOW),
+      isLapsed(member({ last_visit_at: "2024-01-05T09:30:00Z" }), RULE, NOW),
     ).toBe(true);
   });
 });
 
 describe("isContactable", () => {
   it("needs an address and consent", () => {
-    expect(isContactable(patient())).toBe(true);
-    expect(isContactable(patient({ email: null }))).toBe(false);
-    expect(isContactable(patient({ consent_email: false }))).toBe(false);
+    expect(isContactable(member())).toBe(true);
+    expect(isContactable(member({ email: null }))).toBe(false);
+    expect(isContactable(member({ consent_email: false }))).toBe(false);
   });
 });
 
-describe("applyDormancyFilter", () => {
+describe("applyLapseFilter", () => {
   it("applies the same three conditions the in-memory check uses", () => {
     const calls: string[] = [];
     const query = {
@@ -148,7 +147,7 @@ describe("applyDormancyFilter", () => {
       },
     };
 
-    applyDormancyFilter(query, RULE, NOW);
+    applyLapseFilter(query, RULE, NOW);
 
     expect(calls).toEqual([
       "neq:status:opted_out",

@@ -50,7 +50,7 @@ describe("parseDate", () => {
 });
 
 const MAPPING: ColumnMapping = {
-  externalRef: "Patient ID",
+  externalRef: "Member ID",
   firstName: "First Name",
   lastName: "Surname",
   email: "Email",
@@ -61,7 +61,7 @@ const MAPPING: ColumnMapping = {
 
 function row(overrides: Record<string, string> = {}): Record<string, string> {
   return {
-    "Patient ID": "P-100",
+    "Member ID": "P-100",
     "First Name": "Jane",
     Surname: "Okafor",
     Email: "Jane.Okafor@Example.com",
@@ -73,12 +73,12 @@ function row(overrides: Record<string, string> = {}): Record<string, string> {
 }
 
 describe("normalizeRow", () => {
-  it("builds a patient from a well-formed row", () => {
+  it("builds a member from a well-formed row", () => {
     const result = normalizeRow(row(), MAPPING, "dmy", 2);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(result.patient).toEqual({
+    expect(result.member).toEqual({
       externalRef: "P-100",
       firstName: "Jane",
       lastName: "Okafor",
@@ -107,16 +107,16 @@ describe("normalizeRow", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("keeps a row with no email when it has a patient reference", () => {
+  it("keeps a row with no email when it has a member reference", () => {
     const result = normalizeRow(row({ Email: "" }), MAPPING, "dmy", 4);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.patient.email).toBeNull();
+    expect(result.member.email).toBeNull();
   });
 
   it("skips a row with neither an email nor a reference", () => {
     const result = normalizeRow(
-      row({ Email: "", "Patient ID": "" }),
+      row({ Email: "", "Member ID": "" }),
       MAPPING,
       "dmy",
       5,
@@ -137,39 +137,39 @@ describe("normalizeRow", () => {
     const result = normalizeRow(row(), mapping, "dmy", 2);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.patient.visitCount).toBe(1);
+    expect(result.member.visitCount).toBe(1);
   });
 
   it("never records zero visits for someone who has a last visit date", () => {
     const result = normalizeRow(row({ Visits: "0" }), MAPPING, "dmy", 2);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.patient.visitCount).toBe(1);
+    expect(result.member.visitCount).toBe(1);
   });
 
   it("splits a single name column when there are no separate ones", () => {
     const mapping: ColumnMapping = {
-      fullName: "Patient",
+      fullName: "Member",
       email: "Email",
       lastVisitAt: "Last Visit",
     };
     const result = normalizeRow(
-      { Patient: "Ana Maria Silva", Email: "a@b.co", "Last Visit": "2023-03-05" },
+      { Member: "Ana Maria Silva", Email: "a@b.co", "Last Visit": "2023-03-05" },
       mapping,
       "iso",
       2,
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.patient.firstName).toBe("Ana Maria");
-    expect(result.patient.lastName).toBe("Silva");
+    expect(result.member.firstName).toBe("Ana Maria");
+    expect(result.member.lastName).toBe("Silva");
   });
 });
 
 describe("guessMapping", () => {
-  it("recognises the columns a Dentally-style export uses", () => {
+  it("recognises the columns a Mindbody-style export uses", () => {
     const guess = guessMapping([
-      "Patient ID",
+      "Member ID",
       "First Name",
       "Surname",
       "Email",
@@ -178,7 +178,7 @@ describe("guessMapping", () => {
       "Visits",
     ]);
 
-    expect(guess.externalRef).toBe("Patient ID");
+    expect(guess.externalRef).toBe("Member ID");
     expect(guess.firstName).toBe("First Name");
     expect(guess.lastName).toBe("Surname");
     expect(guess.email).toBe("Email");
@@ -205,7 +205,7 @@ describe("guessMapping", () => {
       "phone",
       "last_visit_at",
       "visit_count",
-      "patient_id",
+      "member_id",
     ]);
 
     expect(guess.firstName).toBe("first_name");
@@ -213,7 +213,7 @@ describe("guessMapping", () => {
     expect(guess.email).toBe("email");
     expect(guess.lastVisitAt).toBe("last_visit_at");
     expect(guess.visitCount).toBe("visit_count");
-    expect(guess.externalRef).toBe("patient_id");
+    expect(guess.externalRef).toBe("member_id");
   });
 });
 
@@ -257,7 +257,7 @@ describe("normalizeRow phone handling", () => {
       "GB",
     );
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.patient.phone).toBe("+447700900123");
+    if (result.ok) expect(result.member.phone).toBe("+447700900123");
   });
 
   it("keeps the raw phone string when no country is given (the client preview path)", () => {
@@ -268,6 +268,6 @@ describe("normalizeRow phone handling", () => {
       2,
     );
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.patient.phone).toBe("07700 900123");
+    if (result.ok) expect(result.member.phone).toBe("07700 900123");
   });
 });

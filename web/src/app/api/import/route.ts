@@ -2,15 +2,15 @@ import type { NextRequest } from "next/server";
 import Papa from "papaparse";
 import { z } from "zod";
 
-import { requireActivePractice } from "@/lib/dal";
+import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { normalizeRow } from "@/lib/ingestion/csv";
-import { recordImportEvents, upsertPatients } from "@/lib/ingestion/upsert";
+import { recordImportEvents, upsertMembers } from "@/lib/ingestion/upsert";
 import type {
   ColumnMapping,
   DateFormat,
-  RawPatient,
+  RawMember,
   RowIssue,
 } from "@/lib/ingestion/types";
 
@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Takes a practice's patient export and turns it into patient rows.
+ * Takes a gym's member export and turns it into member rows.
  *
  * The browser has already parsed the header locally to build the mapping UI,
  * but the file is parsed again here and the mapping re-applied server-side.
@@ -26,14 +26,14 @@ export const dynamic = "force-dynamic";
  * it does not get to decide what ends up in the table.
  *
  * This is the single most sensitive endpoint in the app. Everything it writes
- * is health-adjacent personal data belonging to the practice, not to casdey.
+ * is health-adjacent personal data belonging to the gym, not to casdey.
  */
 
-// Comfortably larger than a full patient list from a single practice, small
+// Comfortably larger than a full member list from a single gym, small
 // enough that a mistaken upload cannot exhaust the function's memory.
 const MAX_BYTES = 12 * 1024 * 1024;
 const MAX_ROWS = 100_000;
-/** Enough for the practice to see the pattern, not a second copy of the file. */
+/** Enough for the gym to see the pattern, not a second copy of the file. */
 const MAX_REPORTED_ISSUES = 50;
 
 const MappingSchema = z.object({
@@ -54,15 +54,15 @@ function fail(message: string, status: number): Response {
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
-  const { practice, session } = await requireActivePractice();
+  const { gym, session } = await requireActiveGym();
 
-  // The practice has to confirm it is the controller and has a lawful basis
-  // before any patient data is accepted. This is not a formality: casdey is the
-  // processor, and processing without that confirmation is the practice's
+  // The gym has to confirm it is the controller and has a lawful basis
+  // before any member data is accepted. This is not a formality: casdey is the
+  // processor, and processing without that confirmation is the gym's
   // liability and ours.
-  if (!practice.processing_agreed_at) {
+  if (!gym.processing_agreed_at) {
     return fail(
-      "Confirm the data protection terms before importing patients.",
+      "Confirm the data protection terms before importing members.",
       403,
     );
   }
@@ -125,13 +125,13 @@ export async function POST(request: NextRequest): Promise<Response> {
     return fail(`That file has more than ${MAX_ROWS} rows.`, 413);
   }
 
-  const patients: RawPatient[] = [];
+  const members: RawMember[] = [];
   const issues: RowIssue[] = [];
   let skipped = 0;
 
   // Surface CSV syntax problems instead of trusting Papa's best-effort recovery.
   // A row with an unescaped quote or stray delimiter is emitted mis-aligned (a
-  // phone number sliding into the email column); at least tell the practice the
+  // phone number sliding into the email column); at least tell the gym the
   // file itself was malformed rather than importing corrupted rows quietly.
   for (const parseError of parsed.errors ?? []) {
     if (issues.length >= MAX_REPORTED_ISSUES) break;
@@ -144,16 +144,16 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   rows.forEach((row, index) => {
     // +2: one for the header line, one because people count from 1.
-    const result = normalizeRow(row, mapping, dateFormat, index + 2, practice.country);
+    const result = normalizeRow(row, mapping, dateFormat, index + 2, gym.country);
     if (result.ok) {
-      patients.push(result.patient);
+      members.push(result.member);
     } else {
       skipped += 1;
       if (issues.length < MAX_REPORTED_ISSUES) issues.push(result.issue);
     }
   });
 
-  if (patients.length === 0) {
+  if (members.length === 0) {
     return Response.json(
       {
         ok: false,
@@ -170,11 +170,11 @@ export async function POST(request: NextRequest): Promise<Response> {
   const { data: run, error: runError } = await client
     .from("imports")
     .insert({
-      practice_id: practice.id,
+      gym_id: gym.id,
       created_by: session.userId,
       source: "csv",
-      // A filename can carry a patient's name. Kept short and never displayed
-      // outside the practice's own import history.
+      // A filename can carry a member's name. Kept short and never displayed
+      // outside the gym's own import history.
       filename: file.name.slice(0, 200),
       row_count: rows.length,
     })
@@ -186,17 +186,17 @@ export async function POST(request: NextRequest): Promise<Response> {
     return fail("We could not start the import. Try again.", 503);
   }
 
-  const result = await upsertPatients(patients, {
-    practiceId: practice.id,
+  const result = await upsertMembers(members, {
+    gymId: gym.id,
     importId: run.id as string,
     source: "csv",
   });
 
-  await recordImportEvents(practice.id, run.id as string, result.newPatientIds);
+  await recordImportEvents(gym.id, run.id as string, result.newMemberIds);
 
   // Records the row-by-row fallback could not write are real, actionable
   // failures (usually a shared email), not silent drops. Put them where the
-  // practice already looks for problems.
+  // gym already looks for problems.
   for (const failure of result.failures) {
     if (issues.length >= MAX_REPORTED_ISSUES) break;
     issues.push({
@@ -220,10 +220,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     .eq("id", run.id);
 
   await recordAudit({
-    practiceId: practice.id,
+    gymId: gym.id,
     actorId: session.userId,
     actorEmail: session.email,
-    action: "patients.imported",
+    action: "members.imported",
     target: run.id as string,
     meta: {
       rows: rows.length,

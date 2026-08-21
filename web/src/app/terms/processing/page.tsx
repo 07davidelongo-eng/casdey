@@ -6,11 +6,11 @@ import { SiteFooter } from "@/components/site-footer";
 import { Container } from "@/components/ui";
 
 /*
- * The patient-data counterpart to /privacy, which covers the waitlist only and
- * says explicitly that patient records are governed by a separate agreement.
+ * The member-data counterpart to /privacy, which covers the waitlist only and
+ * says explicitly that member records are governed by a separate agreement.
  * This is that agreement.
  *
- * Still to be filled in before a real practice is onboarded, and deliberately
+ * Still to be filled in before a real gym is onboarded, and deliberately
  * left blank rather than invented:
  *   - the legal or trading identity of casdey and a postal address, required
  *     of a processor by UK GDPR art. 28 and EU GDPR art. 28. The same gap is
@@ -18,14 +18,14 @@ import { Container } from "@/components/ui";
  *   - confirmation of the sub-processor list below once the sending path is
  *     settled. Resend is listed conditionally because it is only used when a
  *     key is configured.
- *   - a signed copy, if a practice asks for one on paper. This page is the
+ *   - a signed copy, if a gym asks for one on paper. This page is the
  *     online version of the same terms.
  */
 
 export const metadata: Metadata = {
   title: "Data processing terms",
   description:
-    "How casdey processes patient data on behalf of a dental practice, and what each side is responsible for.",
+    "How casdey processes member data on behalf of a gym or studio, and what each side is responsible for.",
   robots: { index: true, follow: true },
 };
 
@@ -69,50 +69,50 @@ export default function ProcessingTermsPage() {
               Data processing terms
             </h1>
             <P>
-              These terms cover patient data. They apply from the moment a
-              practice uploads its first patient list and sit alongside the{" "}
+              These terms cover member data. They apply from the moment a
+              gym uploads its first member list and sit alongside the{" "}
               <Link
                 href="/privacy"
                 className="text-teal underline underline-offset-4"
               >
                 privacy notice
               </Link>
-              , which covers only the details a practice gives us about itself.
+              , which covers only the details a gym gives us about itself.
             </P>
 
             <H2>Who is responsible for what</H2>
             <P>
-              The practice is the data controller. It decides which patients are
+              The gym is the data controller. It decides which members are
               uploaded, what is said to them, and when. casdey is the processor:
-              it acts on the practice&apos;s instructions and does nothing with
-              patient data that the practice has not asked for.
+              it acts on the gym&apos;s instructions and does nothing with
+              member data that the gym has not asked for.
             </P>
             <P>
-              A practice confirms this, and confirms it has a lawful basis to
-              contact these patients about their care, before casdey will accept
+              A gym confirms this, and confirms it has a lawful basis to
+              contact these members about their care, before casdey will accept
               a single record. The product refuses the upload otherwise.
             </P>
 
             <H2>What casdey holds</H2>
             <List
               items={[
-                "Patient name, email address and phone number, as given in the practice's own export.",
+                "Member name, email address and phone number, as given in the gym's own export.",
                 "The date of their last visit and how many visits are on record.",
-                "The practice's own reference for that patient, where their software provides one.",
-                "What casdey has done: which messages were sent and when, whether a patient unsubscribed, and whether the practice recorded them as having rebooked.",
+                "The gym's own reference for that member, where their software provides one.",
+                "What casdey has done: which messages were sent and when, whether a member unsubscribed, and whether the gym recorded them as having returned.",
               ]}
             />
             <P>
-              casdey does not hold clinical records, treatment history, notes,
+              casdey does not hold health records, training or medical notes,
               images or payment details, and has no way to receive them.
             </P>
 
             <H2>What it is used for</H2>
             <P>
-              One purpose: identifying patients who have not been seen for a
-              while and contacting them on the practice&apos;s behalf to invite
-              them back. Patient data is never sold, never shared with another
-              practice, never used for advertising, and never used to train any
+              One purpose: identifying members who have not been seen for a
+              while and contacting them on the gym&apos;s behalf to invite
+              them back. Member data is never sold, never shared with another
+              gym, never used for advertising, and never used to train any
               model.
             </P>
 
@@ -139,14 +139,14 @@ export default function ProcessingTermsPage() {
                 </>,
                 <>
                   <strong className="font-semibold text-ink">Stripe</strong>,
-                  for the practice&apos;s own subscription payments. Stripe
-                  never receives patient data.
+                  for the gym&apos;s own subscription payments. Stripe
+                  never receives member data.
                 </>,
                 <>
                   <strong className="font-semibold text-ink">
                     Zoho Mail, or Resend where configured
                   </strong>
-                  , for delivering messages. These receive a patient&apos;s
+                  , for delivering messages. These receive a member&apos;s
                   email address and the message text, and nothing else.
                 </>,
               ]}
@@ -155,38 +155,38 @@ export default function ProcessingTermsPage() {
             <H2>How long it is kept</H2>
             <List
               items={[
-                "Patient records: for as long as the practice keeps its account, then deleted within 30 days of it closing.",
-                "Immediately, and permanently, whenever the practice deletes a patient or asks casdey to delete everything. Both are buttons in the product, not a support request.",
+                "Member records: for as long as the gym keeps its account, then deleted within 30 days of it closing.",
+                "Immediately, and permanently, whenever the gym deletes a member or asks casdey to delete everything. Both are buttons in the product, not a support request.",
                 "Unsubscribe records: kept indefinitely, and deliberately. They hold an email address and nothing else, and deleting them would mean somebody who asked to be left alone could be contacted again after the next import.",
                 "The activity log: 24 months.",
               ]}
             />
 
-            <H2>Patient rights</H2>
+            <H2>Member rights</H2>
             <P>
-              A patient&apos;s rights are exercised against the practice, which
-              is their controller. casdey will help a practice answer any
+              A member&apos;s rights are exercised against the gym, which
+              is their controller. casdey will help a gym answer any
               request, at no charge and without delay. Every message casdey
               sends carries a working unsubscribe link, and using it stops all
-              contact from that practice through casdey immediately, including
+              contact from that gym through casdey immediately, including
               anything already queued.
             </P>
 
             <H2>If something goes wrong</H2>
             <P>
-              casdey will tell the affected practice about any personal data
+              casdey will tell the affected gym about any personal data
               breach without undue delay and in any case within 24 hours of
               becoming aware of it, with what is known at the time, and will
-              keep the practice updated. Reporting to a supervisory authority is
-              the practice&apos;s decision to make as controller, and casdey
+              keep the gym updated. Reporting to a supervisory authority is
+              the gym&apos;s decision to make as controller, and casdey
               will provide whatever it needs to make it.
             </P>
 
             <H2>Ending the arrangement</H2>
             <P>
-              A practice can export everything at any time and delete everything
+              A gym can export everything at any time and delete everything
               at any time, both from within the product. On account closure,
-              patient data is deleted within 30 days without needing to be
+              member data is deleted within 30 days without needing to be
               asked.
             </P>
 

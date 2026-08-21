@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AppNav } from "@/components/app/nav";
 import { IconSignOut } from "@/components/app/icons";
 import { Wordmark } from "@/components/wordmark";
-import { getPracticeContext } from "@/lib/dal";
+import { getGymContext } from "@/lib/dal";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { SupportWidget } from "@/components/app/support-widget";
 
@@ -12,13 +12,13 @@ import "@/styles/product.css";
 /**
  * The app shell.
  *
- * It reads the practice only to label the sidebar. It deliberately performs no
+ * It reads the gym only to label the sidebar. It deliberately performs no
  * authorization: layouts do not re-render on client-side navigation and cannot
  * stop the segments below them from rendering, so a check here would look like
- * a gate without being one. Each page calls requirePractice() (or
- * requireActivePractice()) itself. See src/lib/dal.ts.
+ * a gate without being one. Each page calls requireGym() (or
+ * requireActiveGym()) itself. See src/lib/dal.ts.
  *
- * A practice can legitimately be missing here: /app/onboarding is where a new
+ * A gym can legitimately be missing here: /app/onboarding is where a new
  * user creates one.
  */
 
@@ -31,7 +31,7 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
-  const context = await getPracticeContext();
+  const context = await getGymContext();
 
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
@@ -49,7 +49,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
         {context ? (
           <div className="hidden border-t border-deep-line pt-4 md:block">
             <p className="truncate text-[0.9375rem] text-paper">
-              {context.practice.name}
+              {context.gym.name}
             </p>
             <p className="literal truncate text-[0.75rem] text-sea/80">
               {context.session.email}
@@ -68,7 +68,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {context ? <BillingBanner practice={context.practice} /> : null}
+        {context ? <BillingBanner gym={context.gym} /> : null}
         <main className="mx-auto w-full max-w-[68rem] flex-1 px-5 py-8 sm:px-8 sm:py-10">
           {children}
         </main>

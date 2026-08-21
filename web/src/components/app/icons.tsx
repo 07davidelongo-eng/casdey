@@ -72,7 +72,7 @@ export function IconChevron(props: IconProps) {
 }
 
 /** Support: a chat bubble carrying a question mark. Not IconMessage, which is
- *  the Campaigns glyph and means "a message to a patient", not "get help". */
+ *  the Campaigns glyph and means "a message to a member", not "get help". */
 export function IconHelp(props: IconProps) {
   return (
     <Svg {...props}>

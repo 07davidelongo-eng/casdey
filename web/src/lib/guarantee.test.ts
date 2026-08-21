@@ -11,7 +11,7 @@ import type { GuaranteeClaim } from "./types";
 const DAY = 86_400_000;
 
 describe("guaranteeWindow", () => {
-  it("is null before the practice has paid", () => {
+  it("is null before the gym has paid", () => {
     expect(guaranteeWindow(null, "2026-08-01T00:00:00Z")).toBeNull();
   });
 
@@ -35,7 +35,7 @@ describe("guaranteeWindow", () => {
 describe("guaranteeStatus", () => {
   const claim: GuaranteeClaim = {
     id: "claim-1",
-    practice_id: "practice-1",
+    gym_id: "gym-1",
     window_start: "2026-08-10T00:00:00Z",
     window_end: "2026-09-09T00:00:00Z",
     revenue_recovered_minor: 0,
@@ -147,7 +147,7 @@ describe("guaranteeStatus", () => {
     expect(status).toEqual({ state: "claimed", claim });
   });
 
-  it("is needs_review, not claimable, when the shortfall rests on an unset appointment value", () => {
+  it("is needs_review, not claimable, when the shortfall rests on an unset booking value", () => {
     const status = guaranteeStatus({
       premiumStartedAt: "2026-08-01T00:00:00Z",
       firstPaidCampaignStartedAt: "2026-08-10T00:00:00Z",
@@ -163,7 +163,7 @@ describe("guaranteeStatus", () => {
     expect(status.state).toBe("needs_review");
   });
 
-  it("is still met (not needs_review) when nothing was paid, even without an appointment value", () => {
+  it("is still met (not needs_review) when nothing was paid, even without a booking value", () => {
     const status = guaranteeStatus({
       premiumStartedAt: "2026-08-01T00:00:00Z",
       firstPaidCampaignStartedAt: "2026-08-10T00:00:00Z",

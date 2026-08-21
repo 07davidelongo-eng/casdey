@@ -14,7 +14,7 @@ type Status = "idle" | "working" | "sent" | "error";
  * Sign in and sign up in one form, because they are the same three fields and
  * splitting them across two pages only adds a decision nobody wants to make.
  *
- * The handshake is the only thing the browser client is ever used for. Patient
+ * The handshake is the only thing the browser client is ever used for. Member
  * data is rendered on the server, under RLS, and never fetched from here.
  */
 export function AuthForm({
@@ -177,7 +177,7 @@ export function AuthForm({
               required
               disabled={working}
               className="field"
-              placeholder="you@yourpractice.co.uk"
+              placeholder="you@yourgym.co.uk"
             />
           </div>
 
@@ -216,7 +216,7 @@ export function AuthForm({
       </h1>
       <p className="mt-2 text-[0.9375rem] text-graphite">
         {mode === "signup"
-          ? "Seven days free. Set up your practice, import your list, see who has gone quiet."
+          ? "Seven days free. Set up your gym, import your list, see who has gone quiet."
           : "Welcome back."}
       </p>
 
@@ -249,7 +249,7 @@ export function AuthForm({
             required
             disabled={working}
             className="field"
-            placeholder="you@yourpractice.co.uk"
+            placeholder="you@yourgym.co.uk"
           />
         </div>
 

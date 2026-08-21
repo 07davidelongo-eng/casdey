@@ -9,12 +9,12 @@ import { recordAudit } from "@/lib/audit";
 export type PurgeState = { error: string | null; purged: number | null };
 
 /**
- * Deletes every patient this practice has given casdey.
+ * Deletes every member this gym has given casdey.
  *
- * Real deletion, not a flag. Patient events and queued messages go with them by
+ * Real deletion, not a flag. Member events and queued messages go with them by
  * foreign key cascade, so nothing is left holding a name or an address.
  *
- * Guarded by typing the practice name rather than a checkbox: this is the one
+ * Guarded by typing the gym name rather than a checkbox: this is the one
  * action in the app that destroys a customer's data outright, and it should be
  * impossible to do by mis-clicking.
  *
@@ -23,16 +23,16 @@ export type PurgeState = { error: string | null; purged: number | null };
  * emailed again after the next import. That is the outcome the rule exists to
  * prevent, and it outweighs deleting one more row.
  */
-export async function purgePatientsAction(
+export async function purgeMembersAction(
   _previous: PurgeState,
   formData: FormData,
 ): Promise<PurgeState> {
-  const { practice, session } = await requireOwner();
+  const { gym, session } = await requireOwner();
 
   const typed = String(formData.get("confirmName") ?? "").trim();
-  if (typed.toLowerCase() !== practice.name.trim().toLowerCase()) {
+  if (typed.toLowerCase() !== gym.name.trim().toLowerCase()) {
     return {
-      error: "That does not match your practice name, so nothing was deleted.",
+      error: "That does not match your gym name, so nothing was deleted.",
       purged: null,
     };
   }
@@ -40,14 +40,14 @@ export async function purgePatientsAction(
   const client = supabaseAdmin();
 
   const { count } = await client
-    .from("patients")
+    .from("members")
     .select("id", { count: "exact", head: true })
-    .eq("practice_id", practice.id);
+    .eq("gym_id", gym.id);
 
   const { error } = await client
-    .from("patients")
+    .from("members")
     .delete()
-    .eq("practice_id", practice.id);
+    .eq("gym_id", gym.id);
 
   if (error) {
     console.error("[purge] failed", error.message);
@@ -55,10 +55,10 @@ export async function purgePatientsAction(
   }
 
   await recordAudit({
-    practiceId: practice.id,
+    gymId: gym.id,
     actorId: session.userId,
     actorEmail: session.email,
-    action: "patients.purged",
+    action: "members.purged",
     meta: { rows: count ?? 0 },
   });
 

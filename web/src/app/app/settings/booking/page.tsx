@@ -1,4 +1,4 @@
-import { requirePractice } from "@/lib/dal";
+import { requireGym } from "@/lib/dal";
 import { Button, ButtonLink, Card, CardTitle, Notice } from "@/components/app/ui";
 import { calendarConnectionView } from "@/lib/calendar/provider";
 import { isGoogleCalendarConfigured } from "@/lib/calendar/google";
@@ -10,10 +10,10 @@ export const metadata = { title: "Booking" };
 export default async function BookingSettingsPage(
   props: PageProps<"/app/settings/booking">,
 ) {
-  const { practice, role } = await requirePractice();
+  const { gym, role } = await requireGym();
   const params = await props.searchParams;
 
-  const connection = await calendarConnectionView(practice.id);
+  const connection = await calendarConnectionView(gym.id);
   const configured = isGoogleCalendarConfigured() && isCalendarKeyConfigured();
   const isOwner = role === "owner";
 
@@ -25,7 +25,7 @@ export default async function BookingSettingsPage(
     <div className="max-w-[42rem] space-y-6">
       {role !== "owner" ? (
         <Notice tone="warn">
-          Only the practice owner can change these. You can read them.
+          Only the gym owner can change these. You can read them.
         </Notice>
       ) : null}
 
@@ -43,7 +43,7 @@ export default async function BookingSettingsPage(
           Connect a Google Calendar and casdey reads your free/busy so it never
           offers a slot you are already in, and writes each booking straight into
           that calendar. Booking still works without one; it just cannot see
-          appointments made outside casdey.
+          bookings made outside casdey.
         </p>
 
         {!configured ? (
@@ -79,7 +79,7 @@ export default async function BookingSettingsPage(
         )}
       </Card>
 
-      <BookingSettingsForm practice={practice} readOnly={!isOwner} />
+      <BookingSettingsForm gym={gym} readOnly={!isOwner} />
     </div>
   );
 }

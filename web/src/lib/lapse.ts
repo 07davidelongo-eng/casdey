@@ -1,48 +1,48 @@
-import type { Patient, Practice } from "./types";
+import type { Member, Gym } from "./types";
 
 /**
- * What "dormant" means.
+ * What "lapsed" means.
  *
- * This is the product in one function: a patient who came a couple of times and
+ * This is the product in one function: a member who came a couple of times and
  * then stopped. Everything else, the dashboard counts, the campaign audience,
- * the patients list, is a view onto this rule, so it is defined once, here, and
+ * the members list, is a view onto this rule, so it is defined once, here, and
  * never re-expressed in SQL or in a component.
  *
- * It is deliberately not stored as a flag on the patient row. A practice that
+ * It is deliberately not stored as a flag on the member row. A gym that
  * widens its window from 12 months to 9 would otherwise be reading stale
  * booleans until something recomputed them. Derived at read time, always
  * correct.
  */
 
-export type DormancyRule = {
-  dormantAfterMonths: number;
+export type LapseRule = {
+  lapsedAfterMonths: number;
   maxVisits: number;
 };
 
-export function ruleFor(practice: Practice): DormancyRule {
+export function ruleFor(gym: Gym): LapseRule {
   return {
-    dormantAfterMonths: practice.dormant_after_months,
-    maxVisits: practice.max_visits,
+    lapsedAfterMonths: gym.lapsed_after_months,
+    maxVisits: gym.max_visits,
   };
 }
 
 /**
- * The date on or before which a last visit counts as dormant.
+ * The date on or before which a last visit counts as lapsed.
  *
  * Month arithmetic is done by hand because JavaScript rolls overflow forward:
  * 31 March minus one month is 31 February, which Date silently turns into
  * 2 or 3 March. Clamping to the last day of the target month is what a person
  * means by "a month ago".
  */
-export function dormancyCutoff(
-  rule: DormancyRule,
+export function lapseCutoff(
+  rule: LapseRule,
   now: Date = new Date(),
 ): string {
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
   const day = now.getUTCDate();
 
-  const targetMonthIndex = month - rule.dormantAfterMonths;
+  const targetMonthIndex = month - rule.lapsedAfterMonths;
   const targetYear = year + Math.floor(targetMonthIndex / 12);
   const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
 
@@ -58,66 +58,66 @@ export function dormancyCutoff(
   return `${targetYear}-${mm}-${dd}`;
 }
 
-type DormancyInput = Pick<
-  Patient,
+type LapseInput = Pick<
+  Member,
   "last_visit_at" | "visit_count" | "status"
 >;
 
-export function isDormant(
-  patient: DormancyInput,
-  rule: DormancyRule,
+export function isLapsed(
+  member: LapseInput,
+  rule: LapseRule,
   now: Date = new Date(),
 ): boolean {
-  // Somebody who asked us to stop is never dormant. They are done.
-  if (patient.status === "opted_out") return false;
-  if (!patient.last_visit_at) return false;
-  if (patient.visit_count > rule.maxVisits) return false;
+  // Somebody who asked us to stop is never lapsed. They are done.
+  if (member.status === "opted_out") return false;
+  if (!member.last_visit_at) return false;
+  if (member.visit_count > rule.maxVisits) return false;
 
-  return patient.last_visit_at.slice(0, 10) <= dormancyCutoff(rule, now);
+  return member.last_visit_at.slice(0, 10) <= lapseCutoff(rule, now);
 }
 
-type ContactableInput = DormancyInput &
-  Pick<Patient, "email" | "consent_email">;
+type ContactableInput = LapseInput &
+  Pick<Member, "email" | "consent_email">;
 
 /**
- * Dormant is not the same as reachable. A patient with no email address still
- * counts in the dashboard total, because the practice may want to ring them,
+ * Lapsed is not the same as reachable. A member with no email address still
+ * counts in the dashboard total, because the gym may want to ring them,
  * but they can never be added to an email campaign.
  */
-export function isContactable(patient: ContactableInput): boolean {
-  return Boolean(patient.email) && patient.consent_email;
+export function isContactable(member: ContactableInput): boolean {
+  return Boolean(member.email) && member.consent_email;
 }
 
-export function isDormantAndContactable(
-  patient: ContactableInput,
-  rule: DormancyRule,
+export function isLapsedAndContactable(
+  member: ContactableInput,
+  rule: LapseRule,
   now: Date = new Date(),
 ): boolean {
-  return isDormant(patient, rule, now) && isContactable(patient);
+  return isLapsed(member, rule, now) && isContactable(member);
 }
 
 /**
  * The same rule expressed as PostgREST filters, so a count does not mean
- * pulling every patient into memory.
+ * pulling every member into memory.
  *
- * Kept next to `isDormant` on purpose: if one changes and the other does not,
+ * Kept next to `isLapsed` on purpose: if one changes and the other does not,
  * the dashboard and the campaign audience quietly disagree about who is
- * dormant, and nobody notices until the wrong people are emailed.
+ * lapsed, and nobody notices until the wrong people are emailed.
  */
 export type FilterableQuery<T> = {
   lte(column: string, value: string | number): T;
   neq(column: string, value: string): T;
 };
 
-export function applyDormancyFilter<T extends FilterableQuery<T>>(
+export function applyLapseFilter<T extends FilterableQuery<T>>(
   query: T,
-  rule: DormancyRule,
+  rule: LapseRule,
   now: Date = new Date(),
 ): T {
   return query
     .neq("status", "opted_out")
     .lte("visit_count", rule.maxVisits)
-    .lte("last_visit_at", dormancyCutoff(rule, now));
+    .lte("last_visit_at", lapseCutoff(rule, now));
 }
 
 /** How long they have been away, for display. Never invented, always derived. */

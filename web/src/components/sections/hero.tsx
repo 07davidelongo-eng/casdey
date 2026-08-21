@@ -1,7 +1,7 @@
 import { HeroMockup } from "../marks/hero-mockup";
 import { ButtonLink, Container } from "../ui";
 
-const SOFTWARE = ["SOE Exact", "Dentally", "R4", "Carestream"];
+const SOFTWARE = ["Mindbody", "Glofox", "TeamUp", "ABC Fitness"];
 
 export function Hero() {
   return (
@@ -17,7 +17,7 @@ export function Hero() {
         <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
           <div>
             <h1 className="display text-[clamp(2.5rem,5.4vw,4rem)] text-ink">
-              Win back the patients
+              Win back the members
               <br />
               who quietly
               <br />
@@ -25,7 +25,7 @@ export function Hero() {
             </h1>
 
             <p className="mt-7 max-w-lg text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-              casdey finds the patients your practice has not seen in years and
+              casdey finds the members your gym has not seen in years and
               writes to them in your name, so the ones worth winning back reply
               straight to your front desk. No chasing, no ad spend.
             </p>
@@ -51,7 +51,7 @@ export function Hero() {
 
         <div className="mt-20 flex flex-col gap-5 border-t border-ash/70 pt-8 sm:flex-row sm:items-center sm:gap-10">
           <p className="label shrink-0 text-stone">
-            works with any practice software
+            works with any gym software
           </p>
           <ul className="flex flex-wrap items-center gap-x-9 gap-y-3">
             {SOFTWARE.map((name) => (

@@ -1,17 +1,17 @@
 import "server-only";
 
 import { supabaseAdmin } from "./supabase";
-import { dormancyCutoff, type DormancyRule } from "./dormancy";
-import type { Channel, Practice } from "./types";
+import { lapseCutoff, type LapseRule } from "./lapse";
+import type { Gym } from "./types";
 
 /**
- * Turning a dormancy rule into an actual list of people to write to, and then
+ * Turning a lapse rule into an actual list of people to write to, and then
  * into a queue.
  *
  * Two rules that do not bend:
  *
- *   - A campaign writes to a patient once. The unique constraint on
- *     (campaign_id, patient_id) makes a double-queue impossible even if this
+ *   - A campaign writes to a member once. The unique constraint on
+ *     (campaign_id, member_id) makes a double-queue impossible even if this
  *     code is called twice.
  *   - Suppressed addresses never enter the queue, and are checked again at send
  *     time. Someone who unsubscribed between building and sending must not
@@ -28,54 +28,30 @@ export type AudienceMember = {
 };
 
 /**
- * Everyone dormant, reachable on the given channel, and not on that channel's
- * do-not-contact list.
+ * Everyone lapsed, reachable by email, and not on the do-not-contact list.
  *
- * Uses the service-role client because it runs as a batch, with practice_id
- * pinned by the caller from a verified session. Excludes the practice's own
- * self-test patient (see ./self-test.ts): a real send must never write to it.
- *
- * Email and WhatsApp have independent consent flags and independent
- * suppression lists (public.suppressions vs public.whatsapp_suppressions), so
- * the same patient can be reachable on one channel and blocked on the other.
+ * Uses the service-role client because it runs as a batch, with gym_id
+ * pinned by the caller from a verified session. Excludes the gym's own
+ * self-test member (see ./self-test.ts): a real send must never write to it.
  */
 export async function buildAudience(
-  practiceId: string,
-  rule: DormancyRule,
-  channel: Channel = "email",
+  gymId: string,
+  rule: LapseRule,
   now: Date = new Date(),
 ): Promise<AudienceMember[]> {
   const client = supabaseAdmin();
 
-  // Built as two full, separate queries rather than one base query mutated
-  // by a conditional .eq()/.not() tail: chaining a reassigned builder through
-  // a ternary blows up Supabase's generated filter-builder type (TS2589,
-  // "Type instantiation is excessively deep") even though both branches are
-  // simple. Some duplication, but it type-checks.
-  const { data, error } =
-    channel === "whatsapp"
-      ? await client
-          .from("patients")
-          .select("id, email, phone, first_name, last_visit_at, booking_token")
-          .eq("practice_id", practiceId)
-          .eq("is_test", false)
-          .neq("status", "opted_out")
-          .lte("visit_count", rule.maxVisits)
-          .lte("last_visit_at", dormancyCutoff(rule, now))
-          .eq("consent_whatsapp", true)
-          .not("phone", "is", null)
-          .order("last_visit_at", { ascending: true })
-      : await client
-          .from("patients")
-          .select("id, email, phone, first_name, last_visit_at, booking_token")
-          .eq("practice_id", practiceId)
-          .eq("is_test", false)
-          .neq("status", "opted_out")
-          .lte("visit_count", rule.maxVisits)
-          .lte("last_visit_at", dormancyCutoff(rule, now))
-          .eq("consent_email", true)
-          .not("email", "is", null)
-          .order("last_visit_at", { ascending: true });
+  const { data, error } = await client
+    .from("members")
+    .select("id, email, phone, first_name, last_visit_at, booking_token")
+    .eq("gym_id", gymId)
+    .eq("is_test", false)
+    .neq("status", "opted_out")
+    .lte("visit_count", rule.maxVisits)
+    .lte("last_visit_at", lapseCutoff(rule, now))
+    .eq("consent_email", true)
+    .not("email", "is", null)
+    .order("last_visit_at", { ascending: true });
 
   if (error) {
     throw new Error(`audience query failed: ${error.code} ${error.message}`);
@@ -84,44 +60,31 @@ export async function buildAudience(
   const candidates = (data ?? []) as AudienceMember[];
   if (candidates.length === 0) return [];
 
-  if (channel === "whatsapp") {
-    const { data: suppressed } = await client
-      .from("whatsapp_suppressions")
-      .select("phone")
-      .eq("practice_id", practiceId);
-
-    const blocked = new Set((suppressed ?? []).map((row) => String(row.phone)));
-    return candidates.filter((patient) => !blocked.has(patient.phone ?? ""));
-  }
-
   const { data: suppressed } = await client
     .from("suppressions")
     .select("email")
-    .eq("practice_id", practiceId);
+    .eq("gym_id", gymId);
 
   const blocked = new Set(
     (suppressed ?? []).map((row) => String(row.email).toLowerCase()),
   );
 
   return candidates.filter(
-    (patient) => !blocked.has((patient.email ?? "").toLowerCase()),
+    (member) => !blocked.has((member.email ?? "").toLowerCase()),
   );
 }
 
 /**
- * Writes the queue. Email only: WhatsApp campaigns send immediately, batched
- * synchronously, in ./whatsapp/campaign-send.ts, rather than through this
- * queue (see that file for why a drip queue is the wrong shape for a
- * template send).
+ * Writes the queue.
  *
  * Sends are spread over days rather than fired at once. A few hundred near
  * identical emails leaving one domain in a minute is what gets a sender
- * filtered, and a filtered sender means every later practice suffers for this
+ * filtered, and a filtered sender means every later gym suffers for this
  * one campaign.
  */
 export async function queueCampaign(options: {
   campaignId: string;
-  practiceId: string;
+  gymId: string;
   audience: AudienceMember[];
   dailyCap: number;
   startAt?: Date;
@@ -130,25 +93,25 @@ export async function queueCampaign(options: {
   const start = options.startAt ?? new Date();
   const cap = Math.max(1, options.dailyCap);
 
-  // buildAudience(..., "email") only ever returns members with an email, but
-  // the shared AudienceMember type allows null (WhatsApp members carry no
-  // email at all). Anything without one here would mean a caller passed the
-  // wrong audience in, so it is dropped rather than queued with a null address.
+  // buildAudience only ever returns members with an email, but the
+  // AudienceMember type allows null. Anything without one here would mean a
+  // caller passed the wrong audience in, so it is dropped rather than queued
+  // with a null address.
   const withEmail = options.audience.filter(
-    (patient): patient is AudienceMember & { email: string } =>
-      patient.email !== null,
+    (member): member is AudienceMember & { email: string } =>
+      member.email !== null,
   );
 
-  const rows = withEmail.map((patient, index) => {
+  const rows = withEmail.map((member, index) => {
     const dayOffset = Math.floor(index / cap);
     // Within a day the cron paces them further; this just decides which day.
     const sendAfter = new Date(start.getTime() + dayOffset * 86_400_000);
 
     return {
-      practice_id: options.practiceId,
+      gym_id: options.gymId,
       campaign_id: options.campaignId,
-      patient_id: patient.id,
-      to_email: patient.email,
+      member_id: member.id,
+      to_email: member.email,
       status: "queued",
       send_after: sendAfter.toISOString(),
     };
@@ -161,10 +124,10 @@ export async function queueCampaign(options: {
     const slice = rows.slice(start_, start_ + BATCH);
     const { data, error } = await client
       .from("campaign_messages")
-      // A patient already queued for this campaign is left alone rather than
+      // A member already queued for this campaign is left alone rather than
       // duplicated, which is what makes re-running this safe.
       .upsert(slice, {
-        onConflict: "campaign_id,patient_id",
+        onConflict: "campaign_id,member_id",
         ignoreDuplicates: true,
       })
       .select("id");
@@ -179,18 +142,18 @@ export async function queueCampaign(options: {
 }
 
 export function audienceSnapshot(
-  practice: Practice,
+  gym: Gym,
   count: number,
 ): {
-  dormantAfterMonths: number;
+  lapsedAfterMonths: number;
   maxVisits: number;
   builtAt: string;
-  patientCount: number;
+  memberCount: number;
 } {
   return {
-    dormantAfterMonths: practice.dormant_after_months,
-    maxVisits: practice.max_visits,
+    lapsedAfterMonths: gym.lapsed_after_months,
+    maxVisits: gym.max_visits,
     builtAt: new Date().toISOString(),
-    patientCount: count,
+    memberCount: count,
   };
 }

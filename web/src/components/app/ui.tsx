@@ -56,7 +56,7 @@ export function CardTitle({ children }: { children: ReactNode }) {
  * A single number with its label. The number is set in mono because it is a
  * literal, per the brand guide.
  *
- * `tone="rebooked"` is the one place amber appears in the product. Nothing else
+ * `tone="returned"` is the one place amber appears in the product. Nothing else
  * may pass it.
  */
 export function Stat({
@@ -68,10 +68,10 @@ export function Stat({
   label: string;
   value: string | number;
   hint?: string;
-  tone?: "default" | "teal" | "rebooked";
+  tone?: "default" | "teal" | "returned";
 }) {
   const valueTone =
-    tone === "rebooked"
+    tone === "returned"
       ? "text-[color-mix(in_srgb,var(--amber)_62%,var(--ink))]"
       : tone === "teal"
         ? "text-teal"
@@ -122,7 +122,7 @@ export function Pill({
   tone = "quiet",
   children,
 }: {
-  tone?: "quiet" | "teal" | "rebooked";
+  tone?: "quiet" | "teal" | "returned";
   children: ReactNode;
 }) {
   return <span className={`pill pill-${tone}`}>{children}</span>;
@@ -200,13 +200,13 @@ export function formatDate(value: string | Date | null | undefined): string {
   });
 }
 
-export function patientName(patient: {
+export function memberName(member: {
   first_name: string | null;
   last_name: string | null;
 }): string {
-  const name = [patient.first_name, patient.last_name]
+  const name = [member.first_name, member.last_name]
     .filter(Boolean)
     .join(" ")
     .trim();
-  return name || "unnamed patient";
+  return name || "unnamed member";
 }

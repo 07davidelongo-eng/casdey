@@ -2,35 +2,35 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { dormancyCutoff, type DormancyRule } from "./dormancy";
+import { lapseCutoff, type LapseRule } from "./lapse";
 
 /**
  * The numbers on the dashboard.
  *
- * Every one is counted in the database with `head: true`, so a practice with
- * forty thousand patients transfers a number and not forty thousand rows of
+ * Every one is counted in the database with `head: true`, so a gym with
+ * forty thousand members transfers a number and not forty thousand rows of
  * health-adjacent personal data. Reading less of it is both faster and the
  * right instinct.
  *
  * All queries go through the caller's own client, so row level security does
- * the tenant filtering. The explicit practice_id is belt and braces.
+ * the tenant filtering. The explicit gym_id is belt and braces.
  */
 
-export type PracticeStats = {
-  patients: number;
-  dormant: number;
+export type GymStats = {
+  members: number;
+  lapsed: number;
   reachable: number;
   contacted: number;
-  rebooked: number;
+  returned: number;
 };
 
-function base(supabase: SupabaseClient, practiceId: string) {
+function base(supabase: SupabaseClient, gymId: string) {
   return supabase
-    .from("patients")
+    .from("members")
     .select("id", { count: "exact", head: true })
-    .eq("practice_id", practiceId)
-    // The practice's own self-test patient (see ./self-test.ts) is not a real
-    // patient and must never count toward its own numbers.
+    .eq("gym_id", gymId)
+    // The gym's own self-test member (see ./self-test.ts) is not a real
+    // member and must never count toward its own numbers.
     .eq("is_test", false);
 }
 
@@ -41,39 +41,39 @@ function base(supabase: SupabaseClient, practiceId: string) {
  */
 type CountQuery = ReturnType<typeof base>;
 
-export async function practiceStats(
+export async function gymStats(
   supabase: SupabaseClient,
-  practiceId: string,
-  rule: DormancyRule,
+  gymId: string,
+  rule: LapseRule,
   now: Date = new Date(),
-): Promise<PracticeStats> {
-  const cutoff = dormancyCutoff(rule, now);
+): Promise<GymStats> {
+  const cutoff = lapseCutoff(rule, now);
 
-  // The dormancy predicate, spelled out rather than routed through
-  // applyDormancyFilter, because these builders are chained per query.
-  const dormantOf = (query: CountQuery) =>
+  // The lapse predicate, spelled out rather than routed through
+  // applyLapseFilter, because these builders are chained per query.
+  const lapsedOf = (query: CountQuery) =>
     query
       .neq("status", "opted_out")
       .lte("visit_count", rule.maxVisits)
       .lte("last_visit_at", cutoff);
 
-  const [patients, dormant, reachable, contacted, rebooked] = await Promise.all(
+  const [members, lapsed, reachable, contacted, returned] = await Promise.all(
     [
-      base(supabase, practiceId),
-      dormantOf(base(supabase, practiceId)),
-      dormantOf(base(supabase, practiceId))
+      base(supabase, gymId),
+      lapsedOf(base(supabase, gymId)),
+      lapsedOf(base(supabase, gymId))
         .not("email", "is", null)
         .eq("consent_email", true),
-      base(supabase, practiceId).eq("status", "contacted"),
-      base(supabase, practiceId).eq("status", "reactivated"),
+      base(supabase, gymId).eq("status", "contacted"),
+      base(supabase, gymId).eq("status", "returned"),
     ],
   );
 
   return {
-    patients: patients.count ?? 0,
-    dormant: dormant.count ?? 0,
+    members: members.count ?? 0,
+    lapsed: lapsed.count ?? 0,
     reachable: reachable.count ?? 0,
     contacted: contacted.count ?? 0,
-    rebooked: rebooked.count ?? 0,
+    returned: returned.count ?? 0,
   };
 }

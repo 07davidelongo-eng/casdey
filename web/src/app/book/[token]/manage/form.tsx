@@ -3,12 +3,12 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/app/ui";
-import { cancelAppointmentAction, type CancelState } from "./actions";
+import { cancelBookingAction, type CancelState } from "./actions";
 
 const INITIAL: CancelState = { cancelled: false, error: null };
 
 export function CancelForm({ token }: { token: string }) {
-  const [state, action, pending] = useActionState(cancelAppointmentAction, INITIAL);
+  const [state, action, pending] = useActionState(cancelBookingAction, INITIAL);
 
   if (state.cancelled) {
     return (
@@ -22,7 +22,7 @@ export function CancelForm({ token }: { token: string }) {
     <form action={action} className="mt-6">
       <input type="hidden" name="token" value={token} />
       <Button type="submit" variant="danger" disabled={pending}>
-        {pending ? "One moment" : "Cancel this appointment"}
+        {pending ? "One moment" : "Cancel this booking"}
       </Button>
       {state.error ? (
         <p role="alert" className="notice notice-error mt-4">
