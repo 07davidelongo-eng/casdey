@@ -1,9 +1,13 @@
 ---
 name: cold-outreach
-description: Runs casdey's automated cold-outreach workflow — sourcing UK/EU dental practice leads, drafting personalized cold emails and follow-ups, sending via Zoho, and logging everything. Use when asked to run outreach, draft/send a batch of cold emails, source new leads, or check outreach status/tracking.
+description: "RETIRED 2026-08-22, historical reference only — do not invoke for new outreach. casdey's dental practice cold-outreach system, superseded by the gym-outreach skill after the niche pivot. Kept for the batch history and lessons learned (zero-reply diagnosis) that shaped the gym go-to-market plan."
 ---
 
-# casdey cold outreach
+# casdey cold outreach — dental (RETIRED)
+
+**Retired 2026-08-22.** casdey pivoted from dental practices to gyms/fitness studios (see CLAUDE.md "Niche pivot"); dental outreach is not running and should not be resumed under this skill. The active outreach system is [gym-outreach](../gym-outreach/SKILL.md) (`/gym-outreach`), which deliberately runs differently: review-gated manual sending instead of this skill's fully autonomous Routine, a lesson drawn directly from the zero-reply result documented below. This file is left in place as the historical record (batch history, tone lessons, the zero-reply diagnosis) that the gym go-to-market plan was built on, not as an active spec. If dental outreach is ever revived, re-review this whole file for what's stale before using it.
+
+---
 
 Operating spec for casdey's automated cold-email outreach system, targeting UK/EU dental practices. High-level business context lives in [CLAUDE.md](../../../CLAUDE.md); this skill is the detailed how-it-runs spec, invoked as `/cold-outreach`.
 
