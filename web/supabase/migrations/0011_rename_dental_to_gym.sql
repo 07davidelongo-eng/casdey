@@ -138,30 +138,52 @@ alter table public.campaigns
 -- 5. Rename the functions (and refresh their bodies for the new table names).
 --    Renaming keeps the OID, so RLS policies that call these keep working.
 -- ---------------------------------------------------------------------------
-alter function if exists public.is_practice_member(uuid) rename to is_gym_user;
-alter function if exists public.is_practice_owner(uuid)  rename to is_gym_owner;
+-- ALTER FUNCTION has no IF EXISTS clause in Postgres (unlike ALTER TABLE) --
+-- guard each rename manually by checking pg_proc first.
+do $$
+begin
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'is_practice_member') then
+    alter function public.is_practice_member(uuid) rename to is_gym_user;
+  end if;
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'is_practice_owner') then
+    alter function public.is_practice_owner(uuid) rename to is_gym_owner;
+  end if;
+end $$;
 
-create or replace function public.is_gym_user(p_gym_id uuid)
+-- CREATE OR REPLACE cannot rename an existing input parameter (only DROP +
+-- recreate can, which would assign a new OID and risk breaking whatever RLS
+-- policies already depend on this function's current OID -- exactly what the
+-- RENAME above was chosen to avoid). The live database confirmed the existing
+-- parameter is named p_practice_id, so keep that name here; only the
+-- function's own name and body change.
+create or replace function public.is_gym_user(p_practice_id uuid)
 returns boolean language sql stable security definer set search_path = public
 as $$
   select exists (
     select 1 from public.gym_users m
-    where m.gym_id = p_gym_id and m.user_id = auth.uid()
+    where m.gym_id = p_practice_id and m.user_id = auth.uid()
   );
 $$;
 
-create or replace function public.is_gym_owner(p_gym_id uuid)
+create or replace function public.is_gym_owner(p_practice_id uuid)
 returns boolean language sql stable security definer set search_path = public
 as $$
   select exists (
     select 1 from public.gym_users m
-    where m.gym_id = p_gym_id and m.user_id = auth.uid() and m.role = 'owner'
+    where m.gym_id = p_practice_id and m.user_id = auth.uid() and m.role = 'owner'
   );
 $$;
 
 -- create_practice -> create_gym (plpgsql body must be rewritten for new names)
-alter function if exists
-  public.create_practice(uuid, text, text, text, text, text, text) rename to create_gym;
+do $$
+begin
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'create_practice') then
+    alter function public.create_practice(uuid, text, text, text, text, text, text) rename to create_gym;
+  end if;
+end $$;
 
 create or replace function public.create_gym(
   p_user_id        uuid,
