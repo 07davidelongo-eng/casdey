@@ -33,25 +33,17 @@ const nextConfig: NextConfig = {
       { source: "/homepage", destination: "/", permanent: false },
     ];
 
-    // Unpublish everything down to just /waitlist — but ONLY in production.
-    // casdey.com is still deliberately unpublished while the gym/fitness V1 is
-    // being built locally, so production keeps serving only /waitlist (and
-    // /privacy, which the form links to). Locally (`next dev`) this block is
-    // skipped, so the full gym landing page and /app are browsable for
-    // development. /api/* is untouched in both cases. Reversible: to republish
-    // production, delete this `unpublish` block.
-    // Temporary (307/308) redirects, not permanent.
-    const unpublish = [
-      { source: "/", destination: "/waitlist", permanent: false },
-      { source: "/app", destination: "/waitlist", permanent: false },
-      { source: "/app/:path*", destination: "/waitlist", permanent: false },
-      { source: "/auth/:path*", destination: "/waitlist", permanent: false },
-      { source: "/book/:path*", destination: "/waitlist", permanent: false },
-      { source: "/login", destination: "/waitlist", permanent: false },
-      { source: "/reset-password", destination: "/waitlist", permanent: false },
-      { source: "/terms/:path*", destination: "/waitlist", permanent: false },
-      { source: "/u/:path*", destination: "/waitlist", permanent: false },
-    ];
+    // Narrowed 2026-08-23: the gym/fitness V1 is now going out to real
+    // invited gyms for the free-trial/feedback loop, so /app and everything
+    // it depends on (auth, booking, unsubscribe, legal pages, password
+    // reset) must be reachable in production. Only the public marketing
+    // homepage stays behind /waitlist for now — going fully public is a
+    // separate, later decision. Locally (`next dev`) this block is skipped
+    // entirely, so nothing changes for development. /api/* is untouched in
+    // both cases. Reversible: to republish the homepage too, delete this
+    // `unpublish` block; to re-gate everything, restore the fuller list.
+    // Temporary (307/308) redirect, not permanent.
+    const unpublish = [{ source: "/", destination: "/waitlist", permanent: false }];
 
     return process.env.NODE_ENV === "production"
       ? [...always, ...unpublish]
