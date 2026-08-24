@@ -33,6 +33,7 @@ export type MemberEventType =
   | "message_failed"
   | "replied"
   | "returned"
+  | "return_undone"
   | "booked"
   | "opted_out";
 

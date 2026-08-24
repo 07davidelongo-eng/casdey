@@ -6,17 +6,20 @@ import { Container } from "@/components/ui";
 
 /*
  * Scope note: this notice covers the *waitlist* only, i.e. the details a
- * gym gives us on casdey.com before the product exists. Processing of
- * member records is a separate matter, governed by the data processing
- * agreement each gym signs, and must get its own notice before any
- * gym is onboarded.
+ * gym gives us on casdey.com before it has an account. Processing of member
+ * records, once a gym signs up and imports its list, is a separate matter
+ * covered by /terms/processing (src/app/terms/processing/page.tsx), which now
+ * exists and is live. Updated 2026-08-24: the body text used to say "casdey
+ * does not hold any member data yet", accurate while only the waitlist was
+ * public but false now that /app is live and a real gym can sign up and
+ * import a real CSV today. Fixed to point at the processing terms instead of
+ * asserting something no longer true.
  *
- * Before this page goes live, Davide needs to fill in:
+ * Still outstanding, not fixed here because it needs Davide's real details
+ * rather than something inferable from the code:
  *   - the legal/trading identity of the controller and a postal address
  *     (required by UK GDPR art. 13 and EU GDPR art. 13). Left out here rather
  *     than invented.
- *   - the confirmed list of sub-processors once waitlist storage and the
- *     sending path are finalised.
  */
 
 export const metadata: Metadata = {
@@ -53,10 +56,16 @@ export default function PrivacyPage() {
             </h1>
             <P>
               This notice covers the details you give us when you join the
-              casdey waitlist. It does not cover member records. casdey does
-              not hold any member data yet, and when it does, that processing
-              will be governed by a separate data processing agreement with each
-              gym.
+              casdey waitlist, before your gym has an account. It does not
+              cover member records: once a gym signs up and imports its list,
+              that processing is covered by{" "}
+              <Link
+                href="/terms/processing"
+                className="text-teal underline decoration-ash underline-offset-4 hover:decoration-teal"
+              >
+                casdey&apos;s data processing terms
+              </Link>{" "}
+              instead of this page.
             </P>
 
             <H2>Who we are</H2>

@@ -21,6 +21,7 @@ const EVENT_LABEL: Record<MemberEventType, string> = {
   message_failed: "A message could not be delivered",
   replied: "Replied",
   returned: "Booked again",
+  return_undone: "Return undone",
   booked: "Booked online",
   opted_out: "Asked not to be contacted",
 };

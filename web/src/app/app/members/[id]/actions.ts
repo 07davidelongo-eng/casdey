@@ -55,6 +55,75 @@ export async function markReturnedAction(
 }
 
 /**
+ * Undoes a manually-recorded return.
+ *
+ * Staff can mis-click, or a member who was marked returned can tell the gym
+ * they are not actually coming back after all. Left alone, that mistake sits
+ * in the returned count and in the profit-or-nothing guarantee's revenue
+ * figure forever, since there was previously no way back from
+ * markReturnedAction. Mirrors the guard cancelBookingAction already applies
+ * from the other direction (src/app/book/[token]/manage/actions.ts): a
+ * member with a live self-serve booking is not reverted here, since that
+ * booking is real evidence they are coming back and the member's own manage
+ * link is the correct place to cancel it, not this page.
+ */
+export async function unmarkReturnedAction(
+  _previous: MemberActionState,
+  formData: FormData,
+): Promise<MemberActionState> {
+  const { gym, session } = await requireGym();
+  const memberId = String(formData.get("memberId") ?? "");
+  if (!memberId) return { error: "Missing member." };
+
+  const client = supabaseAdmin();
+
+  const { count: liveBooking } = await client
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", memberId)
+    .in("status", ["booked", "completed"]);
+
+  if (liveBooking) {
+    return {
+      error:
+        "This member has a booking on record. Cancel that from their booking confirmation to undo the return.",
+    };
+  }
+
+  const { data, error } = await client
+    .from("members")
+    .update({ status: "contacted" })
+    .eq("id", memberId)
+    .eq("gym_id", gym.id)
+    .eq("status", "returned")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("[member] undo return failed", error?.message);
+    return { error: "We could not save that. Try again." };
+  }
+
+  await client.from("member_events").insert({
+    gym_id: gym.id,
+    member_id: memberId,
+    type: "return_undone",
+    meta: { recorded_by: session.email },
+  });
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "member.return_undone",
+    target: memberId,
+  });
+
+  revalidatePath("/app", "layout");
+  return { error: null };
+}
+
+/**
  * Erasure. Actually deletes, and cannot be undone.
  *
  * The suppression row is written first and deliberately survives: forgetting

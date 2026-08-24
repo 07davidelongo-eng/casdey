@@ -21,6 +21,7 @@ export type AuditAction =
   | "processing.agreed"
   | "members.imported"
   | "member.deleted"
+  | "member.return_undone"
   | "members.purged"
   | "members.exported"
   | "campaign.created"

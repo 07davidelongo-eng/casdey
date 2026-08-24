@@ -6,6 +6,7 @@ import { Button, Card, CardTitle } from "@/components/app/ui";
 import {
   deleteMemberAction,
   markReturnedAction,
+  unmarkReturnedAction,
   type MemberActionState,
 } from "./actions";
 
@@ -24,6 +25,10 @@ export function MemberActions({
     markReturnedAction,
     INITIAL,
   );
+  const [undoState, undoAction, undoing] = useActionState(
+    unmarkReturnedAction,
+    INITIAL,
+  );
   const [deleteState, deleteAction, deleting] = useActionState(
     deleteMemberAction,
     INITIAL,
@@ -40,9 +45,17 @@ export function MemberActions({
         </p>
 
         {alreadyReturned ? (
-          <p className="text-[0.9375rem] text-graphite">
-            Already recorded as returned.
-          </p>
+          <>
+            <p className="text-[0.9375rem] text-graphite">
+              Already recorded as returned.
+            </p>
+            <form action={undoAction} className="mt-3">
+              <input type="hidden" name="memberId" value={memberId} />
+              <Button type="submit" variant="ghost" disabled={undoing}>
+                {undoing ? "Undoing" : "Undo, they did not return"}
+              </Button>
+            </form>
+          </>
         ) : (
           <form action={returnAction}>
             <input type="hidden" name="memberId" value={memberId} />
@@ -55,6 +68,11 @@ export function MemberActions({
         {returnState.error ? (
           <p role="alert" className="notice notice-error mt-3">
             {returnState.error}
+          </p>
+        ) : null}
+        {undoState.error ? (
+          <p role="alert" className="notice notice-error mt-3">
+            {undoState.error}
           </p>
         ) : null}
       </Card>

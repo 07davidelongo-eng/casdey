@@ -7,6 +7,7 @@ import {
   guaranteeWindow,
   paymentsFundingWindow,
   type GuaranteeStatus,
+  type GuaranteeWindow,
 } from "./guarantee";
 import { estimatedRecoveredMinor } from "./money";
 import type { GuaranteeClaim, Gym } from "./types";
@@ -157,4 +158,80 @@ export async function loadGuaranteeStatus(
     existingClaim: null,
     now,
   });
+}
+
+export type GuaranteeLedgerRow = {
+  memberId: string;
+  memberName: string;
+  returnedAt: string;
+  valueMinor: number;
+  runningTotalMinor: number;
+};
+
+/**
+ * The line-by-line breakdown behind a single "revenue recovered" figure.
+ *
+ * Deliberately reuses the exact same query loadGuaranteeStatus counts from
+ * (same gym_id/status/is_test/window filters) and the exact same per-member
+ * value (the gym's flat typical booking value, never a real booking's own
+ * price) that ./money.ts's estimatedRecoveredMinor multiplies by. That is
+ * what makes summing this list's rows structurally unable to disagree with
+ * the headline number: there is no second formula here to drift out of sync
+ * with the first one. A richer version that valued each member by their
+ * actual booking (when one exists) would be a real change to what "revenue
+ * recovered" means, not just a display, and needs its own decision before
+ * being built, see the wiki competitive-research backlog.
+ */
+export async function loadGuaranteeLedger(
+  supabase: SupabaseClient,
+  gym: Pick<Gym, "id" | "booking_value_minor">,
+  window: GuaranteeWindow,
+  countedThrough: Date,
+): Promise<GuaranteeLedgerRow[]> {
+  const value = gym.booking_value_minor;
+  if (!value || value <= 0) return [];
+
+  const { data } = await supabase
+    .from("members")
+    .select("id, first_name, last_name, returned_at")
+    .eq("gym_id", gym.id)
+    .eq("status", "returned")
+    .eq("is_test", false)
+    .gte("returned_at", window.start.toISOString())
+    .lte("returned_at", countedThrough.toISOString())
+    .order("returned_at", { ascending: true });
+
+  let running = 0;
+  return (data ?? []).map((row) => {
+    running += value;
+    return {
+      memberId: row.id as string,
+      memberName:
+        [row.first_name, row.last_name].filter(Boolean).join(" ").trim() ||
+        "Member",
+      returnedAt: row.returned_at as string,
+      valueMinor: value,
+      runningTotalMinor: running,
+    };
+  });
+}
+
+/**
+ * Convenience wrapper for the billing page: pulls the window straight off
+ * whichever GuaranteeStatus it was handed, so the page does not need its own
+ * copy of "which states have a window" or the running/closed countedThrough
+ * rule loadGuaranteeStatus already applies. Empty for `not_started` and
+ * `claimed`, states with no window to itemize (a claimed gym's window is
+ * still real, but re-deriving it here would be a second, easy-to-drift copy
+ * of the window logic for a state that no longer needs live figures anyway).
+ */
+export async function loadGuaranteeLedgerForStatus(
+  supabase: SupabaseClient,
+  gym: Pick<Gym, "id" | "booking_value_minor">,
+  status: GuaranteeStatus,
+  now: Date = new Date(),
+): Promise<GuaranteeLedgerRow[]> {
+  if (status.state === "not_started" || status.state === "claimed") return [];
+  const countedThrough = now < status.window.end ? now : status.window.end;
+  return loadGuaranteeLedger(supabase, gym, status.window, countedThrough);
 }

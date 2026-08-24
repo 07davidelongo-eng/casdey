@@ -7,7 +7,7 @@ import {
   trialDaysLeft,
 } from "@/lib/plan";
 import { isStripeConfigured, plansFor } from "@/lib/stripe";
-import { loadGuaranteeStatus } from "@/lib/guarantee-data";
+import { loadGuaranteeLedgerForStatus, loadGuaranteeStatus } from "@/lib/guarantee-data";
 import { formatMoney, gymCurrency } from "@/lib/money";
 import {
   Button,
@@ -35,6 +35,11 @@ export default async function BillingPage(
   const errorMessage = typeof params.error === "string" ? params.error : null;
   const guarantee = await loadGuaranteeStatus(session.supabase, gym);
   const guaranteeCurrency = gymCurrency(gym);
+  const guaranteeLedger = await loadGuaranteeLedgerForStatus(
+    session.supabase,
+    gym,
+    guarantee,
+  );
 
   return (
     <div className="max-w-[44rem] space-y-6">
@@ -202,6 +207,46 @@ export default async function BillingPage(
               it out directly.
             </p>
           )}
+
+          {guaranteeLedger.length > 0 ? (
+            <details className="mt-4">
+              <summary className="cursor-pointer text-[0.8125rem] text-stone underline underline-offset-4">
+                How we calculated this
+              </summary>
+              <ul className="mt-3 space-y-2 border-t border-ash/55 pt-3">
+                {guaranteeLedger.map((row) => (
+                  <li
+                    key={row.memberId}
+                    className="flex flex-wrap items-baseline justify-between gap-2 text-[0.8125rem]"
+                  >
+                    <span className="text-graphite">
+                      {row.memberName} returned{" "}
+                      <span className="literal text-stone">
+                        {formatDate(row.returnedAt)}
+                      </span>
+                    </span>
+                    <span className="literal text-ink">
+                      +{formatMoney(row.valueMinor, guaranteeCurrency)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-[0.75rem] text-stone">
+                Each return counts at your typical booking value of{" "}
+                {formatMoney(
+                  guaranteeLedger[guaranteeLedger.length - 1].valueMinor,
+                  guaranteeCurrency,
+                )}{" "}
+                (Settings). Running total{" "}
+                {formatMoney(
+                  guaranteeLedger[guaranteeLedger.length - 1]
+                    .runningTotalMinor,
+                  guaranteeCurrency,
+                )}
+                .
+              </p>
+            </details>
+          ) : null}
         </Card>
       ) : null}
 
