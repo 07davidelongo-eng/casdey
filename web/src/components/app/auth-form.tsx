@@ -11,6 +11,31 @@ type Mode = "signin" | "signup" | "reset";
 type Status = "idle" | "working" | "sent" | "error";
 
 /**
+ * Where a confirmation/reset/OAuth link should send the browser back to.
+ *
+ * Deliberately NOT window.location.origin: casdey.com is set up so the apex
+ * domain always redirects to www.casdey.com at the platform level (a plain
+ * Vercel domain alias, invisible to this app). A page loaded at the apex
+ * therefore never actually renders there, but a signup submitted in the
+ * instant before that redirect settles could still read
+ * window.location.origin as the apex, not www. Supabase's own redirect
+ * allowlist is exact-match, so a link built from the wrong one of the two
+ * either gets silently rejected (falling back to Site URL, dropping
+ * /auth/callback entirely and landing the user on "/", which the production
+ * unpublish redirect then bounces to /waitlist) or simply fails to resolve.
+ * NEXT_PUBLIC_SITE_URL is the one fixed, known-good origin actually on the
+ * allowlist, the same one every unsubscribe/booking link already uses (see
+ * siteUrl() in src/lib/messaging.ts, which this mirrors for the client).
+ * Only falls back to window.location.origin when the env var is not set at
+ * all, which is a local-dev-without-.env.local situation, not something that
+ * should ever happen in production.
+ */
+function canonicalOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+  return configured || window.location.origin;
+}
+
+/**
  * Sign in and sign up in one form, because they are the same three fields and
  * splitting them across two pages only adds a decision nobody wants to make.
  *
@@ -61,7 +86,7 @@ export function AuthForm({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          emailRedirectTo: `${canonicalOrigin()}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
 
@@ -108,7 +133,7 @@ export function AuthForm({
     // Sends a recovery link back through /auth/callback, which exchanges it for
     // a session and lands the user on /reset-password to choose a new one.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+      redirectTo: `${canonicalOrigin()}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
     });
 
     if (error) {
@@ -127,7 +152,7 @@ export function AuthForm({
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: `${canonicalOrigin()}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     if (error) {
