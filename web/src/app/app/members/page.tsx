@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireGym } from "@/lib/dal";
 import { lapseCutoff, monthsSince, ruleFor } from "@/lib/lapse";
+import { capabilities } from "@/lib/plan";
 import {
   ButtonLink,
   Card,
@@ -65,6 +66,15 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
   const members = (data ?? []) as Member[];
   const total = count ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Free sees only the first few records by name; the true total stays visible
+  // so the size of the opportunity is never hidden (see plan.ts). Trial and
+  // Premium have no cap and page through the whole list.
+  const limit = capabilities(gym).memberListLimit;
+  const visibleMembers = limit != null ? members.slice(0, limit) : members;
+  const hiddenCount =
+    limit != null ? Math.max(0, total - visibleMembers.length) : 0;
+  const showPagination = limit == null && pages > 1;
 
   return (
     <>
@@ -130,7 +140,7 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
                 </tr>
               </thead>
               <tbody>
-                {members.map((member) => {
+                {visibleMembers.map((member) => {
                   const away = monthsSince(member.last_visit_at);
                   return (
                     <tr key={member.id}>
@@ -166,7 +176,19 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
             </table>
           </Card>
 
-          {pages > 1 ? (
+          {hiddenCount > 0 ? (
+            <div className="mt-4 flex flex-col items-start gap-3 rounded-[12px] border border-dashed border-ash bg-shallow px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[0.875rem] text-graphite">
+                <span aria-hidden="true">🔒 </span>
+                <span className="literal">{hiddenCount}</span> more{" "}
+                {hiddenCount === 1 ? "member is" : "members are"} hidden on the
+                Free plan. Upgrade to see everyone and start winning them back.
+              </p>
+              <ButtonLink href="/app/settings/billing">Upgrade</ButtonLink>
+            </div>
+          ) : null}
+
+          {showPagination ? (
             <nav
               className="mt-5 flex items-center justify-between"
               aria-label="Pages"

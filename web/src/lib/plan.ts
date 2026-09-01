@@ -28,6 +28,15 @@ export type Plan = "trial" | "free" | "premium";
 
 export const TRIAL_DAYS = 7;
 
+/**
+ * How many members a Free gym can actually see by name in its list. It still
+ * sees the true total (and the dashboard counts), so the size of the
+ * opportunity is never hidden, only the individual records past this point are.
+ * Trial and Premium see everyone. Dictated by Davide, Sept 2026: Free should be
+ * "a lot" more limited than just the send gate.
+ */
+export const FREE_MEMBER_LIST_LIMIT = 5;
+
 /** V1: new signups get the free week. Flip to "false" in Vercel for V2. */
 export function trialEnabledForNewSignups(): boolean {
   return (process.env.CASDEY_TRIAL_ENABLED ?? "true") !== "false";
@@ -72,6 +81,13 @@ export type Capabilities = {
   canImport: boolean;
   /** The gated action. Only paying (or trialing) gyms actually send. */
   canSendCampaigns: boolean;
+  /**
+   * How many member records the gym may see by name, or null for no limit.
+   * Free is capped (see FREE_MEMBER_LIST_LIMIT); Trial and Premium are not.
+   * Display-only: the true total is still shown, and export is never capped
+   * because it is the gym's own data and a GDPR portability right.
+   */
+  memberListLimit: number | null;
 };
 
 export function capabilities(
@@ -92,6 +108,9 @@ export function capabilities(
     // Free cannot send, full stop. Trial can (it is Premium for a week). A
     // past_due Premium cannot send until the card is fixed.
     canSendCampaigns: plan === "trial" || premiumAndPaidUp,
+    // Only Free is capped. A past_due Premium (plan still "premium") keeps the
+    // full list: they had Premium and only need to fix a card, not re-earn it.
+    memberListLimit: plan === "free" ? FREE_MEMBER_LIST_LIMIT : null,
   };
 }
 
