@@ -22,8 +22,8 @@ export function UnsubscribeForm({
         <h1 className="display text-[1.375rem]">Done</h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
           You will not get any more of these from {gymName}. Nothing else
-          changes: this does not affect your care, bookings or records with
-          them.
+          changes: this does not affect your membership, bookings or records
+          with them.
         </p>
       </div>
     );

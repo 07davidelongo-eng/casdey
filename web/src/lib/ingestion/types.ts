@@ -4,8 +4,8 @@
  * There are two sources planned: a CSV export, which every gym can produce
  * from any software, and a direct Mindbody sync. They agree on this type so
  * that lapse detection, campaigns and the dashboard never learn where a
- * member came from. Adding SOE Exact, R4 or Carestream later means writing one
- * more adapter, not touching anything downstream.
+ * member came from. Adding Glofox, ABC Fitness or another platform later means
+ * writing one more adapter, not touching anything downstream.
  */
 
 export type RawMember = {

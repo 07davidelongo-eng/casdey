@@ -15,11 +15,11 @@ import { Container } from "@/components/ui";
  * import a real CSV today. Fixed to point at the processing terms instead of
  * asserting something no longer true.
  *
- * Still outstanding, not fixed here because it needs Davide's real details
- * rather than something inferable from the code:
- *   - the legal/trading identity of the controller and a postal address
- *     (required by UK GDPR art. 13 and EU GDPR art. 13). Left out here rather
- *     than invented.
+ * Controller identity (updated 2026-09-01): stated as "casdey, operated by the
+ * casdey team" with info@casdey.com as the contact, Davide's explicit early-stage
+ * choice. A registered legal/trading entity and a postal address are deliberately
+ * deferred until casdey has a registered entity (no P.IVA yet); email-only contact
+ * is a defensible pre-entity choice for a waitlist notice under UK/EU GDPR art. 13.
  */
 
 export const metadata: Metadata = {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = "13 August 2026";
+const LAST_UPDATED = "1 September 2026";
 
 function H2({ children }: { children: React.ReactNode }) {
   return (
@@ -70,8 +70,8 @@ export default function PrivacyPage() {
 
             <H2>Who we are</H2>
             <P>
-              casdey is the controller of the information described here. You
-              can reach us at{" "}
+              casdey, operated by the casdey team, is the controller of the
+              information described here. You can reach us at{" "}
               <a
                 href="mailto:info@casdey.com"
                 className="text-teal underline decoration-ash underline-offset-4 hover:decoration-teal"

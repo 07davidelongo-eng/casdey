@@ -59,7 +59,7 @@ export function ProcessingAgreement({
           <strong className="font-semibold text-ink">
             You confirm you may contact these members
           </strong>{" "}
-          about their care with you. That part is yours to know, not ours.
+          about their membership with you. That part is yours to know, not ours.
         </Point>
       </ul>
 

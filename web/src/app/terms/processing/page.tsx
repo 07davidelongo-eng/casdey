@@ -10,14 +10,17 @@ import { Container } from "@/components/ui";
  * says explicitly that member records are governed by a separate agreement.
  * This is that agreement.
  *
- * Still to be filled in before a real gym is onboarded, and deliberately
- * left blank rather than invented:
- *   - the legal or trading identity of casdey and a postal address, required
- *     of a processor by UK GDPR art. 28 and EU GDPR art. 28. The same gap is
- *     already flagged on /privacy.
- *   - confirmation of the sub-processor list below once the sending path is
- *     settled. Resend is listed conditionally because it is only used when a
- *     key is configured.
+ * Processor identity (updated 2026-09-01): stated as "casdey, operated by the
+ * casdey team" with info@casdey.com as the contact. A registered legal/trading
+ * entity and postal address are deliberately deferred until casdey registers one
+ * (no P.IVA yet), Davide's explicit early-stage call. The residency line under
+ * "Where it is held" was also corrected: it previously asserted member data is
+ * "not transferred outside the UK or EEA", which is only true once the Vercel
+ * function region is pinned to the EU (Dublin). Until that is confirmed, the doc
+ * states only where the data is stored (EU/Ireland), which is true regardless.
+ * Restore the stronger EEA-only claim once the Vercel region is set to dub1.
+ *
+ * Still deferred, not invented:
  *   - a signed copy, if a gym asks for one on paper. This page is the
  *     online version of the same terms.
  */
@@ -29,7 +32,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = "13 August 2026";
+const LAST_UPDATED = "1 September 2026";
 
 function H2({ children }: { children: React.ReactNode }) {
   return <h2 className="display mt-14 text-[1.5rem] text-ink">{children}</h2>;
@@ -83,14 +86,15 @@ export default function ProcessingTermsPage() {
             <H2>Who is responsible for what</H2>
             <P>
               The gym is the data controller. It decides which members are
-              uploaded, what is said to them, and when. casdey is the processor:
-              it acts on the gym&apos;s instructions and does nothing with
-              member data that the gym has not asked for.
+              uploaded, what is said to them, and when. casdey, operated by the
+              casdey team and reachable at info@casdey.com, is the processor: it
+              acts on the gym&apos;s instructions and does nothing with member
+              data that the gym has not asked for.
             </P>
             <P>
               A gym confirms this, and confirms it has a lawful basis to
-              contact these members about their care, before casdey will accept
-              a single record. The product refuses the upload otherwise.
+              contact these members about their membership, before casdey will
+              accept a single record. The product refuses the upload otherwise.
             </P>
 
             <H2>What casdey holds</H2>
@@ -118,8 +122,8 @@ export default function ProcessingTermsPage() {
 
             <H2>Where it is held</H2>
             <P>
-              In the European Union, in Ireland, encrypted in transit and at
-              rest. It is not transferred outside the UK or EEA.
+              Your member data is stored in the European Union, in Ireland,
+              encrypted in transit and at rest.
             </P>
 
             <H2>Who else touches it</H2>
