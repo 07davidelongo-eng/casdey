@@ -1,5 +1,5 @@
 import { Pill } from "./ui";
-import type { CampaignStatus } from "@/lib/types";
+import type { CampaignKind, CampaignStatus } from "@/lib/types";
 
 export function CampaignPill({ status }: { status: CampaignStatus }) {
   if (status === "sending") return <Pill tone="teal">Sending</Pill>;
@@ -7,4 +7,8 @@ export function CampaignPill({ status }: { status: CampaignStatus }) {
   if (status === "paused") return <Pill>Paused</Pill>;
   if (status === "cancelled") return <Pill>Cancelled</Pill>;
   return <Pill>Draft, not sent</Pill>;
+}
+
+export function CampaignKindPill({ kind }: { kind: CampaignKind }) {
+  return kind === "at_risk" ? <Pill>Check in early</Pill> : <Pill>Win back</Pill>;
 }

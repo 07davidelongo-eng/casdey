@@ -1,6 +1,6 @@
 import { requireGym } from "@/lib/dal";
 import { gymStats } from "@/lib/stats";
-import { monthsSince, ruleFor } from "@/lib/lapse";
+import { atRiskRuleFor, monthsSince, ruleFor } from "@/lib/lapse";
 import {
   estimatedRecoveredMinor,
   formatMoney,
@@ -27,7 +27,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
   const { gym, session } = await requireGym();
 
   const rule = ruleFor(gym);
-  const stats = await gymStats(session.supabase, gym.id, rule);
+  const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
 
   // The most recent return, if there is one. This is the only place the app
   // gets to show the thing it exists to cause.
@@ -90,8 +90,13 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Members" value={stats.members} />
+        <Stat
+          label="At risk"
+          value={stats.atRisk}
+          hint={`no visit for ${gym.at_risk_after_days}+ days`}
+        />
         <Stat
           label="Gone quiet"
           value={stats.lapsed}

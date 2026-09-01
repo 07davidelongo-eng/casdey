@@ -1,8 +1,9 @@
 import { requireGym } from "@/lib/dal";
-import { ruleFor } from "@/lib/lapse";
-import { buildAudience } from "@/lib/campaigns";
+import { atRiskRuleFor, ruleFor } from "@/lib/lapse";
+import { buildAtRiskAudience, buildAudience } from "@/lib/campaigns";
 import { bookingUrl, emailProvider } from "@/lib/messaging";
 import { languageForCountry } from "@/lib/languages";
+import { supabaseAdmin } from "@/lib/supabase";
 import { PageHeader, Notice, ButtonLink } from "@/components/app/ui";
 import { CampaignForm } from "./form";
 
@@ -11,22 +12,39 @@ export const metadata = { title: "New campaign" };
 export default async function NewCampaignPage() {
   const { gym } = await requireGym();
 
-  const emailAudience = await buildAudience(gym.id, ruleFor(gym));
+  const [winBackAudience, atRiskAudience] = await Promise.all([
+    buildAudience(gym.id, ruleFor(gym)),
+    buildAtRiskAudience(gym.id, atRiskRuleFor(gym)),
+  ]);
   const provider = emailProvider();
+
+  // The lean AudienceMember shape doesn't carry cancellation_reason (see
+  // src/lib/campaigns.ts), so it's fetched separately for the one sample
+  // member the preview renders against.
+  const winBackSampleId = winBackAudience[0]?.id ?? null;
+  const { data: winBackSampleRow } = winBackSampleId
+    ? await supabaseAdmin()
+        .from("members")
+        .select("cancellation_reason")
+        .eq("id", winBackSampleId)
+        .maybeSingle()
+    : { data: null };
+
+  const nothingToShow = winBackAudience.length === 0 && atRiskAudience.length === 0;
 
   return (
     <div className="max-w-[44rem]">
       <PageHeader
         eyebrow="New campaign"
         title="Write to the ones who stopped coming"
-        lede={`${emailAudience.length} match your rule right now: no visit for ${gym.lapsed_after_months} months, at most ${gym.max_visits} on record.`}
+        lede={`${winBackAudience.length} to win back, ${atRiskAudience.length} worth checking in with early: no visit for ${gym.lapsed_after_months} months / ${gym.at_risk_after_days} days, at most ${gym.max_visits} on record.`}
       />
 
-      {emailAudience.length === 0 ? (
+      {nothingToShow ? (
         <Notice tone="warn">
           <span>
             Nobody matches yet, so there is nothing to send. Import your member
-            list, or widen the window in settings.
+            list, or widen the windows in settings.
           </span>
           <ButtonLink href="/app/import" variant="quiet">
             Import
@@ -48,12 +66,35 @@ export default async function NewCampaignPage() {
           <CampaignForm
             gymName={gym.name}
             replyTo={gym.reply_to_email ?? gym.contact_email}
-            emailAudienceCount={emailAudience.length}
+            winBackAudienceCount={winBackAudience.length}
+            atRiskAudienceCount={atRiskAudience.length}
             dailyCap={gym.daily_send_cap}
-            emailSample={emailAudience[0] ?? null}
-            sampleBookingUrl={
-              gym.booking_enabled && emailAudience[0]
-                ? bookingUrl(emailAudience[0].booking_token)
+            winBackSample={
+              winBackAudience[0]
+                ? {
+                    first_name: winBackAudience[0].first_name,
+                    last_visit_at: winBackAudience[0].last_visit_at,
+                    cancellation_reason: winBackSampleRow?.cancellation_reason ?? null,
+                  }
+                : null
+            }
+            atRiskSample={
+              atRiskAudience[0]
+                ? {
+                    first_name: atRiskAudience[0].first_name,
+                    last_visit_at: atRiskAudience[0].last_visit_at,
+                    cancellation_reason: null,
+                  }
+                : null
+            }
+            winBackSampleBookingUrl={
+              gym.booking_enabled && winBackAudience[0]
+                ? bookingUrl(winBackAudience[0].booking_token)
+                : null
+            }
+            atRiskSampleBookingUrl={
+              gym.booking_enabled && atRiskAudience[0]
+                ? bookingUrl(atRiskAudience[0].booking_token)
                 : null
             }
             defaultLanguage={languageForCountry(gym.country)}

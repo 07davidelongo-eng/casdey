@@ -140,6 +140,32 @@ export function SettingsForm({
             </div>
           </div>
         </div>
+
+        <div className="mt-5 max-w-[16rem]">
+          <label htmlFor={`${id}-at-risk`} className="field-label">
+            Check in after
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              id={`${id}-at-risk`}
+              name="atRiskAfterDays"
+              type="number"
+              min={7}
+              max={180}
+              step={1}
+              defaultValue={gym.at_risk_after_days}
+              required
+              disabled={disabled}
+              className="field literal"
+            />
+            <span className="text-[0.9375rem] text-graphite">days</span>
+          </div>
+          <p className="field-hint">
+            A still-active member who has not been in this long gets a gentler
+            check-in campaign, before they count as lapsed. Keep it shorter
+            than the lapse window above.
+          </p>
+        </div>
       </Card>
 
       <Card>

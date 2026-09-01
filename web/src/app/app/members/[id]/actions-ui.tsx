@@ -3,8 +3,10 @@
 import { useActionState, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
+import { REASON_OPTIONS, type CancellationReason } from "@/lib/cancellation";
 import {
   deleteMemberAction,
+  markCancelledAction,
   markReturnedAction,
   unmarkReturnedAction,
   type MemberActionState,
@@ -16,10 +18,12 @@ export function MemberActions({
   memberId,
   name,
   alreadyReturned,
+  cancellationReason,
 }: {
   memberId: string;
   name: string;
   alreadyReturned: boolean;
+  cancellationReason: CancellationReason | null;
 }) {
   const [returnState, returnAction, returning] = useActionState(
     markReturnedAction,
@@ -33,7 +37,12 @@ export function MemberActions({
     deleteMemberAction,
     INITIAL,
   );
+  const [cancelState, cancelAction, cancelling] = useActionState(
+    markCancelledAction,
+    INITIAL,
+  );
   const [confirming, setConfirming] = useState(false);
+  const [editingReason, setEditingReason] = useState(false);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -73,6 +82,61 @@ export function MemberActions({
         {undoState.error ? (
           <p role="alert" className="notice notice-error mt-3">
             {undoState.error}
+          </p>
+        ) : null}
+      </Card>
+
+      <Card>
+        <CardTitle>Why did they leave?</CardTitle>
+        <p className="mt-1 mb-4 text-[0.875rem] text-stone">
+          Optional, but it makes a formal cancellation an immediate win-back
+          match instead of waiting for the lapse window, and lets a campaign
+          reference it with {"{{reason}}"}.
+        </p>
+
+        {cancellationReason && !editingReason ? (
+          <>
+            <p className="text-[0.9375rem] text-graphite">
+              Recorded:{" "}
+              {REASON_OPTIONS.find((option) => option.value === cancellationReason)
+                ?.label ?? cancellationReason}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              className="mt-3"
+              onClick={() => setEditingReason(true)}
+            >
+              Change
+            </Button>
+          </>
+        ) : (
+          <form action={cancelAction} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="memberId" value={memberId} />
+            <select
+              name="reason"
+              defaultValue={cancellationReason ?? ""}
+              className="field"
+              required
+            >
+              <option value="" disabled>
+                Pick a reason
+              </option>
+              {REASON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" variant="quiet" disabled={cancelling}>
+              {cancelling ? "Saving" : "Save"}
+            </Button>
+          </form>
+        )}
+
+        {cancelState.error ? (
+          <p role="alert" className="notice notice-error mt-3">
+            {cancelState.error}
           </p>
         ) : null}
       </Card>

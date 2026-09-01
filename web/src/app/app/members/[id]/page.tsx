@@ -24,6 +24,7 @@ const EVENT_LABEL: Record<MemberEventType, string> = {
   return_undone: "Return undone",
   booked: "Booked online",
   opted_out: "Asked not to be contacted",
+  cancelled: "Marked as cancelled",
 };
 
 export default async function MemberPage(
@@ -110,6 +111,7 @@ export default async function MemberPage(
           memberId={member.id}
           name={memberName(member)}
           alreadyReturned={member.status === "returned"}
+          cancellationReason={member.cancellation_reason}
         />
       </div>
 

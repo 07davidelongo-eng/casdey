@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyAtRiskFilter,
   applyLapseFilter,
+  atRiskCutoff,
   lapseCutoff,
+  isAtRisk,
   isContactable,
   isLapsed,
   monthsSince,
+  type AtRiskRule,
   type LapseRule,
 } from "./lapse";
 import type { Member } from "./types";
 
 const RULE: LapseRule = { lapsedAfterMonths: 12, maxVisits: 2 };
+const AT_RISK_RULE: AtRiskRule = { ...RULE, atRiskAfterDays: 45 };
 const NOW = new Date("2026-08-13T10:00:00Z");
 
 function member(overrides: Partial<Member> = {}): Member {
@@ -27,6 +32,8 @@ function member(overrides: Partial<Member> = {}): Member {
     status: "active",
     contacted_at: null,
     returned_at: null,
+    cancellation_reason: null,
+    cancelled_at: null,
     consent_email: true,
     source: "csv",
     is_test: false,
@@ -153,6 +160,89 @@ describe("applyLapseFilter", () => {
       "neq:status:opted_out",
       "lte:visit_count:2",
       "lte:last_visit_at:2025-08-13",
+    ]);
+  });
+});
+
+describe("atRiskCutoff", () => {
+  it("goes back the configured number of days", () => {
+    expect(atRiskCutoff(AT_RISK_RULE, NOW)).toBe("2026-06-29");
+  });
+});
+
+describe("isAtRisk", () => {
+  it("catches a still-active member inside the at-risk window", () => {
+    // 2026-08-13 minus 60 days is well inside the 45-day-to-12-month range.
+    expect(
+      isAtRisk(member({ last_visit_at: "2026-06-14" }), AT_RISK_RULE, NOW),
+    ).toBe(true);
+  });
+
+  it("ignores someone who visited too recently", () => {
+    expect(
+      isAtRisk(member({ last_visit_at: "2026-08-01" }), AT_RISK_RULE, NOW),
+    ).toBe(false);
+  });
+
+  it("defers to isLapsed once a member crosses the full lapse cutoff", () => {
+    const lapsed = member({ last_visit_at: lapseCutoff(RULE, NOW) });
+    expect(isLapsed(lapsed, RULE, NOW)).toBe(true);
+    expect(isAtRisk(lapsed, AT_RISK_RULE, NOW)).toBe(false);
+  });
+
+  it("only applies to members nobody has campaigned yet", () => {
+    expect(
+      isAtRisk(
+        member({ last_visit_at: "2026-06-14", status: "contacted" }),
+        AT_RISK_RULE,
+        NOW,
+      ),
+    ).toBe(false);
+    expect(
+      isAtRisk(
+        member({ last_visit_at: "2026-06-14", status: "returned" }),
+        AT_RISK_RULE,
+        NOW,
+      ),
+    ).toBe(false);
+  });
+
+  it("ignores a regular, the same as isLapsed does", () => {
+    expect(
+      isAtRisk(
+        member({ visit_count: 9, last_visit_at: "2026-06-14" }),
+        AT_RISK_RULE,
+        NOW,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("applyAtRiskFilter", () => {
+  it("applies the active-status, visit-count and two-sided date range", () => {
+    const calls: string[] = [];
+    const query = {
+      eq(column: string, value: string) {
+        calls.push(`eq:${column}:${value}`);
+        return query;
+      },
+      lte(column: string, value: string | number) {
+        calls.push(`lte:${column}:${value}`);
+        return query;
+      },
+      gt(column: string, value: string | number) {
+        calls.push(`gt:${column}:${value}`);
+        return query;
+      },
+    };
+
+    applyAtRiskFilter(query, AT_RISK_RULE, NOW);
+
+    expect(calls).toEqual([
+      "eq:status:active",
+      "lte:visit_count:2",
+      "gt:last_visit_at:2025-08-13",
+      "lte:last_visit_at:2026-06-29",
     ]);
   });
 });

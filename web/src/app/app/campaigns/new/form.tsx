@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId, useMemo, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import {
+  DEFAULT_AT_RISK_BODY,
+  DEFAULT_AT_RISK_SUBJECT,
   DEFAULT_BODY,
   DEFAULT_SUBJECT,
   PLACEHOLDER_HELP,
@@ -11,63 +13,175 @@ import {
   renderTemplate,
 } from "@/lib/template";
 import { monthsSince } from "@/lib/lapse";
+import { REASON_OPTIONS } from "@/lib/cancellation";
 import { LANGUAGES } from "@/lib/languages";
 import { createCampaignAction, type CampaignState } from "../actions";
+import type { CampaignKind } from "@/lib/types";
 
 const INITIAL: CampaignState = { error: null };
 
 type Sample = {
   first_name: string | null;
   last_visit_at: string | null;
+  cancellation_reason: string | null;
 } | null;
 
 /**
  * The editor and the preview side by side.
  *
  * The preview is rendered with the very same function the sender uses, against
- * a real lapsed member from this gym's own list. Showing a made-up
- * "John Smith" would hide exactly the problems worth catching: a missing first
- * name, a member who has been away four years, a merge field that never fills.
+ * a real member from this gym's own list, matching whichever kind is
+ * selected. Showing a made-up "John Smith" would hide exactly the problems
+ * worth catching: a missing first name, a member who has been away four
+ * years, a merge field that never fills.
  */
 export function CampaignForm({
   gymName,
   replyTo,
-  emailAudienceCount,
+  winBackAudienceCount,
+  atRiskAudienceCount,
   dailyCap,
-  emailSample,
-  sampleBookingUrl,
+  winBackSample,
+  atRiskSample,
+  winBackSampleBookingUrl,
+  atRiskSampleBookingUrl,
   defaultLanguage,
 }: {
   gymName: string;
   replyTo: string;
-  emailAudienceCount: number;
+  winBackAudienceCount: number;
+  atRiskAudienceCount: number;
   dailyCap: number;
-  emailSample: Sample;
+  winBackSample: Sample;
+  atRiskSample: Sample;
   /** The sample member's real booking link, or null when booking is off.
    *  Computed server-side because it needs siteUrl(), which is server-only. */
-  sampleBookingUrl: string | null;
+  winBackSampleBookingUrl: string | null;
+  atRiskSampleBookingUrl: string | null;
   defaultLanguage: string;
 }) {
   const id = useId();
   const [state, action, pending] = useActionState(createCampaignAction, INITIAL);
 
+  const [kind, setKind] = useState<CampaignKind>("win_back");
+  const [reasonFilter, setReasonFilter] = useState("");
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
+  const [subjectTouched, setSubjectTouched] = useState(false);
+  const [bodyTouched, setBodyTouched] = useState(false);
   const [language, setLanguage] = useState(defaultLanguage);
 
-  const context = {
-    firstName: emailSample?.first_name ?? null,
-    gymName,
-    monthsAway: monthsSince(emailSample?.last_visit_at ?? null),
-    bookingUrl: sampleBookingUrl,
-  };
+  function selectKind(next: CampaignKind) {
+    setKind(next);
+    if (next === "at_risk") {
+      setReasonFilter("");
+      if (!subjectTouched) setSubject(DEFAULT_AT_RISK_SUBJECT);
+      if (!bodyTouched) setBody(DEFAULT_AT_RISK_BODY);
+    } else {
+      if (!subjectTouched) setSubject(DEFAULT_SUBJECT);
+      if (!bodyTouched) setBody(DEFAULT_BODY);
+    }
+  }
 
-  const audienceCount = emailAudienceCount;
+  const sample = kind === "at_risk" ? atRiskSample : winBackSample;
+  const sampleBookingUrl =
+    kind === "at_risk" ? atRiskSampleBookingUrl : winBackSampleBookingUrl;
+
+  const context = useMemo(
+    () => ({
+      firstName: sample?.first_name ?? null,
+      gymName,
+      monthsAway: monthsSince(sample?.last_visit_at ?? null),
+      bookingUrl: sampleBookingUrl,
+      reason: sample?.cancellation_reason
+        ? (REASON_OPTIONS.find((o) => o.value === sample.cancellation_reason)
+            ?.label ?? null)
+        : null,
+    }),
+    [sample, gymName, sampleBookingUrl],
+  );
+
+  const audienceCount =
+    kind === "at_risk" ? atRiskAudienceCount : winBackAudienceCount;
   const days = Math.ceil(audienceCount / Math.max(1, dailyCap));
 
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="language" value={language} />
+      <input type="hidden" name="kind" value={kind} />
+      {kind === "win_back" && reasonFilter ? (
+        <input type="hidden" name="reasonFilter" value={reasonFilter} />
+      ) : null}
+
+      <Card>
+        <CardTitle>Who this reaches</CardTitle>
+        <p className="mt-1 mb-5 text-[0.875rem] text-stone">
+          Two different jobs: winning back people who have already gone quiet
+          or cancelled, or checking in with members before that happens.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => selectKind("win_back")}
+            disabled={pending}
+            aria-pressed={kind === "win_back"}
+            className={`rounded-[14px] border p-4 text-left transition-colors ${
+              kind === "win_back"
+                ? "border-teal bg-shallow"
+                : "border-ash bg-white hover:border-stone"
+            }`}
+          >
+            <p className="font-semibold text-ink">Win them back</p>
+            <p className="mt-1 text-[0.8125rem] text-stone">
+              Members who have gone quiet, or told you they cancelled.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => selectKind("at_risk")}
+            disabled={pending}
+            aria-pressed={kind === "at_risk"}
+            className={`rounded-[14px] border p-4 text-left transition-colors ${
+              kind === "at_risk"
+                ? "border-teal bg-shallow"
+                : "border-ash bg-white hover:border-stone"
+            }`}
+          >
+            <p className="font-semibold text-ink">Check in early</p>
+            <p className="mt-1 text-[0.8125rem] text-stone">
+              Still-active members whose visits have gone quiet, before they
+              cancel.
+            </p>
+          </button>
+        </div>
+
+        {kind === "win_back" ? (
+          <div className="mt-5 max-w-[18rem]">
+            <label htmlFor={`${id}-reason`} className="field-label">
+              Only members who left because of
+            </label>
+            <select
+              id={`${id}-reason`}
+              value={reasonFilter}
+              onChange={(event) => setReasonFilter(event.target.value)}
+              disabled={pending}
+              className="field"
+            >
+              <option value="">Any reason</option>
+              {REASON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="field-hint">
+              Optional. Narrows to members recorded with that reason, so you
+              can write to it directly.
+            </p>
+          </div>
+        ) : null}
+      </Card>
 
       <Card>
         <CardTitle>The language</CardTitle>
@@ -117,7 +231,8 @@ export function CampaignForm({
             maxLength={120}
             disabled={pending}
             className="field"
-            defaultValue="Lapsed members"
+            defaultValue={kind === "at_risk" ? "Check in early" : "Lapsed members"}
+            key={kind}
           />
           <p className="field-hint">Only you see this.</p>
         </div>
@@ -134,7 +249,10 @@ export function CampaignForm({
             disabled={pending}
             className="field"
             value={subject}
-            onChange={(event) => setSubject(event.target.value)}
+            onChange={(event) => {
+              setSubjectTouched(true);
+              setSubject(event.target.value);
+            }}
           />
         </div>
 
@@ -151,7 +269,10 @@ export function CampaignForm({
             disabled={pending}
             className="field font-[family-name:var(--font-inter)] leading-relaxed"
             value={body}
-            onChange={(event) => setBody(event.target.value)}
+            onChange={(event) => {
+              setBodyTouched(true);
+              setBody(event.target.value);
+            }}
           />
           <div className="field-hint">
             <p className="mb-1">These fill themselves in:</p>
@@ -170,7 +291,7 @@ export function CampaignForm({
       <Card>
         <CardTitle>What one member will receive</CardTitle>
         <p className="mt-1 mb-4 text-[0.875rem] text-stone">
-          {emailSample
+          {sample
             ? "Rendered against a real member from your list, with the same code that sends it."
             : "No member to preview against yet."}
         </p>

@@ -7,15 +7,26 @@ import { z } from "zod";
 import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
-import { ruleFor } from "@/lib/lapse";
-import { audienceSnapshot, buildAudience, queueCampaign } from "@/lib/campaigns";
+import { atRiskRuleFor, ruleFor } from "@/lib/lapse";
+import {
+  audienceSnapshot,
+  buildAtRiskAudience,
+  buildAudience,
+  queueCampaign,
+} from "@/lib/campaigns";
 import { capabilities } from "@/lib/plan";
 import { isLanguageCode } from "@/lib/languages";
 import { bookingUrl, emailProvider, unsubscribeUrl } from "@/lib/messaging";
 import { composeBody, contextFor, renderTemplate } from "@/lib/template";
 import { ensureTestMember } from "@/lib/self-test";
+import { isCancellationReason } from "@/lib/cancellation";
+import type { CampaignKind } from "@/lib/types";
 
 export type CampaignState = { error: string | null };
+
+function parseKind(value: FormDataEntryValue | null): CampaignKind {
+  return value === "at_risk" ? "at_risk" : "win_back";
+}
 
 const CreateSchema = z.object({
   name: z.string().trim().min(2, "Give the campaign a name.").max(120),
@@ -48,12 +59,24 @@ export async function createCampaignAction(
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
 
-  const audience = await buildAudience(gym.id, ruleFor(gym));
+  const kind = parseKind(formData.get("kind"));
+  const rawReason = formData.get("reasonFilter");
+  // A reason filter only makes sense for win-back: at-risk members have not
+  // cancelled, so there is nothing to filter by.
+  const reasonFilter =
+    kind === "win_back" && isCancellationReason(rawReason) ? rawReason : undefined;
+
+  const audience =
+    kind === "at_risk"
+      ? await buildAtRiskAudience(gym.id, atRiskRuleFor(gym))
+      : await buildAudience(gym.id, ruleFor(gym), new Date(), reasonFilter);
 
   if (audience.length === 0) {
     return {
       error:
-        "Nobody matches right now. Either no member has gone quiet, or none of them have an email address on file.",
+        kind === "at_risk"
+          ? "Nobody matches your at-risk window right now."
+          : "Nobody matches right now. Either no member has gone quiet or cancelled, or none of them have an email address on file.",
     };
   }
 
@@ -63,12 +86,13 @@ export async function createCampaignAction(
       gym_id: gym.id,
       created_by: session.userId,
       name: parsed.data.name,
+      kind,
       channel: "email",
       subject: parsed.data.subject,
       body: parsed.data.body,
       language: parsed.data.language,
       status: "draft",
-      audience: audienceSnapshot(gym, audience.length),
+      audience: audienceSnapshot(gym, audience.length, { kind, reasonFilter }),
     })
     .select("id")
     .single();
@@ -131,6 +155,10 @@ export async function sendTestAction(
     return { error: "That campaign no longer exists.", sentTo: null };
   }
 
+  // The self-test member is always freshly created (see ensureTestMember
+  // below) and never has a cancellation on file, so {{reason}} previews as
+  // its fallback phrase in a test send. That is expected, not a bug.
+
   let member;
   try {
     member = await ensureTestMember(gym, session.email);
@@ -168,7 +196,11 @@ export async function sendTestAction(
 
   const provider = emailProvider();
   const context = contextFor(
-    { first_name: member.first_name, last_visit_at: member.last_visit_at },
+    {
+      first_name: member.first_name,
+      last_visit_at: member.last_visit_at,
+      cancellation_reason: null,
+    },
     gym,
     new Date(),
     gym.booking_enabled ? bookingUrl(member.booking_token) : null,
@@ -236,7 +268,7 @@ export async function approveCampaignAction(
 
   const { data: campaign } = await client
     .from("campaigns")
-    .select("id, status")
+    .select("id, status, kind, audience")
     .eq("id", campaignId)
     .eq("gym_id", gym.id)
     .maybeSingle();
@@ -247,8 +279,19 @@ export async function approveCampaignAction(
   }
 
   // Rebuilt now rather than reusing the count from when the draft was written:
-  // members may have been imported, deleted or unsubscribed since.
-  const audience = await buildAudience(gym.id, ruleFor(gym));
+  // members may have been imported, deleted or unsubscribed since. Must
+  // rebuild with the same kind (and reason filter, if any) the campaign was
+  // created with, or an at-risk/reason-scoped campaign would get queued
+  // against the wrong audience.
+  const kind: CampaignKind = campaign.kind === "at_risk" ? "at_risk" : "win_back";
+  const storedReason = (campaign.audience as { reasonFilter?: string } | null)
+    ?.reasonFilter;
+  const reasonFilter = isCancellationReason(storedReason) ? storedReason : undefined;
+
+  const audience =
+    kind === "at_risk"
+      ? await buildAtRiskAudience(gym.id, atRiskRuleFor(gym))
+      : await buildAudience(gym.id, ruleFor(gym), new Date(), reasonFilter);
   if (audience.length === 0) {
     return { error: "Nobody matches any more, so there is nothing to send." };
   }
@@ -273,7 +316,7 @@ export async function approveCampaignAction(
       approved_at: new Date().toISOString(),
       approved_by: session.userId,
       started_at: new Date().toISOString(),
-      audience: audienceSnapshot(gym, audience.length),
+      audience: audienceSnapshot(gym, audience.length, { kind, reasonFilter }),
     })
     .eq("id", campaignId)
     .eq("gym_id", gym.id);

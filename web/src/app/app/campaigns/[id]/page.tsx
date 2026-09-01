@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireGym } from "@/lib/dal";
-import { CampaignPill } from "@/components/app/campaign-pill";
+import { CampaignKindPill, CampaignPill } from "@/components/app/campaign-pill";
 import { CampaignControls } from "./controls";
 import { TestSendForm } from "./test-send-form";
 import {
@@ -70,7 +70,12 @@ export default async function CampaignPage(
               ? "Read it through. Nothing has been sent, and nothing will be until you approve it."
               : `Approved ${formatDate(campaign.approved_at)}.`
           }
-          actions={<CampaignPill status={campaign.status} />}
+          actions={
+            <div className="flex gap-2">
+              <CampaignKindPill kind={campaign.kind} />
+              <CampaignPill status={campaign.status} />
+            </div>
+          }
         />
       </div>
 

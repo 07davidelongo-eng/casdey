@@ -6,8 +6,66 @@ import { revalidatePath } from "next/cache";
 import { requireGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
+import { isCancellationReason } from "@/lib/cancellation";
 
 export type MemberActionState = { error: string | null };
+
+/**
+ * Records that a member formally cancelled, and why.
+ *
+ * A stronger, more immediate signal than waiting for last_visit_at to cross
+ * the lapse cutoff on its own, which can be nearly a year away (see
+ * buildAudience in src/lib/campaigns.ts). Deliberately does not touch
+ * status: this is metadata about why someone left, not a change to the
+ * active/contacted/returned/opted_out lifecycle.
+ */
+export async function markCancelledAction(
+  _previous: MemberActionState,
+  formData: FormData,
+): Promise<MemberActionState> {
+  const { gym, session } = await requireGym();
+  const memberId = String(formData.get("memberId") ?? "");
+  const reason = formData.get("reason");
+  if (!memberId) return { error: "Missing member." };
+  if (!isCancellationReason(reason)) {
+    return { error: "Pick a reason before saving." };
+  }
+
+  const now = new Date().toISOString();
+  const client = supabaseAdmin();
+
+  const { data, error } = await client
+    .from("members")
+    .update({ cancellation_reason: reason, cancelled_at: now })
+    .eq("id", memberId)
+    .eq("gym_id", gym.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("[member] cancel failed", error?.message);
+    return { error: "We could not save that. Try again." };
+  }
+
+  await client.from("member_events").insert({
+    gym_id: gym.id,
+    member_id: memberId,
+    type: "cancelled",
+    meta: { reason, recorded_by: session.email },
+  });
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "member.cancelled",
+    target: memberId,
+    meta: { reason },
+  });
+
+  revalidatePath("/app", "layout");
+  return { error: null };
+}
 
 /**
  * Records that a member booked again.

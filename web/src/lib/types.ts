@@ -1,3 +1,5 @@
+import type { CancellationReason } from "./cancellation";
+
 /**
  * Domain types shared across the app. These mirror the columns in
  * supabase/migrations/0002_saas.sql. When you change one, change both.
@@ -35,7 +37,12 @@ export type MemberEventType =
   | "returned"
   | "return_undone"
   | "booked"
-  | "opted_out";
+  | "opted_out"
+  | "cancelled";
+
+/** win_back: audience is lapsed/cancelled members. at_risk: audience is
+ *  still-active members trending toward lapse. See src/lib/lapse.ts. */
+export type CampaignKind = "win_back" | "at_risk";
 
 export type BookingStatus = "booked" | "cancelled" | "completed" | "no_show";
 
@@ -57,6 +64,9 @@ export type Gym = {
   reply_to_email: string | null;
   lapsed_after_months: number;
   max_visits: number;
+  /** Days of no visit before a still-active member counts as at-risk.
+   *  Always shorter than lapsed_after_months. See src/lib/lapse.ts. */
+  at_risk_after_days: number;
   daily_send_cap: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -109,6 +119,10 @@ export type Member = {
   status: MemberStatus;
   contacted_at: string | null;
   returned_at: string | null;
+  /** Set by staff when a member formally cancels. Orthogonal to status,
+   *  see src/lib/cancellation.ts. */
+  cancellation_reason: CancellationReason | null;
+  cancelled_at: string | null;
   consent_email: boolean;
   source: string;
   /** True only for the one synthetic per-gym member behind "send
@@ -125,6 +139,7 @@ export type Campaign = {
   gym_id: string;
   name: string;
   status: CampaignStatus;
+  kind: CampaignKind;
   channel: Channel;
   subject: string | null;
   body: string | null;
@@ -142,8 +157,13 @@ export type Campaign = {
  * stays reproducible even if the gym later widens or narrows its window.
  */
 export type AudienceSnapshot = {
+  kind: CampaignKind;
   lapsedAfterMonths: number;
   maxVisits: number;
+  /** Only present for kind: 'at_risk'. */
+  atRiskAfterDays?: number;
+  /** Only present when a win-back campaign was scoped to one reason. */
+  reasonFilter?: CancellationReason;
   builtAt: string;
   memberCount: number;
 };

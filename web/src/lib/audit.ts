@@ -22,6 +22,7 @@ export type AuditAction =
   | "members.imported"
   | "member.deleted"
   | "member.return_undone"
+  | "member.cancelled"
   | "members.purged"
   | "members.exported"
   | "campaign.created"

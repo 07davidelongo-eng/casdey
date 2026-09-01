@@ -1,8 +1,14 @@
 import "server-only";
 
 import { supabaseAdmin } from "./supabase";
-import { lapseCutoff, type LapseRule } from "./lapse";
-import type { Gym } from "./types";
+import {
+  atRiskCutoff,
+  lapseCutoff,
+  type AtRiskRule,
+  type LapseRule,
+} from "./lapse";
+import type { CancellationReason } from "./cancellation";
+import type { CampaignKind, Gym } from "./types";
 
 /**
  * Turning a lapse rule into an actual list of people to write to, and then
@@ -27,34 +33,139 @@ export type AudienceMember = {
   booking_token: string;
 };
 
+const AUDIENCE_COLUMNS =
+  "id, email, phone, first_name, last_visit_at, booking_token";
+
 /**
- * Everyone lapsed, reachable by email, and not on the do-not-contact list.
+ * Win-back audience: everyone lapsed by visit recency, plus anyone staff
+ * have explicitly marked cancelled (see src/lib/cancellation.ts) regardless
+ * of how recently they last visited, since a formal cancellation is a
+ * stronger, more immediate signal than waiting for the visit-recency cutoff
+ * to catch up. The two are separate queries merged and de-duplicated by id,
+ * rather than one combined filter, so each branch stays easy to read and
+ * test on its own.
  *
  * Uses the service-role client because it runs as a batch, with gym_id
  * pinned by the caller from a verified session. Excludes the gym's own
  * self-test member (see ./self-test.ts): a real send must never write to it.
+ *
+ * reasonFilter narrows to members who cancelled for that one reason,
+ * dropping the lapse branch entirely, for a gym that wants to run a
+ * reason-specific campaign (e.g. a price-sensitive win-back).
  */
 export async function buildAudience(
   gymId: string,
   rule: LapseRule,
   now: Date = new Date(),
+  reasonFilter?: CancellationReason,
 ): Promise<AudienceMember[]> {
   const client = supabaseAdmin();
 
+  type AudienceResult = {
+    data: AudienceMember[] | null;
+    error: { code: string; message: string } | null;
+  };
+
+  // Awaited and re-packed into a plain object on each branch, rather than
+  // returning the Supabase query builder itself, which is what was sending
+  // the compiler into an excessively-deep instantiation once two
+  // differently-shaped filter chains needed a common array element type.
+  async function lapsedBranch(): Promise<AudienceResult> {
+    const { data, error } = await client
+      .from("members")
+      .select(AUDIENCE_COLUMNS)
+      .eq("gym_id", gymId)
+      .eq("is_test", false)
+      .eq("consent_email", true)
+      .not("email", "is", null)
+      .neq("status", "opted_out")
+      .lte("visit_count", rule.maxVisits)
+      .lte("last_visit_at", lapseCutoff(rule, now));
+    return { data: data as AudienceMember[] | null, error };
+  }
+
+  async function cancelledBranch(
+    reason?: CancellationReason,
+  ): Promise<AudienceResult> {
+    const base = client
+      .from("members")
+      .select(AUDIENCE_COLUMNS)
+      .eq("gym_id", gymId)
+      .eq("is_test", false)
+      .eq("consent_email", true)
+      .not("email", "is", null)
+      .neq("status", "opted_out")
+      .neq("status", "returned");
+
+    const { data, error } = reason
+      ? await base.eq("cancellation_reason", reason)
+      : await base.not("cancellation_reason", "is", null);
+    return { data: data as AudienceMember[] | null, error };
+  }
+
+  const results: AudienceResult[] = reasonFilter
+    ? [await cancelledBranch(reasonFilter)]
+    : await Promise.all([lapsedBranch(), cancelledBranch()]);
+
+  const byId = new Map<string, AudienceMember>();
+
+  for (const { data, error } of results) {
+    if (error) {
+      throw new Error(`audience query failed: ${error.code} ${error.message}`);
+    }
+    for (const member of data ?? []) {
+      byId.set(member.id, member);
+    }
+  }
+
+  if (byId.size === 0) return [];
+
+  const { data: suppressed } = await client
+    .from("suppressions")
+    .select("email")
+    .eq("gym_id", gymId);
+
+  const blocked = new Set(
+    (suppressed ?? []).map((row) => String(row.email).toLowerCase()),
+  );
+
+  return [...byId.values()]
+    .filter((member) => !blocked.has((member.email ?? "").toLowerCase()))
+    .sort((a, b) => (a.last_visit_at ?? "").localeCompare(b.last_visit_at ?? ""));
+}
+
+/**
+ * At-risk audience: still-active members whose last visit fell inside the
+ * gym's at-risk window but hasn't yet crossed the lapse cutoff. See
+ * isAtRisk in src/lib/lapse.ts for why these two ranges never overlap.
+ */
+export async function buildAtRiskAudience(
+  gymId: string,
+  rule: AtRiskRule,
+  now: Date = new Date(),
+): Promise<AudienceMember[]> {
+  const client = supabaseAdmin();
+
+  // Spelled out rather than routed through applyAtRiskFilter (used for the
+  // dashboard's count query in stats.ts): chaining that generic helper onto
+  // a full-row .select() here sent the compiler into an excessively-deep
+  // instantiation. isAtRisk in lapse.ts stays the one place this logic is
+  // defined in prose; this and applyAtRiskFilter must be kept in step by hand.
   const { data, error } = await client
     .from("members")
-    .select("id, email, phone, first_name, last_visit_at, booking_token")
+    .select(AUDIENCE_COLUMNS)
     .eq("gym_id", gymId)
     .eq("is_test", false)
-    .neq("status", "opted_out")
-    .lte("visit_count", rule.maxVisits)
-    .lte("last_visit_at", lapseCutoff(rule, now))
     .eq("consent_email", true)
     .not("email", "is", null)
+    .eq("status", "active")
+    .lte("visit_count", rule.maxVisits)
+    .gt("last_visit_at", lapseCutoff(rule, now))
+    .lte("last_visit_at", atRiskCutoff(rule, now))
     .order("last_visit_at", { ascending: true });
 
   if (error) {
-    throw new Error(`audience query failed: ${error.code} ${error.message}`);
+    throw new Error(`at-risk audience query failed: ${error.code} ${error.message}`);
   }
 
   const candidates = (data ?? []) as AudienceMember[];
@@ -144,15 +255,23 @@ export async function queueCampaign(options: {
 export function audienceSnapshot(
   gym: Gym,
   count: number,
+  options: { kind?: CampaignKind; reasonFilter?: CancellationReason } = {},
 ): {
+  kind: CampaignKind;
   lapsedAfterMonths: number;
   maxVisits: number;
+  atRiskAfterDays?: number;
+  reasonFilter?: CancellationReason;
   builtAt: string;
   memberCount: number;
 } {
+  const kind = options.kind ?? "win_back";
   return {
+    kind,
     lapsedAfterMonths: gym.lapsed_after_months,
     maxVisits: gym.max_visits,
+    ...(kind === "at_risk" ? { atRiskAfterDays: gym.at_risk_after_days } : {}),
+    ...(options.reasonFilter ? { reasonFilter: options.reasonFilter } : {}),
     builtAt: new Date().toISOString(),
     memberCount: count,
   };

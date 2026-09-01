@@ -169,7 +169,9 @@ export async function drainQueue(
 
     const { data: member } = await client
       .from("members")
-      .select("id, first_name, last_visit_at, consent_email, status, booking_token")
+      .select(
+        "id, first_name, last_visit_at, consent_email, status, booking_token, cancellation_reason",
+      )
       .eq("id", message.member_id)
       .maybeSingle();
 
@@ -183,7 +185,11 @@ export async function drainQueue(
     }
 
     const context = contextFor(
-      { first_name: member.first_name, last_visit_at: member.last_visit_at },
+      {
+        first_name: member.first_name,
+        last_visit_at: member.last_visit_at,
+        cancellation_reason: member.cancellation_reason,
+      },
       gym,
       new Date(),
       gym.booking_enabled ? bookingUrl(member.booking_token) : null,

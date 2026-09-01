@@ -1,4 +1,5 @@
 import { monthsSince } from "./lapse";
+import { REASON_LABELS } from "./cancellation";
 import type { Member, Gym } from "./types";
 
 /**
@@ -29,6 +30,23 @@ If now is not the right time, that is completely fine.
 
 {{gym}}`;
 
+/**
+ * A gentler starting message for at-risk campaigns: these members have not
+ * lapsed, so this checks in rather than declaring a problem. Written to the
+ * same rule the win-back default follows, and to the same lesson a
+ * competitor's founder pointed out about casdey's own cold outreach this
+ * session: ask, do not presume.
+ */
+export const DEFAULT_AT_RISK_SUBJECT = "Everything OK? Haven't seen you in a bit";
+
+export const DEFAULT_AT_RISK_BODY = `Hi {{first_name}},
+
+We noticed it has been a little while since your last visit to {{gym}}, so wanted to check in, that's all.
+
+No pressure either way, just reply if there is anything getting in the way of coming back in, we would like to know.
+
+{{gym}}`;
+
 export type TemplateContext = {
   firstName: string | null;
   gymName: string;
@@ -36,9 +54,17 @@ export type TemplateContext = {
   /** The member's booking link, or null when booking is off / not applicable.
    *  Powers {{booking_link}} and the auto-offered link in composeBody. */
   bookingUrl: string | null;
+  /** A natural-language phrase for why they left (see REASON_LABELS), or
+   *  null when no reason is on file. Powers {{reason}}. */
+  reason: string | null;
 };
 
-type Placeholder = "first_name" | "gym" | "months_away" | "booking_link";
+type Placeholder =
+  | "first_name"
+  | "gym"
+  | "months_away"
+  | "booking_link"
+  | "reason";
 
 export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
   {
@@ -51,6 +77,11 @@ export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
     token: "{{booking_link}}",
     means: "a link where they pick a time (only when booking is on)",
   },
+  {
+    token: "{{reason}}",
+    means:
+      "why they left, in a short natural phrase (only when you recorded one)",
+  },
 ];
 
 export function renderTemplate(
@@ -58,7 +89,7 @@ export function renderTemplate(
   context: TemplateContext,
 ): string {
   return template.replace(
-    /\{\{\s*(first_name|gym|months_away|booking_link)\s*\}\}/g,
+    /\{\{\s*(first_name|gym|months_away|booking_link|reason)\s*\}\}/g,
     (_match, token: Placeholder) => {
       if (token === "first_name") {
         // "Hi ," is worse than a slightly generic greeting.
@@ -66,6 +97,7 @@ export function renderTemplate(
       }
       if (token === "gym") return context.gymName;
       if (token === "booking_link") return context.bookingUrl ?? "";
+      if (token === "reason") return context.reason ?? "it being a while";
       return context.monthsAway === null
         ? "some time"
         : String(context.monthsAway);
@@ -74,7 +106,10 @@ export function renderTemplate(
 }
 
 export function contextFor(
-  member: Pick<Member, "first_name" | "last_visit_at">,
+  member: Pick<
+    Member,
+    "first_name" | "last_visit_at" | "cancellation_reason"
+  >,
   gym: Pick<Gym, "name">,
   now: Date = new Date(),
   bookingUrl: string | null = null,
@@ -84,6 +119,9 @@ export function contextFor(
     gymName: gym.name,
     monthsAway: monthsSince(member.last_visit_at, now),
     bookingUrl,
+    reason: member.cancellation_reason
+      ? REASON_LABELS[member.cancellation_reason]
+      : null,
   };
 }
 

@@ -17,6 +17,7 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     reply_to_email: "a@b.co",
     lapsed_after_months: 12,
     max_visits: 2,
+    at_risk_after_days: 45,
     daily_send_cap: 50,
     stripe_customer_id: null,
     stripe_subscription_id: null,

@@ -2,7 +2,12 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { lapseCutoff, type LapseRule } from "./lapse";
+import {
+  applyAtRiskFilter,
+  lapseCutoff,
+  type AtRiskRule,
+  type LapseRule,
+} from "./lapse";
 
 /**
  * The numbers on the dashboard.
@@ -19,6 +24,7 @@ import { lapseCutoff, type LapseRule } from "./lapse";
 export type GymStats = {
   members: number;
   lapsed: number;
+  atRisk: number;
   reachable: number;
   contacted: number;
   returned: number;
@@ -45,6 +51,7 @@ export async function gymStats(
   supabase: SupabaseClient,
   gymId: string,
   rule: LapseRule,
+  atRiskRule: AtRiskRule,
   now: Date = new Date(),
 ): Promise<GymStats> {
   const cutoff = lapseCutoff(rule, now);
@@ -57,21 +64,22 @@ export async function gymStats(
       .lte("visit_count", rule.maxVisits)
       .lte("last_visit_at", cutoff);
 
-  const [members, lapsed, reachable, contacted, returned] = await Promise.all(
-    [
+  const [members, lapsed, atRisk, reachable, contacted, returned] =
+    await Promise.all([
       base(supabase, gymId),
       lapsedOf(base(supabase, gymId)),
+      applyAtRiskFilter(base(supabase, gymId), atRiskRule, now),
       lapsedOf(base(supabase, gymId))
         .not("email", "is", null)
         .eq("consent_email", true),
       base(supabase, gymId).eq("status", "contacted"),
       base(supabase, gymId).eq("status", "returned"),
-    ],
-  );
+    ]);
 
   return {
     members: members.count ?? 0,
     lapsed: lapsed.count ?? 0,
+    atRisk: atRisk.count ?? 0,
     reachable: reachable.count ?? 0,
     contacted: contacted.count ?? 0,
     returned: returned.count ?? 0,

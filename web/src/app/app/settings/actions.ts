@@ -27,6 +27,11 @@ const Schema = z.object({
     .int()
     .min(1, "At least one visit.")
     .max(20, "Twenty visits is the most casdey will treat as a drop-off."),
+  atRiskAfterDays: z.coerce
+    .number()
+    .int()
+    .min(7, "A week is the shortest at-risk window casdey will use.")
+    .max(180, "Six months is the longest at-risk window casdey will use."),
   dailySendCap: z.coerce
     .number()
     .int()
@@ -42,7 +47,13 @@ const Schema = z.object({
       (v) => v === null || (Number.isFinite(v) && v >= 0 && v <= 1_000_000),
       "Enter the value as a number, like 120.",
     ),
-});
+}).refine(
+  (value) => value.atRiskAfterDays < value.lapsedAfterMonths * 30,
+  {
+    message: "The check-in window must be shorter than the lapse window.",
+    path: ["atRiskAfterDays"],
+  },
+);
 
 export async function saveSettingsAction(
   _previous: SettingsState,
@@ -56,6 +67,7 @@ export async function saveSettingsAction(
     replyToEmail: formData.get("replyToEmail"),
     lapsedAfterMonths: formData.get("lapsedAfterMonths"),
     maxVisits: formData.get("maxVisits"),
+    atRiskAfterDays: formData.get("atRiskAfterDays"),
     dailySendCap: formData.get("dailySendCap"),
     bookingValue: formData.get("bookingValue"),
   });
@@ -83,6 +95,7 @@ export async function saveSettingsAction(
       reply_to_email: value.replyToEmail.toLowerCase(),
       lapsed_after_months: value.lapsedAfterMonths,
       max_visits: value.maxVisits,
+      at_risk_after_days: value.atRiskAfterDays,
       daily_send_cap: value.dailySendCap,
       booking_value_minor: bookingValueMinor,
     })

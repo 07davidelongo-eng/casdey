@@ -120,6 +120,56 @@ export function applyLapseFilter<T extends FilterableQuery<T>>(
     .lte("last_visit_at", lapseCutoff(rule, now));
 }
 
+/**
+ * What "at risk" means.
+ *
+ * Same recency signal as lapse, just an earlier, configurable window, and
+ * only for members nobody has touched yet (status still 'active'). The
+ * gyms_at_risk_before_lapse DB constraint guarantees atRiskAfterDays is
+ * strictly shorter than the lapse window, so this range and isLapsed's never
+ * overlap, a member is one or the other, never both.
+ */
+
+export type AtRiskRule = LapseRule & { atRiskAfterDays: number };
+
+export function atRiskRuleFor(gym: Gym): AtRiskRule {
+  return { ...ruleFor(gym), atRiskAfterDays: gym.at_risk_after_days };
+}
+
+export function atRiskCutoff(rule: AtRiskRule, now: Date = new Date()): string {
+  const cutoff = new Date(now.getTime() - rule.atRiskAfterDays * 86_400_000);
+  return cutoff.toISOString().slice(0, 10);
+}
+
+export function isAtRisk(
+  member: LapseInput,
+  rule: AtRiskRule,
+  now: Date = new Date(),
+): boolean {
+  // Only members nobody has campaigned yet: already contacted, returned or
+  // opted out means this is not "before cancelling" any more.
+  if (member.status !== "active") return false;
+  if (!member.last_visit_at) return false;
+  if (member.visit_count > rule.maxVisits) return false;
+
+  const lastVisit = member.last_visit_at.slice(0, 10);
+  return lastVisit > lapseCutoff(rule, now) && lastVisit <= atRiskCutoff(rule, now);
+}
+
+export function applyAtRiskFilter<
+  T extends {
+    eq(column: string, value: string): T;
+    lte(column: string, value: string | number): T;
+    gt(column: string, value: string | number): T;
+  },
+>(query: T, rule: AtRiskRule, now: Date = new Date()): T {
+  return query
+    .eq("status", "active")
+    .lte("visit_count", rule.maxVisits)
+    .gt("last_visit_at", lapseCutoff(rule, now))
+    .lte("last_visit_at", atRiskCutoff(rule, now));
+}
+
 /** How long they have been away, for display. Never invented, always derived. */
 export function monthsSince(
   lastVisit: string | null,
