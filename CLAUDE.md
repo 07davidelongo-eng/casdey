@@ -115,6 +115,26 @@ This product will handle real dental patient data — health-adjacent personal d
 We are running Stage 1 (outreach) and Stage 2 (build) in parallel: Davide made the explicit call on 2026-08-13 to start building the landing page, waitlist, and SaaS ahead of the plan's original 1-3-paid-commitments trigger, rather than waiting on outreach to convert first. Recorded here as a deliberate decision, not a plan change.
 
 ## Stage 1 progress — outreach underway
+
+**2026-09-02 correction (READ THIS FIRST, it overrides the dental bullets below).** Outreach is GYM/fitness now, not dental, and it is live and running. Two truths the stale text below gets wrong:
+- The on-`main` skill `.claude/skills/cold-outreach/SKILL.md` and the "Casdey-UK-Dental-Leads" sheet are DENTAL and STALE, they are NOT what runs. The live gym system lives on the `gym-outreach-automation` branch (skill `.claude/skills/gym-outreach/SKILL.md`) and uses the "Casdey-Gym-Leads" sheet (id `1WOAIA1gvK6S1kWe_Vf4-d4XmjhnDLQZLtyU_ezvOu3w`).
+- Outreach is TWO Claude Routines (managed cloud-side, edit via the `schedule` skill / RemoteTrigger, not in the repo):
+  1. **"casdey gym outreach"** (`trig_018wp58QLBbeuBPbMA6Fy1sU`), fully automated email, daily 05:05 UTC, **75 emails/day** (raised from 50 on 2026-09-02), sends via Resend from davide@casdey.com. The dental routine "casdey cold outreach — daily" is DISABLED.
+  2. **"casdey gym IG outreach"** (`trig_01La223qWjwxoumG4z8gssL8`), semi-automated Instagram, daily 06:00 UTC. Sources gym IG leads and **drafts up to 10 DMs/day** into the sheet's "IG Outreach" tab; Davide sends them BY HAND (Instagram has no cold-DM API and botting gets accounts banned). casdey's IG account is brand new as of 2026-09-02, warm it before sending at volume. Multi-channel aware: a gym emailed already gets a DM that references the email; anyone who opted out or replied on email is excluded from IG (tracked in the "Emailed Before?" column).
+
+**Performance snapshot (2026-09-02, live sheet):** 505 emails Aug 23 to Sep 2, 301 gyms contacted, 6 genuine replies + 1 opt-out = ~2.0% engaged (target 3%). Opens are unmeasurable (plaintext, no pixel). 5 of 6 replies were CrossFit/community boxes, a strong segment signal.
+
+**Email optimizations applied 2026-09-02 toward 3% (in the routine prompt):**
+- **Owner-first:** first-touch sends to named-owner / non-generic emails before generic info@ inboxes (59% were hitting reception); generic inboxes get a "please pass to the owner" line.
+- **Segment reweight:** sourcing ~40% CrossFit/boutique/community boxes, ~60% general gyms.
+- **Lighter A/B cold CTA:** the "what would you pay / which features" ask moved OUT of the cold email (held for Davide's manual reply). Two rotating first-touch variants, **A** = permission ("mind if I show you?"), **B** = free-to-try ("set it up free on your lapsed list, want in?"). No price/guarantee/link in the cold email; the guarantee is a reply-side move. Tracked per send in a new Send Log "Variant" column.
+- **Two follow-ups** (was one), via new Send Log columns "Follow-up 2 Due Date" / "Follow-up 2 Sent (Y/N)"; a one-time backfill gives the ~104 already-once-followed-up leads a final FU2 (inbox-checked first, skips replies/opt-outs/manual follow-ups).
+- Daily report now includes a **per-variant reply-rate block**.
+
+**Onboarding of engaged leads:** the plan for turning replies into live V1 users is in `web/SAAS_ONBOARDING.md` (self-serve is the goal, hybrid the fallback).
+
+The dental bullets below are kept for history and are superseded by the above.
+
 - A lead list of UK + EU dental practices exists in a Google Sheet ("Casdey-UK-Dental-Leads", owned by info@casdey.com), sourced from practice websites and directories (not guessed patterns), with owner/principal names researched for independents where confidently sourced.
 - Outreach is now a fully automated daily system (a Claude Routine, see `.claude/skills/cold-outreach/SKILL.md`), not a manual batch send: it sources leads, drafts, sends via Zoho, detects replies, and logs everything to the sheet's `Send Log` tab, unattended, once per day, capped at ~100 sends/run.
 - As of the last recorded batch (2026-08-13): 87 total sends across three batches, covering UK, Ireland, Netherlands, Germany, France, Belgium, Portugal and Spain. Full batch-by-batch history is in `SKILL.md`, not duplicated here.

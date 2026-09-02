@@ -599,6 +599,43 @@ guarantee's economics.
   legal-identity + postal-address TODOs. Cleanest fix is to ship email-only first
   and only claim what casdey actually does.
 
+## 10. Win-back offer / comeback incentive — `todo` (idea captured 2026-09-01, not started)
+Davide's idea, dictated 2026-09-01. The worry behind it: **just reminding a
+lapsed or cancelled member may not be enough to get them back** — reactivation
+often needs an *incentive*, not only a nudge. His own example: after he
+cancelled Spotify, they won him back with a strong discounted comeback offer.
+Gyms and studios should be doing the same to their ex-members, and casdey
+should **help them build and present that offer**, as the thing that actually
+converts the win-back campaign this product already sends.
+
+**Hard constraint from Davide:** *not* a static "here's a PDF guide on how to
+write an offer". He wants an **interactive experience**, something the member
+actually engages with, not a document the gym reads.
+
+**Not yet scoped — open design questions for when we build it:**
+- What the member sees: likely a personalized comeback landing page per member
+  (casdey already has member-facing surfaces: the self-serve booking link
+  `/book/[token]` and the unsubscribe page `/u/[token]`), carrying the gym's
+  offer and a one-tap way to claim it + book. The "interactive" part lives here.
+- What the gym configures: the offer itself (e.g. a discounted month, a free
+  week back, a waived join fee). Ties to the existing per-gym price list (#7)
+  and membership tiers. The gym decides the incentive; casdey frames/presents it.
+- How it threads into what exists: it should extend the **win-back campaign
+  kind** and `{{...}}` templating already built (an offer placeholder / offer
+  link), and hand off into the **booking loop** so claiming the offer and
+  booking are one flow, not two.
+- Whether it can reference the **cancellation reason** already captured
+  (`{{reason}}`) to tailor the offer (e.g. a price-sensitive leaver gets the
+  discount framing) — likely yes, and a natural fit.
+- Redemption mechanics: does casdey just *present* the offer and record intent,
+  or actually apply/track a discount? Leaning "present + record" first, given
+  casdey doesn't run the gym's own membership billing. To decide when we build.
+- Keep the standing-cost lesson in mind (#1, #5): reach for a configurable,
+  non-AI interactive flow first rather than a per-use LLM feature, unless a
+  live conversation is genuinely needed.
+
+**Status: idea only.** Not started, no schema, no UI. Build when Davide says go.
+
 ## Suggested sequencing (not locked)
 1. ~~**#6 send fix**~~ — done (local) 2026-08-15, unblocks email-side #4. Needs
    `RESEND_API_KEY` on Vercel before it's live for real practices.

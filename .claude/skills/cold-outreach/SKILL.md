@@ -5,6 +5,8 @@ description: Runs casdey's automated cold-outreach workflow — sourcing UK/EU d
 
 # casdey cold outreach
 
+> **STALE / SUPERSEDED (2026-09-02).** This dental skill is NOT what runs. casdey pivoted to gyms/fitness. The live outreach is two Claude Routines on the `gym-outreach-automation` branch (skill `.claude/skills/gym-outreach/SKILL.md`), using the "Casdey-Gym-Leads" sheet, not this dental one. See `CLAUDE.md` → "Stage 1 progress" for the current setup. Kept only for history.
+
 Operating spec for casdey's automated cold-email outreach system, targeting UK/EU dental practices. High-level business context lives in [CLAUDE.md](../../../CLAUDE.md); this skill is the detailed how-it-runs spec, invoked as `/cold-outreach`.
 
 ## Goal
