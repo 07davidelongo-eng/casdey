@@ -8,7 +8,11 @@ import {
   PageHeader,
   formatDate,
 } from "@/components/app/ui";
-import { CampaignKindPill, CampaignPill } from "@/components/app/campaign-pill";
+import {
+  CampaignChannelPill,
+  CampaignKindPill,
+  CampaignPill,
+} from "@/components/app/campaign-pill";
 import type { Campaign } from "@/lib/types";
 
 export const metadata = { title: "Campaigns" };
@@ -49,6 +53,7 @@ export default async function CampaignsPage() {
             <thead>
               <tr>
                 <th>Campaign</th>
+                <th>Channel</th>
                 <th>Kind</th>
                 <th>Status</th>
                 <th>Members</th>
@@ -65,6 +70,9 @@ export default async function CampaignsPage() {
                     >
                       {campaign.name}
                     </Link>
+                  </td>
+                  <td>
+                    <CampaignChannelPill channel={campaign.channel} />
                   </td>
                   <td>
                     <CampaignKindPill kind={campaign.kind} />

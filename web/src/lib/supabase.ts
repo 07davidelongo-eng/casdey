@@ -33,3 +33,6 @@ export function supabaseAdmin(): SupabaseClient {
 
 /** PostgreSQL unique-violation. Used to spot a repeat signup. */
 export const UNIQUE_VIOLATION = "23505";
+
+/** PostgreSQL exclusion-constraint violation (e.g. bookings_no_overlap). */
+export const EXCLUSION_VIOLATION = "23P01";

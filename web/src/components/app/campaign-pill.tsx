@@ -1,5 +1,5 @@
 import { Pill } from "./ui";
-import type { CampaignKind, CampaignStatus } from "@/lib/types";
+import type { CampaignKind, CampaignStatus, Channel } from "@/lib/types";
 
 export function CampaignPill({ status }: { status: CampaignStatus }) {
   if (status === "sending") return <Pill tone="teal">Sending</Pill>;
@@ -11,4 +11,12 @@ export function CampaignPill({ status }: { status: CampaignStatus }) {
 
 export function CampaignKindPill({ kind }: { kind: CampaignKind }) {
   return kind === "at_risk" ? <Pill>Check in early</Pill> : <Pill>Win back</Pill>;
+}
+
+export function CampaignChannelPill({ channel }: { channel: Channel }) {
+  return channel === "whatsapp" ? (
+    <Pill tone="teal">WhatsApp</Pill>
+  ) : (
+    <Pill>Email</Pill>
+  );
 }

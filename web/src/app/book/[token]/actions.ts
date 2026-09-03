@@ -1,6 +1,10 @@
 "use server";
 
-import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
+import {
+  EXCLUSION_VIOLATION,
+  supabaseAdmin,
+  UNIQUE_VIOLATION,
+} from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { emailProvider, siteUrl } from "@/lib/messaging";
 import { buildIcs } from "@/lib/calendar/ics";
@@ -136,15 +140,22 @@ export async function bookSlotAction(
       end_at: endAt.toISOString(),
       status: "booked",
       value_minor: valueMinor,
+      buffer_minutes: gym.booking_buffer_minutes,
       created_via: "self_serve",
     })
     .select("id, booking_token")
     .single();
 
   if (insertError || !booking) {
-    // The double-book guard: two people submitting the same slot at once, one
-    // loses the unique index race. Everyone else is a real failure.
-    if (insertError?.code === UNIQUE_VIOLATION) {
+    // The double-book guard: two people submitting the same or an overlapping
+    // slot at once, one loses. The identical-start case trips the unique index
+    // (23505); an overlap or a hit inside the buffer trips bookings_no_overlap
+    // (23P01). Both mean the same thing to the member. Everyone else is a real
+    // failure.
+    if (
+      insertError?.code === UNIQUE_VIOLATION ||
+      insertError?.code === EXCLUSION_VIOLATION
+    ) {
       return {
         booked: false,
         error: "That time was just taken. Pick another.",

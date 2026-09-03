@@ -314,6 +314,12 @@ export type Booking = {
   google_event_id: string | null;
   /** Snapshotted at booking, minor units. Never rewritten by later price edits. */
   value_minor: number | null;
+  /** The gym's buffer at booking time, snapshotted so the DB-level overlap
+   *  guard (bookings_no_overlap) stays immutable. See 0015. */
+  buffer_minutes: number;
+  /** end_at + buffer_minutes, maintained by a trigger; the upper bound of the
+   *  overlap-guard range. See 0015. */
+  guard_end_at: string;
   created_via: "self_serve" | "staff";
   booking_token: string;
   cancelled_at: string | null;

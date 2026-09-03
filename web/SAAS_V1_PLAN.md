@@ -198,13 +198,17 @@ Done (all code-only, no migration — reuses the existing `revoked` status):
   gym reconnects; the OAuth callback resets it to `active` on reconnect.
   `provider.ts` (`isInvalidGrant`, `calendarNeedsReauth`, `needsReauth` on the
   view), `settings/booking/page.tsx`.
-- **Deferred (low priority, need more than code):** a true simultaneous
-  *adjacent*-slot race can still book inside the buffer (the unique index only
-  guards the identical slot; the fresh recompute covers the non-simultaneous
-  case) — a proper fix needs a `tstzrange` exclusion constraint (migration).
-  And reconciling casdey↔Google mirror desyncs (event deleted on Google out of
-  band) needs a background job. Both fine to leave for post-V1; neither causes
-  the double-booking the fail-open bug did.
+- **Adjacent-slot / buffer race — FIXED 2026-09-03 (migration `0015`, applied
+  to the live DB).** `bookings` gained `buffer_minutes` (snapshot) +
+  `guard_end_at` (trigger-maintained = `end_at + buffer`), and a GiST
+  exclusion constraint `bookings_no_overlap` rejects any overlap of
+  `[start_at, guard_end_at)` for the same gym among `booked` rows. The booking
+  action now treats `23P01` the same as `23505` ("that time was just taken").
+  Verified against the live DB: an insert starting inside a prior booking's
+  buffer is rejected with `23P01`; a genuinely back-to-back slot is allowed.
+- **Still deferred (needs more than code, post-V1):** reconciling casdey↔Google
+  mirror desyncs (an event deleted on Google out of band) needs a background
+  job. Does not cause a double-booking.
 
 ### A7. GDPR / legal re-audit for the gym product — `done 2026-09-03 (one item → Davide)`
 Earlier commits (`01b7713`, `628f556`) had already named the controller/processor,
@@ -494,7 +498,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | A3 | CSV import hardening vs real exports | me | code-side done; real-file → B4/C |
 | A4 | Default win-back copy in gym voice | me | already met |
 | A5 | Empty/edge states + FAQ per step | me | done |
-| A6 | Calendar prod hardening (fail-closed, scope, re-auth) | me | mostly done; 2 items deferred |
+| A6 | Calendar prod hardening (fail-closed, scope, re-auth) | me | done — incl. the double-booking exclusion constraint (0015); only Google-mirror reconciliation job left, post-V1 |
 | A7 | GDPR/legal re-audit for gym | me | done (postal address → Davide) |
 | A8 | Free-plan limits implementation | me | done |
 | A9 | Marketing landing design review | me | done |

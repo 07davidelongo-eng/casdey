@@ -149,6 +149,7 @@ export default async function CampaignPage(
         <CampaignControls
           campaignId={campaign.id}
           status={campaign.status}
+          channel={campaign.channel}
           audienceCount={campaign.audience?.memberCount ?? 0}
           dailyCap={gym.daily_send_cap}
         />
