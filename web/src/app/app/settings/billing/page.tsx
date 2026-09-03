@@ -331,7 +331,9 @@ export default async function BillingPage(
 }
 
 function PlanPill({ plan }: { plan: string }) {
-  if (plan === "Premium") return <Pill tone="teal">Premium</Pill>;
-  if (plan === "Free week") return <Pill tone="teal">Free week</Pill>;
+  // plan is planLabel(effectivePlan(...)): "Free week" | "Standard" | "Pro" | "Free".
+  if (plan === "Standard" || plan === "Pro" || plan === "Free week") {
+    return <Pill tone="teal">{plan}</Pill>;
+  }
   return <Pill>Free</Pill>;
 }
