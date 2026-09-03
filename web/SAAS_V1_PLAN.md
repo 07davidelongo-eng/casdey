@@ -357,11 +357,13 @@ limits (Content Templates + custom webhook config both gated behind a paid
 account). E1 can be built and tested against the sandbox, but a real prospect
 WhatsApp send needs the upgrade. Davide's to do.
 
-### B9. Confirm JD's gym software — `todo` (feeds E2)
-Ask JD which platform they run (Mindbody / Glofox / TeamUp / ABC / LegitFit /
-Sportbit / other) and whether they can share API credentials or a developer
-account. E2's feasibility call depends on the answer — no public self-serve API
-→ E2 slips to V2.
+### B9. Confirm JD's gym software — `answered 2026-09-03: LegitFit`
+JD runs **LegitFit** (Irish gym/studio booking + membership platform). Open
+sub-question, still needs JD: can they share API credentials or a developer
+account? **Feasibility risk:** LegitFit is a smaller vendor and does not
+publish an open developer API the way Mindbody does; if there is no
+member-export API JD can grant access to, **E2 slips to V2** and CSV export
+(A3) stays the V1 import path. First step of E2 is to establish this.
 
 ---
 
@@ -409,17 +411,20 @@ deleted in the gym rebuild (`25af6aa`). Commit `cd0fd70`.
   (d) Prod verification: one real template send + reply loop + STOP + hand-off
   (folds into Track C).
 
-### E2. Direct gym-software API sync — `todo` — best-effort V1, drop to V2 if walled
-Real member-list sync from JD's gym platform, replacing CSV re-upload. The
-current `src/lib/ingestion/mindbody.ts` is a stub.
-- **Gate first (B9):** confirm JD's platform + whether its API is reachable
-  without a slow partner-approval process. If it needs partner status / revenue
-  share / weeks of review → **stop, mark E2 deferred to V2**, CSV import stays
-  the V1 path. This is an explicit, expected exit.
-- If reachable: build one real adapter behind the existing `ingestion`
-  interface (same shape as the CSV path — normalise to `members`, E.164 phones,
-  last-visit), a Settings → Integrations connect flow, and a scheduled/manual
-  resync. One platform only for V1 (JD's).
+### E2. Direct LegitFit member sync — `blocked on API access` — best-effort V1, drop to V2 if walled
+Real member-list sync from **LegitFit** (B9), replacing CSV re-upload. The
+current `src/lib/ingestion/mindbody.ts` is a stub — a LegitFit adapter would
+sit next to it behind the same `ingestion` interface.
+- **First step — establish whether a LegitFit member-export API even exists
+  that JD can grant casdey access to.** LegitFit publishes no open developer
+  API; there may be an account-level export/integration, a Zapier hook, or
+  nothing. If there is no programmatic path JD can authorise → **E2 exits to
+  V2**, and CSV export (A3) is the V1 import path. Expected, acceptable outcome.
+- If reachable: one adapter behind `ingestion` (normalise to `members`, E.164
+  phones, last-visit), a Settings → Integrations connect flow, a manual +
+  scheduled resync. LegitFit only for V1.
+- Do **not** build a generic multi-vendor integration framework for one
+  adapter — that abstraction waits until a second platform is real.
 
 ---
 
@@ -511,7 +516,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B6 | Delete stray empty Vercel project "web" | Davide | done — removed, only `casdey` remains |
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
 | B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | todo |
-| B9 | Confirm JD's gym software + API access (feeds E2) | Davide | todo |
+| B9 | Confirm JD's gym software + API access (feeds E2) | Davide | platform = LegitFit; API-access question still open |
 | E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
 | E2 | Direct gym-software API sync | me | todo — best-effort, may exit to V2 (gate B9) |
 | C1 | Live-mode Stripe checkout + refund in prod | both | todo |
