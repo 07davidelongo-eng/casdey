@@ -30,10 +30,16 @@ practice / patient / appointment / dormant — was renamed throughout in the
   coupons, webhook secret), `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`,
   `CRON_SECRET`. Email/password auth works in prod; auth transactional email
   routes through Resend custom SMTP.
-- **Google Calendar is NOT wired in prod yet.** `GOOGLE_CALENDAR_*` and
-  `CALENDAR_TOKEN_KEY` are deliberately absent from Vercel, so the booking loop
-  is inert in production until they're added (plan item B2, after the OAuth
-  consent screen is verified, B1). Booking works locally, where they are set.
+- **Google Calendar is now wired in prod (2026-09-03, plan item B2 done).**
+  `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` and
+  `CALENDAR_TOKEN_KEY` are set in Vercel Production and deployed; Settings →
+  Booking shows "Connected as info@casdey.com" and booking can read/write Google
+  Calendar in prod (the info@casdey.com test-user connection, which works while
+  the consent screen is still in Testing). Real-prospect Google use is still
+  gated on B1 verification. **Standing rule:** `CALENDAR_TOKEN_KEY` must be
+  byte-identical in Vercel and local `web/.env.local` — local dev and prod share
+  the same Supabase DB, and that key encrypts calendar tokens at rest, so a
+  mismatched key shows "Connected" but silently fails to decrypt.
 - **WhatsApp was removed in the pivot** (gyms don't fit the channel). The code
   is recoverable from git history if the niche ever wants it; it is not part of
   the current product.
@@ -42,8 +48,9 @@ practice / patient / appointment / dormant — was renamed throughout in the
   (`0011` dental→gym rename, `0012` at-risk campaigns, `0013` cancellation
   reason). Whether `0011`–`0013` are applied to the live project is unconfirmed
   (plan item B3) — prod `/app` working suggests they are, but confirm directly.
-- **Vercel plan** (Hobby vs Pro) is unconfirmed; the campaign-send cron in
-  `vercel.json` runs once daily to stay within the Hobby limit (plan item B5).
+- **Vercel plan confirmed Hobby (2026-09-03, plan item B5 done).** The
+  campaign-send cron in `vercel.json` runs once daily (`0 3 * * *`) to stay
+  within the Hobby once-a-day cron cap; revert to hourly only if upgraded to Pro.
 
 ## The offer model (implemented) — see `src/lib/plan.ts`
 

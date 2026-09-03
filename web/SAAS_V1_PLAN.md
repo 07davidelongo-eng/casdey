@@ -39,6 +39,17 @@ WhatsApp channel revival (JD's signal), LegitFit / any real gym-software API
 integration, the #10 win-back/comeback-offer interactive page, republishing the
 public marketing homepage (invited-only signup does not need it).
 
+**Parked future direction — Davide's stated intent, 2026-09-03 (NOT V1; do not
+start until D passes, recorded so it isn't lost):**
+- **Brand identity refresh** — a new colour palette, fonts and logo, superseding
+  the v3 "Iron & Brass" system (`brand assets/casdey-brand-guide.html` +
+  `web/src/app/globals.css` tokens). A deliberate re-do of the visual identity,
+  not a tweak.
+- **Three plan tiers: Free / Standard / Pro** — replacing today's Free vs
+  Premium in `web/src/lib/plan.ts` (aligns with the earlier go-to-market note's
+  Free/Starter/Pro idea). Needs pricing + capability scoping per tier and
+  matching Stripe products/prices before it can ship.
+
 ---
 
 ## 1. Where things actually stand (2026-09-03)
@@ -48,7 +59,8 @@ public marketing homepage (invited-only signup does not need it).
   `SAAS_HANDOFF.md` still say.
 - `/app`, `/login`, `/book/*`, `/u/*`, `/terms/*`, `/privacy` are **reachable in
   production** (invited-only; the marketing homepage `/` still redirects to
-  `/waitlist`). Email + billing env vars are set in Vercel.
+  `/waitlist`). Email + billing env vars are set in Vercel; **calendar env vars
+  too, as of 2026-09-03 (B2 done)** — booking reads/writes Google in prod.
 - **Outreach is live** (gym, 75 email/day + IG drafts) and producing engaged
   leads — they currently have nowhere polished to land. This is what makes V1
   urgent.
@@ -236,7 +248,7 @@ Not templated.
 ### A10. Docs rewrite — `done 2026-09-03`
 - **`SAAS_HANDOFF.md` rewritten** into gym language and current reality: what the
   product is (gym/member/booking), the real deployment state (/app live
-  invited-only, calendar env not in Vercel yet, WhatsApp removed, migrations
+  invited-only, calendar env in Vercel as of 2026-09-03, WhatsApp removed, migrations
   through 0013), the offer model incl. the new Free caps, what's verified
   (135 tests; full path not re-walked since the pivot → Track C/D), the go-live
   env vars, and out-of-scope. Points at this plan and `CLAUDE.md`.
@@ -252,18 +264,41 @@ Not templated.
 
 Run in parallel with Track A. **B1 is the long pole — start it first.**
 
-### B1. Google OAuth consent screen — publish + verification — `todo` — **long pole**
+### B1. Google OAuth consent screen — publish + verification — `in progress` — **long pole**
 Currently in "Testing" mode → only test users can sign in with Google, **and a
 connected Calendar's refresh token dies after 7 days**. Needs: demo video of
-the Calendar-connect flow, a 120×120 logo, the finalised scope (wait for A6),
-then publish + submit. Google review runs **days to weeks** — this is why it
-goes first. Gates: Google sign-in for real prospects, and Calendar booking in
-prod.
+the Calendar-connect flow, a 120×120 logo, the finalised scope (A6 done), then
+publish + submit. Google review runs **days to weeks** — this is why it goes
+first. Gates: Google sign-in for real prospects, and Calendar booking in prod.
+- **Groundwork done 2026-09-03:** Google Cloud now hard-requires 2-step
+  verification (enforced May 2025) — enabled on `info@casdey.com` (owns the
+  `casdey web` client, in the `casdey` project) and the personal account. The
+  redirect URI `https://casdey.com/api/calendar/google/callback` is already
+  whitelisted on the client (localhost too). The client secret can no longer be
+  viewed in the new console — it lives only in `web/.env.local` (ends `xfy7`);
+  add a new one if ever lost.
+- **Still to do:** on Data Access, switch the declared scope from the old
+  `calendar.events` to `calendar.app.created` (+ `calendar.freebusy`) to match
+  A6's code; fill branding + 120×120 logo; confirm `casdey.com` is verified in
+  Search Console (authorised-domain requirement); record the demo video; publish;
+  submit.
+- **Scope/push caveat:** prod runs `b7cdf2d`, which predates A6 and still requests
+  `calendar.events`; the narrowed `calendar.app.created` ships only with the 3
+  unpushed local commits. Verify the scope that is actually deployed — push the
+  narrowed scope before (or alongside) submitting, or verify `calendar.events`.
 
-### B2. Calendar env vars into Vercel — `todo` (after B1 clears + A6 done)
-`GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` (reuse the "casdey
-web" OAuth client), `CALENDAR_TOKEN_KEY` (fresh AES-256). Until these are set,
-Settings → Booking shows "not set up" and booking can't see/write Google.
+### B2. Calendar env vars into Vercel — `done 2026-09-03` (done ahead of B1)
+`GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` (from the "casdey
+web" OAuth client) and `CALENDAR_TOKEN_KEY` are set in Vercel Production and
+deployed; Settings → Booking shows "Connected as info@casdey.com". Done before
+B1 cleared — it works now for the info@casdey.com test-user connection under
+Testing mode; real prospects still need B1.
+- **`CALENDAR_TOKEN_KEY` is NOT a fresh key — it must equal the local one.**
+  Local dev and prod share the same Supabase DB, and this key encrypts calendar
+  tokens at rest, so Vercel's value must be byte-identical to
+  `web/.env.local`'s (ends `2o=`). A fresh key was generated by mistake first —
+  it showed "Connected" but would have silently failed to decrypt tokens local
+  wrote; corrected by pasting the local value. Never rotate it in one place only.
 
 ### B3. Confirm migrations applied on live DB — `todo`
 Confirm `0011` (dental→gym rename), `0012` (at-risk campaigns), `0013`
@@ -276,9 +311,10 @@ Real member-export CSVs from Mindbody / Glofox / TeamUp / ABC Fitness — even o
 or two each. Ask engaged leads (e.g. JD) for a sample export as part of the
 onboarding conversation.
 
-### B5. Confirm Vercel plan — `todo`
-Hobby vs Pro is unconfirmed (a Hobby-only cron limit was hit 2026-08-19). If
-Pro: revert the campaign-send cron in `vercel.json` from daily back to hourly.
+### B5. Confirm Vercel plan — `done 2026-09-03`
+Confirmed **Hobby** (the plan badge on the `casdey` project reads "Hobby"). The
+once-daily cron cap is real; keep `vercel.json` on `0 3 * * *`. Revert to hourly
+only if the team is later upgraded to Pro.
 
 ### B6. Delete stray Vercel project — `todo`
 An empty project named `web` (separate from `casdey`) was created by accident
@@ -332,7 +368,8 @@ Then    ── A2 ─ A3 ─ A4 ─ A5   (core self-serve build, overlapping)   
 Then    ── A6 (calendar hardening; scope finalised BEFORE B1 submit) ──────────┤
         └─ A7 (legal re-audit)   A8 (needs B7)   A9 (polish)                    │
                                                                                │
-When B1 clears ── B2 (calendar env vars into Vercel) ─────────────────────────┘
+B2 (calendar env vars) done early 2026-09-03 — works now for the test-user ─────┘
+                 connection; real-prospect Google use still waits on B1
                                                                                │
 Then    ── TRACK C  (prod verification: C1 Stripe, C2 Resend, C3 Calendar, C4) │
 Then    ── A10 (docs rewrite, housekeeping)                                     │
@@ -364,11 +401,11 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | A8 | Free-plan limits implementation | me | done |
 | A9 | Marketing landing design review | me | done |
 | A10 | Rewrite SAAS_HANDOFF (ROADMAP kept as history) | me | done |
-| B1 | Google OAuth consent screen: publish + verify | Davide | todo — long pole |
-| B2 | Calendar env vars into Vercel | Davide | todo (after B1) |
+| B1 | Google OAuth consent screen: publish + verify | Davide | in progress — long pole (2SV + redirect URI done; scopes/logo/video/publish left) |
+| B2 | Calendar env vars into Vercel | Davide | done (ahead of B1) |
 | B3 | Confirm migrations 0011/0012/0013 on live DB | Davide | todo |
 | B4 | Source real Mindbody/Glofox/TeamUp/ABC CSVs | Davide | todo |
-| B5 | Confirm Vercel plan; revert cron if Pro | Davide | todo |
+| B5 | Confirm Vercel plan; revert cron if Pro | Davide | done — Hobby |
 | B6 | Delete stray empty Vercel project "web" | Davide | todo |
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
 | C1 | Live-mode Stripe checkout + refund in prod | both | todo |
