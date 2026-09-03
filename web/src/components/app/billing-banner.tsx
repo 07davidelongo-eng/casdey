@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import type { Gym } from "@/lib/types";
-import { effectivePlan, trialDaysLeft } from "@/lib/plan";
+import { effectivePlan, isPaidPlan, trialDaysLeft } from "@/lib/plan";
 
 /**
  * A one-line status strip, shown only when there is something worth saying. A
@@ -33,7 +33,7 @@ export function BillingBanner({ gym }: { gym: Gym }) {
     );
   }
 
-  if (plan === "premium") {
+  if (isPaidPlan(plan)) {
     if (gym.subscription_status !== "past_due") return null;
     return (
       <Banner tone="warn">

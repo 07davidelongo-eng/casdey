@@ -22,6 +22,7 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     stripe_customer_id: null,
     stripe_subscription_id: null,
     subscription_status: "none",
+    plan_tier: null,
     plan_currency: null,
     plan_interval: null,
     trial_ends_at: null,
@@ -58,23 +59,49 @@ describe("effectivePlan", () => {
     expect(effectivePlan(gym(), NOW)).toBe("free");
   });
 
-  it("is premium with an active subscription, trial date notwithstanding", () => {
+  it("returns the stored paid tier for an active subscription", () => {
+    expect(
+      effectivePlan(
+        gym({ subscription_status: "active", plan_tier: "standard" }),
+        NOW,
+      ),
+    ).toBe("standard");
+    expect(
+      effectivePlan(
+        gym({ subscription_status: "active", plan_tier: "pro" }),
+        NOW,
+      ),
+    ).toBe("pro");
+  });
+
+  it("ignores the trial date once a paid subscription is live", () => {
     const p = gym({
       subscription_status: "active",
+      plan_tier: "standard",
       trial_ends_at: "2026-08-10T00:00:00Z",
     });
-    expect(effectivePlan(p, NOW)).toBe("premium");
+    expect(effectivePlan(p, NOW)).toBe("standard");
   });
 
-  it("keeps a past_due account on premium (grace), not free", () => {
+  it("defaults a tier-less active subscription to pro (the safer grant)", () => {
     expect(
-      effectivePlan(gym({ subscription_status: "past_due" }), NOW),
-    ).toBe("premium");
+      effectivePlan(gym({ subscription_status: "active", plan_tier: null }), NOW),
+    ).toBe("pro");
   });
 
-  it("returns to free after a premium subscription is cancelled", () => {
+  it("keeps a past_due account on its paid tier (grace), not free", () => {
+    expect(
+      effectivePlan(
+        gym({ subscription_status: "past_due", plan_tier: "pro" }),
+        NOW,
+      ),
+    ).toBe("pro");
+  });
+
+  it("returns to free after a subscription is cancelled", () => {
     const p = gym({
       subscription_status: "canceled",
+      plan_tier: "pro",
       trial_ends_at: "2026-01-01T00:00:00Z",
     });
     expect(effectivePlan(p, NOW)).toBe("free");
@@ -82,30 +109,58 @@ describe("effectivePlan", () => {
 });
 
 describe("capabilities", () => {
-  it("lets a trial import and send", () => {
-    const c = capabilities(
-      gym({ trial_ends_at: "2026-08-18T00:00:00Z" }),
-      NOW,
-    );
+  it("lets a trial import and send, with the full feature set", () => {
+    const c = capabilities(gym({ trial_ends_at: "2026-08-18T00:00:00Z" }), NOW);
     expect(c.canImport).toBe(true);
     expect(c.canSendCampaigns).toBe(true);
+    expect(c.canUseWhatsApp).toBe(true);
+    expect(c.hasGuarantee).toBe(true);
+    expect(c.memberImportLimit).toBeNull();
   });
 
-  it("lets free import but never send", () => {
+  it("lets free import but never send, and caps it", () => {
     const c = capabilities(gym(), NOW);
     expect(c.canImport).toBe(true);
     expect(c.canSendCampaigns).toBe(false);
+    expect(c.canUseWhatsApp).toBe(false);
+    expect(c.hasGuarantee).toBe(false);
+    expect(c.memberListLimit).toBe(5);
+    expect(c.memberImportLimit).toBe(50);
   });
 
-  it("lets active premium send", () => {
-    const c = capabilities(gym({ subscription_status: "active" }), NOW);
+  it("Standard: sends email, no WhatsApp, no guarantee, member cap", () => {
+    const c = capabilities(
+      gym({ subscription_status: "active", plan_tier: "standard" }),
+      NOW,
+    );
     expect(c.canSendCampaigns).toBe(true);
+    expect(c.canUseWhatsApp).toBe(false);
+    expect(c.hasGuarantee).toBe(false);
+    expect(c.memberListLimit).toBeNull();
+    expect(c.memberImportLimit).toBe(500);
   });
 
-  it("stops a past_due premium from sending until the card is fixed", () => {
-    const c = capabilities(gym({ subscription_status: "past_due" }), NOW);
-    expect(c.plan).toBe("premium");
+  it("Pro: sends everything, WhatsApp + guarantee, uncapped", () => {
+    const c = capabilities(
+      gym({ subscription_status: "active", plan_tier: "pro" }),
+      NOW,
+    );
+    expect(c.canSendCampaigns).toBe(true);
+    expect(c.canUseWhatsApp).toBe(true);
+    expect(c.hasGuarantee).toBe(true);
+    expect(c.memberImportLimit).toBeNull();
+  });
+
+  it("stops a past_due paid tier from sending, but keeps its feature grants", () => {
+    const c = capabilities(
+      gym({ subscription_status: "past_due", plan_tier: "pro" }),
+      NOW,
+    );
+    expect(c.plan).toBe("pro");
     expect(c.canSendCampaigns).toBe(false);
+    // The grant is still Pro's; only the send is held pending the card.
+    expect(c.canUseWhatsApp).toBe(true);
+    expect(c.hasGuarantee).toBe(true);
   });
 });
 

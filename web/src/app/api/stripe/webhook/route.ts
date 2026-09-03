@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 
-import { stripeClient } from "@/lib/stripe";
+import { planTierForPriceId, stripeClient } from "@/lib/stripe";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import type { SubscriptionStatus } from "@/lib/types";
 
@@ -273,6 +273,11 @@ async function syncSubscription(
   const item = subscription.items.data[0];
   const price = item?.price;
 
+  // Track F: which paid tier this subscription's price belongs to. Null until
+  // F2 sets the STRIPE_PRICE_<TIER>_* env vars, at which point effectivePlan()
+  // stops defaulting an active subscription to Pro and reads this instead.
+  const planTier = planTierForPriceId(price?.id);
+
   const update = {
     stripe_subscription_id: subscription.id,
     stripe_customer_id: customerId,
@@ -284,6 +289,9 @@ async function syncSubscription(
     current_period_end: toIso(item?.current_period_end),
     plan_currency: price?.currency === "gbp" ? "gbp" : "eur",
     plan_interval: price?.recurring?.interval === "year" ? "year" : "month",
+    // Only write plan_tier when a tier actually resolves, so a not-yet-
+    // configured price never nulls out a tier set by a later, configured event.
+    ...(planTier ? { plan_tier: planTier } : {}),
   };
 
   const query = supabaseAdmin().from("gyms").update(update);

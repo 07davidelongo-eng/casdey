@@ -3,6 +3,7 @@ import "server-only";
 import Stripe from "stripe";
 
 import type { Currency } from "./countries";
+import type { PlanTier } from "./types";
 
 /**
  * Stripe wiring: the paid Premium tier.
@@ -115,9 +116,42 @@ export function isStripeConfigured(): boolean {
  * The lifetime early-adopter discount coupon for a currency, or undefined if
  * none is configured. Fixed-amount coupons are single-currency in Stripe, so
  * there is one per currency (£50 off, €59 off), created by scripts/stripe-setup.mjs.
+ *
+ * NOTE (Track F, F4): the discount is moving to a flat lifetime 20% (a single
+ * percent-off coupon works across every currency and both paid tiers), which
+ * will replace these two fixed-amount coupons. `STRIPE_COUPON_PERCENT` is the
+ * env var it will read once F2 creates it.
  */
 export function couponIdFor(currency: Currency): string | undefined {
-  return currency === "gbp"
-    ? process.env.STRIPE_COUPON_GBP || undefined
-    : process.env.STRIPE_COUPON_EUR || undefined;
+  return (
+    process.env.STRIPE_COUPON_PERCENT ||
+    (currency === "gbp"
+      ? process.env.STRIPE_COUPON_GBP || undefined
+      : process.env.STRIPE_COUPON_EUR || undefined)
+  );
+}
+
+/**
+ * Track F: which paid tier a Stripe price id belongs to, or null if it does
+ * not match a configured tier price. The env vars are set in F2 (they need
+ * F0's numbers first); until then this always returns null and
+ * effectivePlan() falls back to treating any active subscription as Pro.
+ *
+ * Env var shape: STRIPE_PRICE_<TIER>_<CURRENCY>_<INTERVAL>, e.g.
+ * STRIPE_PRICE_STANDARD_GBP_MONTH, STRIPE_PRICE_PRO_EUR_YEAR.
+ */
+export function planTierForPriceId(priceId: string | null | undefined): PlanTier | null {
+  if (!priceId) return null;
+  const tiers: PlanTier[] = ["standard", "pro"];
+  const currencies = ["GBP", "EUR"];
+  const intervals = ["MONTH", "YEAR"];
+  for (const tier of tiers) {
+    for (const currency of currencies) {
+      for (const interval of intervals) {
+        const envVar = `STRIPE_PRICE_${tier.toUpperCase()}_${currency}_${interval}`;
+        if (process.env[envVar] && process.env[envVar] === priceId) return tier;
+      }
+    }
+  }
+  return null;
 }

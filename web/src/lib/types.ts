@@ -13,6 +13,10 @@ export type SubscriptionStatus =
   | "canceled"
   | "incomplete";
 
+/** The two paid tiers (Track F). Free is the absence of a subscription, and
+ *  the trial is a time-boxed Pro, so neither is a plan_tier value. */
+export type PlanTier = "standard" | "pro";
+
 export type MemberStatus = "active" | "contacted" | "returned" | "opted_out";
 
 export type CampaignStatus =
@@ -104,6 +108,9 @@ export type Gym = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: SubscriptionStatus;
+  /** Which paid tier a subscribed gym is on (Track F). Null for Free / trial.
+   *  Written by the Stripe webhook from the subscription price. */
+  plan_tier: PlanTier | null;
   plan_currency: "gbp" | "eur" | null;
   plan_interval: "month" | "year" | null;
   trial_ends_at: string | null;

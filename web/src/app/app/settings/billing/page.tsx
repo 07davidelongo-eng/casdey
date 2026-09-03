@@ -3,6 +3,7 @@ import { currencyFor } from "@/lib/countries";
 import {
   earlyAdopterProgramActive,
   effectivePlan,
+  isPaidPlan,
   planLabel,
   trialDaysLeft,
 } from "@/lib/plan";
@@ -115,7 +116,7 @@ export default async function BillingPage(
           </p>
         )}
 
-        {plan === "premium" && role === "owner" ? (
+        {isPaidPlan(plan) && role === "owner" ? (
           <form action="/api/stripe/portal" method="post" className="mt-5">
             <Button type="submit" variant="quiet">
               Manage billing
@@ -250,15 +251,18 @@ export default async function BillingPage(
         </Card>
       ) : null}
 
-      {/* Upgrade path, shown to anyone not already on Premium */}
-      {plan !== "premium" ? (
+      {/* Upgrade path, shown to anyone not already on a paid tier.
+          TODO (Track F, F3): this section still speaks of a single "Premium"
+          plan and lists the old 4 prices via plansFor(). It becomes a
+          Standard/Pro chooser once F0's numbers and F2's Stripe prices land. */}
+      {!isPaidPlan(plan) ? (
         <div>
           <h2 className="display mb-1 text-[1.25rem]">
-            {plan === "trial" ? "Stay on Premium" : "Upgrade to Premium"}
+            {plan === "trial" ? "Stay on a paid plan" : "Upgrade"}
           </h2>
           <p className="mb-4 text-[0.9375rem] text-graphite">
-            Premium is where casdey actually sends: it works the quiet half of
-            your list for you, start to finish. Billed in{" "}
+            A paid plan is where casdey actually sends: it works the quiet half
+            of your list for you, start to finish. Billed in{" "}
             {currency === "gbp" ? "pounds" : "euros"}.
           </p>
 

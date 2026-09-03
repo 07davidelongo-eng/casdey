@@ -452,12 +452,27 @@ Needed before any F1–F6 work:
 - **Free** — stays as-is (import + see lapsed, 5-row list cap, 50-member cap,
   no send), or does the split change it?
 
-### F1. Plan model — `todo` (needs F0)
-`Plan` type gains `"standard"`; the paid tier a subscription represents is
-**stored** (`gyms.plan_tier`, new migration `0016`) because `effectivePlan`
-can no longer infer "any active sub → premium". Webhook writes it from the
-subscription's price id. `capabilities()` branches per tier. Backfill existing
-active subs per F0's mapping.
+### F1. Plan model — `structural part done 2026-09-03; caps/gates pending F0`
+Done (compiles, 153 tests green, migration `0016` applied to the live DB —
+2 existing paying gyms backfilled to `pro`, 1 untiered):
+- `Plan` type is now `"trial" | "free" | "standard" | "pro"` (`premium`
+  retired). `isPaidPlan()` helper. `planLabel()` updated.
+- `gyms.plan_tier` (`'standard' | 'pro' | null`) added by `0016`.
+  `effectivePlan()` returns the stored tier for an active/past_due sub, and
+  **defaults a tier-less active sub to `pro`** (safe) until F2's price env
+  vars exist.
+- `capabilities()` is now a per-plan table with `canUseWhatsApp` +
+  `hasGuarantee` added alongside the existing flags. The trial grants
+  everything Pro does. `past_due` still holds sending while keeping grants.
+- Webhook resolves `plan_tier` via `planTierForPriceId()` in `stripe.ts`
+  (reads `STRIPE_PRICE_<TIER>_<CCY>_<INTERVAL>` env vars, returns null until
+  F2 sets them — writes `plan_tier` only when a tier resolves, never nulls).
+- `couponIdFor()` prefers a single `STRIPE_COUPON_PERCENT` (the coming flat
+  20%) over the old per-currency fixed coupons.
+- **PROPOSED, not enforced (pending F0):** Standard `memberImportLimit` = 500;
+  WhatsApp + guarantee Pro-only. The two gate sites (WhatsApp campaign create,
+  guarantee claim) carry TODO comments — the checks are one line each once F0
+  confirms the split.
 
 ### F2. Stripe products/prices — `todo` (needs F0)
 `stripe.ts` `PLANS` becomes tier-aware: 8 prices (2 tiers × 2 currencies × 2
@@ -584,7 +599,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
 | E2 | Direct LegitFit member sync | me | blocked — needs a LegitFit export path JD can authorise; else → V2 |
 | F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | blocked — needed before F1–F6 |
-| F1 | Plan model: `standard` tier + stored `plan_tier` (migration 0016) | me | todo — needs F0 |
+| F1 | Plan model: `standard` tier + stored `plan_tier` (migration 0016) | me | structure done + 0016 applied; caps/gates pending F0 |
 | F2 | Stripe: 2 products / 8 prices, tier-aware `stripe.ts` + setup script | me + Davide | todo — needs F0 |
 | F3 | Checkout `tier` param + 3-tier billing UI | me | todo — needs F0 |
 | F4 | Guarantee + early-adopter discount gated to the right tier(s) | me | todo — needs F0 |

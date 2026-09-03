@@ -142,6 +142,10 @@ async function createWhatsAppCampaign(
   session: Awaited<ReturnType<typeof requireActiveGym>>["session"],
   formData: FormData,
 ): Promise<CampaignState> {
+  // Track F / F4: capabilities(gym).canUseWhatsApp is now computed (Pro/trial
+  // only in the proposed split). NOT enforced here yet — the Standard/Pro
+  // feature split is unconfirmed (F0). Wire this once F0 lands:
+  //   if (!capabilities(gym).canUseWhatsApp) return { error: "WhatsApp is on Pro." };
   if (!gym.whatsapp_enabled || !gym.whatsapp_template_name) {
     return {
       error:

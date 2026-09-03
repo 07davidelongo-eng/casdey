@@ -28,6 +28,10 @@ export async function POST(request: NextRequest): Promise<Response> {
   const origin = request.nextUrl.origin;
   const back = new URL("/app/settings/billing", origin);
 
+  // Track F / F4: the guarantee is a paid-tier promise today (any active
+  // subscription, via premium_started_at). The proposed 3-tier split makes it
+  // Pro-only. NOT enforced yet — the Standard/Pro feature split is unconfirmed
+  // (F0). Wire once F0 lands: if (!capabilities(gym).hasGuarantee) reject.
   const status = await loadGuaranteeStatus(session.supabase, gym);
 
   if (status.state !== "claimable") {
