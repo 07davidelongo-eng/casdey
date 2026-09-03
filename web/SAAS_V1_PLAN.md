@@ -34,10 +34,22 @@ V1 is ready only when **all** of these hold:
    acceptance gate (Track D), done **only after Tracks A, B and C are all
    green**. Not before, per Davide's explicit instruction.
 
-**Explicitly NOT in V1** (deferred to V2, do not let these expand scope):
-WhatsApp channel revival (JD's signal), LegitFit / any real gym-software API
-integration, the #10 win-back/comeback-offer interactive page, republishing the
-public marketing homepage (invited-only signup does not need it).
+**Rescoped INTO V1 — 2026-09-03, Davide's call after re-reviewing JD's asks.**
+JD's cold-outreach feature list is now a V1 target, not V2. Two of the four
+items already shipped (at-risk campaigns, cancellation reasons — commit
+`88ff34f`). The remaining two become **Track E**:
+- **E1. WhatsApp channel revival** — firm V1 addition. Revive the built-then-
+  deleted WhatsApp + AI-reply-loop code, adapt it to the gym model, fix the 5
+  known audit bugs. External blocker: Davide must upgrade the Twilio account
+  (trial gates outbound). Channel choice confirmed **WhatsApp** (not SMS).
+- **E2. Direct gym-software API sync** — **best-effort V1**. Attempt it; **drop
+  back to V2 if the partner-API access wall makes it too complex** for the V1
+  timeline (each vendor — Mindbody / Glofox / LegitFit / whatever JD runs —
+  needs its own developer/partner approval, which is outside our control).
+
+**Still explicitly NOT in V1** (deferred to V2, do not let these expand scope):
+the #10 win-back/comeback-offer interactive page, republishing the public
+marketing homepage (invited-only signup does not need it).
 
 **Parked future direction — Davide's stated intent, 2026-09-03 (NOT V1; do not
 start until D passes, recorded so it isn't lost):**
@@ -335,6 +347,71 @@ removed via `vercel project rm web`. `vercel projects ls` now shows only
 ### B7. Decide Free-plan limits — `done 2026-09-03`
 Davide chose **lock lapsed identities + cap members imported**. A8 built both.
 
+### B8. Upgrade the Twilio account — `todo` (blocks E1 prod send)
+The WhatsApp channel's outbound send has always been blocked on Twilio's trial
+limits (Content Templates + custom webhook config both gated behind a paid
+account). E1 can be built and tested against the sandbox, but a real prospect
+WhatsApp send needs the upgrade. Davide's to do.
+
+### B9. Confirm JD's gym software — `todo` (feeds E2)
+Ask JD which platform they run (Mindbody / Glofox / TeamUp / ABC / LegitFit /
+Sportbit / other) and whether they can share API credentials or a developer
+account. E2's feasibility call depends on the answer — no public self-serve API
+→ E2 slips to V2.
+
+---
+
+## 3.5. TRACK E — JD's feature-list additions (rescoped into V1, 2026-09-03)
+
+JD's cold-outreach asks, pulled into V1 per §0. The first two of JD's four
+(at-risk detection, cancellation reasons) already shipped in `88ff34f`. These
+are the rest.
+
+### E1. WhatsApp channel + AI reply loop — revive for gym — `todo` — firm V1
+Restore the WhatsApp channel that was built pre-pivot (`81d9a93`, `314c291`)
+and deleted in the gym rebuild (`25af6aa`, which also dropped the four
+`whatsapp_*` tables via migration `0011`). Last intact at commit `c3c9a25`.
+- **Restore + adapt** these files from `c3c9a25`, renaming dental→gym
+  (`practice`→`gym`, `patient`→`member`, `patients/[id]`→`members/[id]`) and
+  re-integrating with the **diverged** post-pivot code (`campaigns.ts` now has
+  at-risk + cancellation audience branches; `types.ts` `Channel` is narrowed to
+  `"email"`; `template.ts` has `{{reason}}`):
+  - `src/lib/whatsapp/{twilio,signature,signature.test,send,ai-agent,campaign-send}.ts`
+  - `src/app/api/whatsapp/webhook/route.ts`
+  - `src/app/app/settings/whatsapp/{page,form,actions}.tsx`
+  - `src/app/app/patients/[id]/whatsapp-conversation.tsx` → `members/[id]/`
+  - `src/app/app/campaigns/[id]/whatsapp-test-form.tsx`
+- **New migration `0014_whatsapp_channel_gym.sql`** — re-add gym-native
+  `whatsapp_conversations` / `whatsapp_messages` / `whatsapp_suppressions` /
+  `whatsapp_events` (was `0009`, dropped by `0011`), widen `campaigns.channel`
+  back to `('email','whatsapp')`, re-add `members.consent_whatsapp`,
+  `gyms.whatsapp_enabled` / `whatsapp_template_name`. RLS mirroring the other
+  gym tables (`is_gym_user` / `is_gym_owner`).
+- **Fix the 5 audit bugs while restoring** (from the 2026-08-17 stress test,
+  never fixed because the channel was cut): malformed first AI turn; non-atomic
+  reply-cap race; history slice takes oldest not newest; STOP/opt-out is
+  English-only; no moderation on AI output.
+- **Legal:** add Twilio (US) back to the DPA sub-processor list + `/privacy`,
+  scoped to gyms that enable WhatsApp (Art. 28 + 44). A7 removed it as
+  "not in V1" — that reverts.
+- **Env (prod):** `TWILIO_*` + `ANTHROPIC_API_KEY` into Vercel (currently
+  deliberately absent). Real send also needs **B8** (Twilio upgrade).
+- Keep the shared-number model (one casdey WhatsApp number for all gyms,
+  mirrors `mail.casdey.com`), mandatory campaign approval, the per-conversation
+  reply cap + human handoff.
+
+### E2. Direct gym-software API sync — `todo` — best-effort V1, drop to V2 if walled
+Real member-list sync from JD's gym platform, replacing CSV re-upload. The
+current `src/lib/ingestion/mindbody.ts` is a stub.
+- **Gate first (B9):** confirm JD's platform + whether its API is reachable
+  without a slow partner-approval process. If it needs partner status / revenue
+  share / weeks of review → **stop, mark E2 deferred to V2**, CSV import stays
+  the V1 path. This is an explicit, expected exit.
+- If reachable: build one real adapter behind the existing `ingestion`
+  interface (same shape as the CSV path — normalise to `members`, E.164 phones,
+  last-visit), a Settings → Integrations connect flow, and a scheduled/manual
+  resync. One platform only for V1 (JD's).
+
 ---
 
 ## 4. TRACK C — production verification (me + Davide, after A + B green)
@@ -394,7 +471,11 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
   be redone.
 - Track D is **last**. Davide's manual walkthrough is the acceptance gate, never
   a debugging tool mid-build.
-- V2 items (WhatsApp, LegitFit, #10 offer, homepage republish) do not enter any
+- **WhatsApp (E1) and gym-software sync (E2) are now V1** (rescoped 2026-09-03).
+  E1 is firm; E2 is best-effort and may exit back to V2 if its partner-API
+  access is too slow (gate at B9). Run Track E in parallel with the tail of
+  Track A; it must be green before Track C signs off.
+- Remaining true-V2 items (#10 offer page, homepage republish) do not enter any
   track until D passes.
 
 ---
@@ -420,6 +501,10 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B5 | Confirm Vercel plan; revert cron if Pro | Davide | done — Hobby |
 | B6 | Delete stray empty Vercel project "web" | Davide | done — removed, only `casdey` remains |
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
+| B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | todo |
+| B9 | Confirm JD's gym software + API access (feeds E2) | Davide | todo |
+| E1 | WhatsApp channel + AI reply loop — revive for gym | me | todo — firm V1 |
+| E2 | Direct gym-software API sync | me | todo — best-effort, may exit to V2 (gate B9) |
 | C1 | Live-mode Stripe checkout + refund in prod | both | todo |
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |
