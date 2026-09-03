@@ -29,11 +29,11 @@ self-serve breaks:
 | 2a. Import members | Uploads CSV export from their gym software | **The #1 failure point.** Dead-clear per-platform export instructions (Mindbody / Glofox / TeamUp / ABC), forgiving parser, human error messages, email/phone normalization |
 | 2b. Confirm lapsed | Sees "here are your X lapsed members" | Sensible default lapse window, editable, a preview that feels right |
 | 2c. Set prices | Enters membership tiers | Simple entry (drives revenue-recovered + the guarantee) |
-| 2d. Connect calendar | Connects Google Calendar | **Calendar OAuth must work in prod** (currently off) |
+| 2d. Connect calendar | Connects Google Calendar | Calendar OAuth **live in prod** since 2026-09-03 (B1 + B2 done) |
 | 2e. Approve campaign | Reviews casdey's draft, approves | Great default copy in gym voice, obvious approve button, mandatory-approval gate |
 | 3. See value | Watches replies + rebookings land | Dashboard that makes "£X recovered" obvious, fast |
 | 4. Stuck? | Opens the in-app help widget | FAQ that answers every setup step; mailto info@casdey.com fallback |
-| 5. Convert | Upgrades after the free week | In-app upgrade, lifetime £50/€59 discount auto-applied, guarantee shown, referral prompt |
+| 5. Convert | Picks Standard or Pro after the free week | In-app tier chooser (Standard €99 / Pro €289), lifetime 20% early-adopter discount auto-applied, the guarantee shown on Pro, referral prompt |
 
 ## Part 2 — Readiness checklist (gates before inviting a real gym)
 Self-serve is unforgiving, so these must be solid first:
@@ -44,11 +44,14 @@ Self-serve is unforgiving, so these must be solid first:
 2. **CSV import tested against real** Mindbody / Glofox / TeamUp / ABC exports
    (formats differ; the import path is generic CSV, the direct integration is a
    Mindbody stub).
-3. **Google Calendar booking live in prod** + OAuth consent screen published
-   (currently deliberately off in Vercel; the cold email now promises booking).
-4. **Default campaign copy** good enough in gym voice to approve unedited.
-5. **Free-week → Premium → lifetime discount → guarantee** all working
-   end-to-end in prod (test-verified locally; confirm in prod).
+3. **Google Calendar booking live in prod** + OAuth consent screen published —
+   **done 2026-09-03** (B1 + B2). Still needs one real end-to-end prod check
+   (Track C, C3).
+4. **Default campaign copy** good enough in gym voice to approve unedited —
+   met.
+5. **Free-week → Standard/Pro → 20% lifetime discount → guarantee (Pro)** all
+   working end-to-end in prod (code done; the live Stripe prices/coupon +
+   env vars are Davide's, F2; confirm in prod, C1).
 6. **Support FAQ** covers every wizard step; **empty/edge states** handled
    (no members imported, no calendar connected, zero lapsed members).
 

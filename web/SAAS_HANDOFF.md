@@ -26,10 +26,15 @@ practice / patient / appointment / dormant — was renamed throughout in the
   reachable in production** — V1 is invited-only, so the homepage stays behind
   the redirect until a separate "go fully public" decision.
 - **Email + billing env vars are set in Vercel Production** and `/app` serves:
-  `NEXT_PUBLIC_SUPABASE_*`, the live `STRIPE_*` set (secret key, 4 prices, 2
-  coupons, webhook secret), `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`,
-  `CRON_SECRET`. Email/password auth works in prod; auth transactional email
-  routes through Resend custom SMTP.
+  `NEXT_PUBLIC_SUPABASE_*`, `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`,
+  `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`, `CRON_SECRET`. Email/password
+  auth works in prod; auth transactional email routes through Resend custom
+  SMTP. **Not yet in Vercel (Track F, F2):** the 3-tier price ids
+  `STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` + `STRIPE_COUPON_PERCENT`
+  (the old 4-price / 2-coupon set the code used is retired). A *new* paid
+  upgrade can't complete in prod until these are created (test via
+  `scripts/stripe-setup.mjs`, live by hand) and set; existing paying gyms are
+  unaffected (`plan_tier` backfilled to `pro` by `0016`).
 - **Google Calendar is now wired in prod (2026-09-03, plan item B2 done).**
   `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` and
   `CALENDAR_TOKEN_KEY` are set in Vercel Production and deployed; Settings →
@@ -51,36 +56,43 @@ practice / patient / appointment / dormant — was renamed throughout in the
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
   eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0014`
   (`0011` dental→gym rename, `0012` at-risk campaigns, `0013` cancellation
-  reason, `0014` WhatsApp channel revival — Track E1). **`0011`–`0013` were
-  confirmed applied via a read-only probe (2026-09-03, plan item B3); `0014`
-  was applied the same day in a verified transaction over `SUPABASE_DB_URL`.**
+  reason, `0014` WhatsApp channel revival, `0015` booking overlap guard,
+  `0016` `plan_tier` for 3-tier pricing). **`0011`–`0013` confirmed applied via
+  a read-only probe (2026-09-03, plan item B3); `0014`/`0015`/`0016` applied
+  the same day in verified transactions over `SUPABASE_DB_URL`.**
 - **Vercel plan confirmed Hobby (2026-09-03, plan item B5 done).** The
   campaign-send cron in `vercel.json` runs once daily (`0 3 * * *`) to stay
   within the Hobby once-a-day cron cap; revert to hourly only if upgraded to Pro.
 
-## The offer model (implemented) — see `src/lib/plan.ts`
+## The offer model (implemented) — see `src/lib/plan.ts`, and `SAAS_V1_PLAN.md` §F0
 
-Trial → Free → Premium (Davide's "Offer evolution" in `CLAUDE.md`). The plan is
-**derived from the gym row, never stored** (`effectivePlan`), so it can't go
-stale; `capabilities(gym)` is the single source of truth for what a gym can do.
+**3 tiers as of 2026-09-03 (Track F): trial → Free → Standard/Pro.** The
+*access state* is **derived from the gym row, never stored** (`effectivePlan`);
+the *paid tier* is stored on `gyms.plan_tier` (migration `0016`), written by the
+Stripe webhook from the subscription price. `capabilities(gym)` is the single
+source of truth for what a gym can do — a per-plan table.
 
-- **Free week (trial):** a new signup gets 7 days of full Premium, **no card**.
+- **Free week (trial):** 7 days of the **full Pro feature set**, **no card**.
   Set at onboarding (`trial_ends_at`), casdey-managed, not a Stripe trial.
-- **Free plan** (after the week): deliberately limited, and this is the pull to
-  upgrade —
-  - can import and see the lapsed **count**, but **cannot send campaigns**;
-  - **lapsed identities are locked**: only the first `FREE_MEMBER_LIST_LIMIT`
-    (5) members are shown by name, the rest sit behind an upgrade card (the true
-    total is always visible);
-  - **member holding is capped**: `FREE_MEMBER_IMPORT_LIMIT` (50) total, a cap
-    on net-new members at import (re-imports that only update existing members
-    are never blocked). Both limits added 2026-09-03.
-- **Premium:** a real Stripe subscription (card taken at upgrade). £250/mo or
-  €290/mo, £225/€262 annually. V1/waitlist-window gyms get a **lifetime
-  discount** (£50/€59 off) applied automatically via per-currency coupons.
+- **Free plan** (after the week): import + see the lapsed **count**, **cannot
+  send**; only the first `FREE_MEMBER_LIST_LIMIT` (5) members shown by name;
+  `MEMBER_IMPORT_LIMIT.free` = **50** total (net-new cap at import).
+- **Standard — €99/mo** (£89; €990/yr): email win-back + at-risk campaigns,
+  casdey-owned booking, `MEMBER_IMPORT_LIMIT.standard` = **200**. No WhatsApp,
+  no guarantee.
+- **Pro — €289/mo** (£249; €2,890/yr): everything in Standard **plus the
+  WhatsApp channel and the profit-or-nothing guarantee**,
+  `MEMBER_IMPORT_LIMIT.pro` = **2,000** (capped, not unlimited — WhatsApp
+  opener cost, see §F0).
+- **Early-adopter discount:** a flat **lifetime 20% off** either paid tier — a
+  single currency-agnostic `STRIPE_COUPON_PERCENT` (replaces the old
+  per-currency £50/€59 fixed coupons; `couponIdFor()` still falls back to them).
+- **Existing "Premium" accounts → Pro** (backfilled by `0016`).
 - **Two env levers, not code:** `CASDEY_TRIAL_ENABLED` and
   `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` for V2).
   `early_adopter` is persisted per-gym so eligibility survives into V2.
+- **Not live yet:** the Stripe products/prices/coupon and their env vars —
+  `scripts/stripe-setup.mjs` builds the test-mode set; live is Davide's (F2).
 
 ## What's verified
 
