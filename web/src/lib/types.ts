@@ -50,8 +50,41 @@ export type CalendarProvider = "google";
 
 export type CalendarConnectionStatus = "active" | "revoked";
 
-/** A campaign's contact method. Email is the only channel in V1. */
-export type Channel = "email";
+/** A campaign's contact method. WhatsApp was revived for V1 (Track E1) after an
+ *  engaged outreach lead asked for it; email is still the default. */
+export type Channel = "email" | "whatsapp";
+
+export type WhatsAppConversationStatus =
+  | "active"
+  | "booking_requested"
+  | "opted_out"
+  | "closed";
+
+/** One WhatsApp thread per member. Mirrors supabase/migrations/
+ *  0014_whatsapp_channel_gym.sql. */
+export type WhatsAppConversation = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  gym_id: string;
+  member_id: string;
+  phone: string;
+  status: WhatsAppConversationStatus;
+  ai_turns_count: number;
+  last_inbound_at: string | null;
+  last_outbound_at: string | null;
+};
+
+export type WhatsAppMessage = {
+  id: string;
+  created_at: string;
+  conversation_id: string;
+  gym_id: string;
+  direction: "in" | "out";
+  body: string;
+  provider_message_id: string | null;
+  ai_generated: boolean;
+};
 
 export type Gym = {
   id: string;
@@ -100,6 +133,12 @@ export type Gym = {
   booking_horizon_days: number;
   /** Per-weekday open windows in the gym timezone. See BookingHours. */
   booking_hours: BookingHours;
+  /** Per-gym opt-in to the shared casdey WhatsApp sender (Track E1). Off by
+   *  default: the number is shared across every gym. See src/lib/whatsapp/. */
+  whatsapp_enabled: boolean;
+  /** Twilio Content SID of the Meta-approved template used for WhatsApp first
+   *  contact. Null blocks WhatsApp campaigns for this gym until it is set. */
+  whatsapp_template_name: string | null;
 };
 
 /** Weekday key -> list of [start, end] "HH:MM" open windows, gym-local. */
@@ -124,6 +163,9 @@ export type Member = {
   cancellation_reason: CancellationReason | null;
   cancelled_at: string | null;
   consent_email: boolean;
+  /** The gym asserts it may WhatsApp this member. False suppresses them from
+   *  every WhatsApp campaign, regardless of consent_email. See Track E1. */
+  consent_whatsapp: boolean;
   source: string;
   /** True only for the one synthetic per-gym member behind "send
    *  yourself a test" (src/lib/self-test.ts). Never a real person. */
@@ -141,8 +183,11 @@ export type Campaign = {
   status: CampaignStatus;
   kind: CampaignKind;
   channel: Channel;
+  /** Null for a WhatsApp campaign (no freeform first-contact copy). */
   subject: string | null;
   body: string | null;
+  /** Frozen Twilio Content SID for a WhatsApp campaign; null for email. */
+  whatsapp_template_name: string | null;
   language: string;
   audience: AudienceSnapshot;
   approved_at: string | null;

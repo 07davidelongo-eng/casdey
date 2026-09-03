@@ -31,6 +31,7 @@ export type AuditAction =
   | "campaign.paused"
   | "campaign.cancelled"
   | "member.unsubscribed"
+  | "whatsapp.settings_updated"
   | "booking.settings_updated"
   | "calendar.connected"
   | "calendar.disconnected"

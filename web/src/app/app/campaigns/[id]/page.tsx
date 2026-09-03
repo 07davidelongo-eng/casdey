@@ -5,6 +5,7 @@ import { requireGym } from "@/lib/dal";
 import { CampaignKindPill, CampaignPill } from "@/components/app/campaign-pill";
 import { CampaignControls } from "./controls";
 import { TestSendForm } from "./test-send-form";
+import { WhatsAppTestForm } from "./whatsapp-test-form";
 import {
   Card,
   CardTitle,
@@ -53,6 +54,8 @@ export default async function CampaignPage(
   const queued = counts.queued ?? 0;
   const sent = counts.sent ?? 0;
 
+  const isWhatsApp = campaign.channel === "whatsapp";
+
   return (
     <div className="max-w-[44rem]">
       <Link
@@ -79,7 +82,7 @@ export default async function CampaignPage(
         />
       </div>
 
-      {campaign.status !== "draft" ? (
+      {campaign.status !== "draft" && !isWhatsApp ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <Stat label="Sent" value={sent} tone="teal" />
           <Stat label="Still queued" value={queued} />
@@ -91,24 +94,55 @@ export default async function CampaignPage(
         </div>
       ) : null}
 
-      <Card>
-        <CardTitle>The message</CardTitle>
-        <div className="mt-4 rounded-[14px] border border-ash bg-paper p-5">
-          <p className="mb-4 border-b border-ash pb-3 text-[0.9375rem] font-semibold text-ink">
-            {campaign.subject}
-          </p>
-          <pre className="font-[family-name:var(--font-inter)] text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-graphite">
-            {campaign.body}
-          </pre>
+      {campaign.status !== "draft" && isWhatsApp ? (
+        <div className="mb-6">
+          <Stat
+            label="Openers sent"
+            value={campaign.audience?.memberCount ?? 0}
+            tone="teal"
+            hint="replies and the hand-off show on each member's page"
+          />
         </div>
-        <p className="field-hint">
-          Merge fields are filled in per member, and the unsubscribe line is
-          added to every message.
-        </p>
-      </Card>
+      ) : null}
+
+      {isWhatsApp ? (
+        <Card>
+          <CardTitle>The opener</CardTitle>
+          <p className="mt-2 text-[0.9375rem] text-graphite">
+            The first message is your Meta-approved template{" "}
+            <span className="literal">{campaign.whatsapp_template_name}</span>,
+            sent with your gym name filled in. After a member replies,
+            casdey&apos;s assistant continues the conversation and hands it to
+            you when they ask to book.
+          </p>
+        </Card>
+      ) : (
+        <Card>
+          <CardTitle>The message</CardTitle>
+          <div className="mt-4 rounded-[14px] border border-ash bg-paper p-5">
+            <p className="mb-4 border-b border-ash pb-3 text-[0.9375rem] font-semibold text-ink">
+              {campaign.subject}
+            </p>
+            <pre className="font-[family-name:var(--font-inter)] text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-graphite">
+              {campaign.body}
+            </pre>
+          </div>
+          <p className="field-hint">
+            Merge fields are filled in per member, and the unsubscribe line is
+            added to every message.
+          </p>
+        </Card>
+      )}
 
       <div className="mt-6">
-        <TestSendForm campaignId={campaign.id} email={session.email} />
+        {isWhatsApp ? (
+          <WhatsAppTestForm
+            campaignId={campaign.id}
+            whatsappEnabled={gym.whatsapp_enabled}
+          />
+        ) : (
+          <TestSendForm campaignId={campaign.id} email={session.email} />
+        )}
       </div>
 
       <div className="mt-6">

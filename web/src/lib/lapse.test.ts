@@ -35,6 +35,7 @@ function member(overrides: Partial<Member> = {}): Member {
     cancellation_reason: null,
     cancelled_at: null,
     consent_email: true,
+    consent_whatsapp: true,
     source: "csv",
     is_test: false,
     booking_token: "tok-p1",

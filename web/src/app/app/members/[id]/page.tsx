@@ -5,8 +5,14 @@ import { requireGym } from "@/lib/dal";
 import { isLapsed, monthsSince, ruleFor } from "@/lib/lapse";
 import { MemberTimeline } from "@/components/app/member-timeline";
 import { MemberActions } from "./actions-ui";
+import { WhatsAppConversationCard } from "./whatsapp-conversation";
 import { Card, Pill, formatDate, memberName } from "@/components/app/ui";
-import type { Member, MemberEventType } from "@/lib/types";
+import type {
+  Member,
+  MemberEventType,
+  WhatsAppConversationStatus,
+  WhatsAppMessage,
+} from "@/lib/types";
 
 type MemberEvent = {
   id: string;
@@ -53,6 +59,23 @@ export default async function MemberPage(
   const events = (eventRows ?? []) as MemberEvent[];
   const away = monthsSince(member.last_visit_at);
   const lapsed = isLapsed(member, ruleFor(gym));
+
+  // The WhatsApp thread, if this member has ever been contacted that way. RLS
+  // scopes both reads to the gym (see 0014_whatsapp_channel_gym.sql).
+  const { data: conversationRow } = await session.supabase
+    .from("whatsapp_conversations")
+    .select("id, status")
+    .eq("member_id", member.id)
+    .maybeSingle();
+
+  const { data: waMessageRows } = conversationRow
+    ? await session.supabase
+        .from("whatsapp_messages")
+        .select("id, created_at, conversation_id, gym_id, direction, body, provider_message_id, ai_generated")
+        .eq("conversation_id", conversationRow.id)
+        .order("created_at", { ascending: true })
+        .limit(100)
+    : { data: null };
 
   return (
     <div className="max-w-[46rem]">
@@ -105,6 +128,15 @@ export default async function MemberPage(
           </p>
         ) : null}
       </Card>
+
+      {conversationRow ? (
+        <div className="mt-6">
+          <WhatsAppConversationCard
+            status={conversationRow.status as WhatsAppConversationStatus}
+            messages={(waMessageRows ?? []) as WhatsAppMessage[]}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-6">
         <MemberActions

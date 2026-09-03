@@ -12,20 +12,28 @@ import {
   audienceSnapshot,
   buildAtRiskAudience,
   buildAudience,
+  buildWhatsAppAudience,
   queueCampaign,
 } from "@/lib/campaigns";
+import { sendWhatsAppCampaign } from "@/lib/whatsapp/campaign-send";
+import { whatsappProvider } from "@/lib/whatsapp/send";
+import { normalizePhoneForCountry } from "@/lib/ingestion/csv";
 import { capabilities } from "@/lib/plan";
 import { isLanguageCode } from "@/lib/languages";
 import { bookingUrl, emailProvider, unsubscribeUrl } from "@/lib/messaging";
 import { composeBody, contextFor, renderTemplate } from "@/lib/template";
 import { ensureTestMember } from "@/lib/self-test";
 import { isCancellationReason } from "@/lib/cancellation";
-import type { CampaignKind } from "@/lib/types";
+import type { CampaignKind, Channel } from "@/lib/types";
 
 export type CampaignState = { error: string | null };
 
 function parseKind(value: FormDataEntryValue | null): CampaignKind {
   return value === "at_risk" ? "at_risk" : "win_back";
+}
+
+function parseChannel(value: FormDataEntryValue | null): Channel {
+  return value === "whatsapp" ? "whatsapp" : "email";
 }
 
 const CreateSchema = z.object({
@@ -42,11 +50,19 @@ const CreateSchema = z.object({
     .default("en"),
 });
 
+const CreateWhatsAppSchema = z.object({
+  name: z.string().trim().min(2, "Give the campaign a name.").max(120),
+});
+
 export async function createCampaignAction(
   _previous: CampaignState,
   formData: FormData,
 ): Promise<CampaignState> {
   const { gym, session } = await requireActiveGym();
+
+  if (parseChannel(formData.get("channel")) === "whatsapp") {
+    return createWhatsAppCampaign(gym, session, formData);
+  }
 
   const parsed = CreateSchema.safeParse({
     name: formData.get("name"),
@@ -109,6 +125,73 @@ export async function createCampaignAction(
     action: "campaign.created",
     target: data.id as string,
     meta: { audience: audience.length },
+  });
+
+  redirect(`/app/campaigns/${data.id}`);
+}
+
+/**
+ * A WhatsApp campaign has no freeform copy: the opener is the gym's
+ * Meta-approved template, frozen onto the campaign row so a later template
+ * change in settings cannot rewrite what a sent campaign used. Win-back only
+ * for V1. Both the switch (Settings → WhatsApp on) and the template SID must
+ * be set, mirroring the client-side guard.
+ */
+async function createWhatsAppCampaign(
+  gym: Awaited<ReturnType<typeof requireActiveGym>>["gym"],
+  session: Awaited<ReturnType<typeof requireActiveGym>>["session"],
+  formData: FormData,
+): Promise<CampaignState> {
+  if (!gym.whatsapp_enabled || !gym.whatsapp_template_name) {
+    return {
+      error:
+        "WhatsApp is not fully set up. Turn it on and add your approved template SID in Settings → WhatsApp.",
+    };
+  }
+
+  const parsed = CreateWhatsAppSchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  }
+
+  const audience = await buildWhatsAppAudience(gym.id, ruleFor(gym));
+  if (audience.length === 0) {
+    return {
+      error:
+        "Nobody matches right now. Either no member has gone quiet or cancelled, or none of them have a phone number on file and WhatsApp consent.",
+    };
+  }
+
+  const { data, error } = await supabaseAdmin()
+    .from("campaigns")
+    .insert({
+      gym_id: gym.id,
+      created_by: session.userId,
+      name: parsed.data.name,
+      kind: "win_back",
+      channel: "whatsapp",
+      subject: null,
+      body: null,
+      whatsapp_template_name: gym.whatsapp_template_name,
+      language: "en",
+      status: "draft",
+      audience: audienceSnapshot(gym, audience.length, { kind: "win_back" }),
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("[campaign] whatsapp create failed", error?.message);
+    return { error: "We could not save that campaign. Try again." };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "campaign.created",
+    target: data.id as string,
+    meta: { audience: audience.length, channel: "whatsapp" },
   });
 
   redirect(`/app/campaigns/${data.id}`);
@@ -244,6 +327,120 @@ export async function sendTestAction(
   return { error: null, sentTo: session.email };
 }
 
+export type WhatsAppTestState = { error: string | null; sentTo: string | null };
+
+/**
+ * The WhatsApp side of the client self-test. Unlike the email test there is no
+ * single obvious "my own address" to default to, so the gym types the number
+ * to test with. What lands there is the real approved template, and replying
+ * to it rides the exact same webhook → AI loop → hand-off path a real
+ * member's reply would. It reuses the synthetic self-test member for the
+ * conversation FK, so it never touches a real member or a real audience.
+ */
+export async function sendWhatsAppTestAction(
+  _previous: WhatsAppTestState,
+  formData: FormData,
+): Promise<WhatsAppTestState> {
+  const { gym, session } = await requireActiveGym();
+  const campaignId = String(formData.get("campaignId") ?? "");
+  const rawPhone = String(formData.get("phone") ?? "").trim();
+
+  if (!gym.whatsapp_enabled || !gym.whatsapp_template_name) {
+    return { error: "WhatsApp is not set up for this gym.", sentTo: null };
+  }
+  if (!session.email) {
+    return {
+      error: "Your account has no email address, which the test member needs.",
+      sentTo: null,
+    };
+  }
+  if (!rawPhone) {
+    return { error: "Enter the number to test with.", sentTo: null };
+  }
+
+  const phone = normalizePhoneForCountry(rawPhone, gym.country);
+  const client = supabaseAdmin();
+
+  const { data: campaign } = await client
+    .from("campaigns")
+    .select("id, channel")
+    .eq("id", campaignId)
+    .eq("gym_id", gym.id)
+    .maybeSingle();
+
+  if (!campaign || campaign.channel !== "whatsapp") {
+    return { error: "That WhatsApp campaign no longer exists.", sentTo: null };
+  }
+
+  let member;
+  try {
+    member = await ensureTestMember(gym, session.email);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not prepare a test send.";
+    return { error: message, sentTo: null };
+  }
+
+  const { data: conversation, error: conversationError } = await client
+    .from("whatsapp_conversations")
+    .upsert(
+      {
+        gym_id: gym.id,
+        member_id: member.id,
+        phone,
+        status: "active",
+      },
+      { onConflict: "gym_id,member_id" },
+    )
+    .select("id")
+    .single();
+
+  if (conversationError || !conversation) {
+    console.error("[campaign] wa test conversation failed", conversationError?.message);
+    return { error: "Could not prepare a test send. Try again.", sentTo: null };
+  }
+
+  try {
+    const result = await whatsappProvider().sendTemplate({
+      to: phone,
+      templateSid: gym.whatsapp_template_name,
+      params: { "1": gym.name },
+    });
+
+    await client.from("whatsapp_messages").insert({
+      conversation_id: conversation.id,
+      gym_id: gym.id,
+      direction: "out",
+      body: `[template ${gym.whatsapp_template_name}: ${gym.name}]`,
+      provider_message_id: result.providerMessageId,
+      ai_generated: false,
+    });
+
+    await client
+      .from("whatsapp_conversations")
+      .update({ last_outbound_at: new Date().toISOString(), phone })
+      .eq("id", conversation.id);
+  } catch (sendError) {
+    console.error("[campaign] wa test send failed", sendError);
+    return {
+      error:
+        "The test could not be sent. WhatsApp sending may not be configured for this environment yet.",
+      sentTo: null,
+    };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "campaign.test_sent",
+    target: campaignId,
+    meta: { channel: "whatsapp" },
+  });
+
+  return { error: null, sentTo: phone };
+}
+
 /**
  * Approval is the point of no return, so it is a deliberate, separate act by a
  * person at the gym. Nothing casdey does sends a member an email that
@@ -268,7 +465,7 @@ export async function approveCampaignAction(
 
   const { data: campaign } = await client
     .from("campaigns")
-    .select("id, status, kind, audience")
+    .select("id, status, kind, channel, whatsapp_template_name, audience")
     .eq("id", campaignId)
     .eq("gym_id", gym.id)
     .maybeSingle();
@@ -276,6 +473,10 @@ export async function approveCampaignAction(
   if (!campaign) return { error: "That campaign no longer exists." };
   if (campaign.status !== "draft") {
     return { error: "That campaign has already been approved." };
+  }
+
+  if (campaign.channel === "whatsapp") {
+    return approveWhatsAppCampaign(gym, session, campaignId, campaign);
   }
 
   // Rebuilt now rather than reusing the count from when the draft was written:
@@ -333,6 +534,80 @@ export async function approveCampaignAction(
     action: "campaign.approved",
     target: campaignId,
     meta: { queued },
+  });
+
+  revalidatePath("/app", "layout");
+  return { error: null };
+}
+
+/**
+ * A WhatsApp campaign is not a drip queue: it is a batch of template openers
+ * sent in one pass (see src/lib/whatsapp/campaign-send.ts), because the
+ * volumes are low and a template send is a one-shot conversation opener, not
+ * a resend shape. So approval sends it right here and the campaign lands in
+ * "sent", not "sending". The audience is rebuilt now, same reasoning as the
+ * email path.
+ */
+async function approveWhatsAppCampaign(
+  gym: Awaited<ReturnType<typeof requireActiveGym>>["gym"],
+  session: Awaited<ReturnType<typeof requireActiveGym>>["session"],
+  campaignId: string,
+  campaign: { whatsapp_template_name: string | null },
+): Promise<CampaignState> {
+  if (!campaign.whatsapp_template_name) {
+    return { error: "This campaign has no approved template on file." };
+  }
+  if (!gym.whatsapp_enabled) {
+    return { error: "WhatsApp is turned off for this gym. Turn it back on to send." };
+  }
+
+  const client = supabaseAdmin();
+  const audience = await buildWhatsAppAudience(gym.id, ruleFor(gym));
+  if (audience.length === 0) {
+    return { error: "Nobody matches any more, so there is nothing to send." };
+  }
+
+  let report: { sent: number; failed: number };
+  try {
+    report = await sendWhatsAppCampaign({
+      gym,
+      audience,
+      templateSid: campaign.whatsapp_template_name,
+    });
+  } catch (error) {
+    console.error("[campaign] whatsapp send failed", error);
+    return {
+      error:
+        "We could not send that WhatsApp campaign. It may be that WhatsApp sending is not configured for this environment yet.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await client
+    .from("campaigns")
+    .update({
+      status: "sent",
+      approved_at: now,
+      approved_by: session.userId,
+      started_at: now,
+      completed_at: now,
+      audience: audienceSnapshot(gym, audience.length, { kind: "win_back" }),
+    })
+    .eq("id", campaignId)
+    .eq("gym_id", gym.id);
+
+  if (error) {
+    console.error("[campaign] whatsapp approve update failed", error.message);
+    return { error: "The messages were sent but we could not update the campaign." };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "campaign.approved",
+    target: campaignId,
+    meta: { channel: "whatsapp", sent: report.sent, failed: report.failed },
   });
 
   revalidatePath("/app", "layout");

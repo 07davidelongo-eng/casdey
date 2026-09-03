@@ -163,6 +163,22 @@ export default function ProcessingTermsPage() {
                   Google in the United States. A gym that does not connect a
                   calendar shares nothing with Google.
                 </>,
+                <>
+                  <strong className="font-semibold text-ink">Twilio</strong>,
+                  only if the gym turns on the WhatsApp channel, for sending and
+                  receiving WhatsApp messages. It receives the member&apos;s
+                  phone number and the message text, and processes them in the
+                  United States. A gym that leaves WhatsApp off shares nothing
+                  with Twilio.
+                </>,
+                <>
+                  <strong className="font-semibold text-ink">Anthropic</strong>,
+                  only for the WhatsApp channel, to write the replies in a
+                  conversation once a member has answered. It receives the text
+                  of that conversation and the gym&apos;s name, processes them in
+                  the United States, and is contractually barred from training
+                  on them. Not used for email.
+                </>,
               ]}
             />
 

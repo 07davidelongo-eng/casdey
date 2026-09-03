@@ -37,6 +37,8 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     booking_min_notice_hours: 24,
     booking_horizon_days: 21,
     booking_hours: {},
+    whatsapp_enabled: false,
+    whatsapp_template_name: null,
     ...overrides,
   };
 }

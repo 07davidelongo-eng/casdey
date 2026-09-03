@@ -135,6 +135,78 @@ export async function buildAudience(
 }
 
 /**
+ * The WhatsApp win-back audience (Track E1). Same lapsed + cancelled logic as
+ * buildAudience, but gated on a phone number and consent_whatsapp instead of
+ * an email address and consent_email, and suppressed against
+ * whatsapp_suppressions (phone-keyed) instead of suppressions (email-keyed).
+ * WhatsApp campaigns are win-back only for V1: no at-risk variant, no
+ * reason-scoped filter.
+ */
+export async function buildWhatsAppAudience(
+  gymId: string,
+  rule: LapseRule,
+  now: Date = new Date(),
+): Promise<AudienceMember[]> {
+  const client = supabaseAdmin();
+
+  type AudienceResult = {
+    data: AudienceMember[] | null;
+    error: { code: string; message: string } | null;
+  };
+
+  async function lapsedBranch(): Promise<AudienceResult> {
+    const { data, error } = await client
+      .from("members")
+      .select(AUDIENCE_COLUMNS)
+      .eq("gym_id", gymId)
+      .eq("is_test", false)
+      .eq("consent_whatsapp", true)
+      .not("phone", "is", null)
+      .neq("status", "opted_out")
+      .lte("visit_count", rule.maxVisits)
+      .lte("last_visit_at", lapseCutoff(rule, now));
+    return { data: data as AudienceMember[] | null, error };
+  }
+
+  async function cancelledBranch(): Promise<AudienceResult> {
+    const { data, error } = await client
+      .from("members")
+      .select(AUDIENCE_COLUMNS)
+      .eq("gym_id", gymId)
+      .eq("is_test", false)
+      .eq("consent_whatsapp", true)
+      .not("phone", "is", null)
+      .neq("status", "opted_out")
+      .neq("status", "returned")
+      .not("cancellation_reason", "is", null);
+    return { data: data as AudienceMember[] | null, error };
+  }
+
+  const results = await Promise.all([lapsedBranch(), cancelledBranch()]);
+
+  const byId = new Map<string, AudienceMember>();
+  for (const { data, error } of results) {
+    if (error) {
+      throw new Error(`whatsapp audience query failed: ${error.code} ${error.message}`);
+    }
+    for (const member of data ?? []) byId.set(member.id, member);
+  }
+
+  if (byId.size === 0) return [];
+
+  const { data: suppressed } = await client
+    .from("whatsapp_suppressions")
+    .select("phone")
+    .eq("gym_id", gymId);
+
+  const blocked = new Set((suppressed ?? []).map((row) => String(row.phone)));
+
+  return [...byId.values()]
+    .filter((member) => member.phone !== null && !blocked.has(member.phone))
+    .sort((a, b) => (a.last_visit_at ?? "").localeCompare(b.last_visit_at ?? ""));
+}
+
+/**
  * At-risk audience: still-active members whose last visit fell inside the
  * gym's at-risk window but hasn't yet crossed the lapse cutoff. See
  * isAtRisk in src/lib/lapse.ts for why these two ranges never overlap.

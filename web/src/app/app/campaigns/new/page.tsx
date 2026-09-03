@@ -1,6 +1,10 @@
 import { requireGym } from "@/lib/dal";
 import { atRiskRuleFor, ruleFor } from "@/lib/lapse";
-import { buildAtRiskAudience, buildAudience } from "@/lib/campaigns";
+import {
+  buildAtRiskAudience,
+  buildAudience,
+  buildWhatsAppAudience,
+} from "@/lib/campaigns";
 import { bookingUrl, emailProvider } from "@/lib/messaging";
 import { languageForCountry } from "@/lib/languages";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -12,9 +16,10 @@ export const metadata = { title: "New campaign" };
 export default async function NewCampaignPage() {
   const { gym } = await requireGym();
 
-  const [winBackAudience, atRiskAudience] = await Promise.all([
+  const [winBackAudience, atRiskAudience, whatsAppAudience] = await Promise.all([
     buildAudience(gym.id, ruleFor(gym)),
     buildAtRiskAudience(gym.id, atRiskRuleFor(gym)),
+    buildWhatsAppAudience(gym.id, ruleFor(gym)),
   ]);
   const provider = emailProvider();
 
@@ -30,7 +35,10 @@ export default async function NewCampaignPage() {
         .maybeSingle()
     : { data: null };
 
-  const nothingToShow = winBackAudience.length === 0 && atRiskAudience.length === 0;
+  const nothingToShow =
+    winBackAudience.length === 0 &&
+    atRiskAudience.length === 0 &&
+    whatsAppAudience.length === 0;
 
   return (
     <div className="max-w-[44rem]">
@@ -68,6 +76,9 @@ export default async function NewCampaignPage() {
             replyTo={gym.reply_to_email ?? gym.contact_email}
             winBackAudienceCount={winBackAudience.length}
             atRiskAudienceCount={atRiskAudience.length}
+            whatsAppAudienceCount={whatsAppAudience.length}
+            whatsAppEnabled={gym.whatsapp_enabled}
+            whatsAppTemplateSet={Boolean(gym.whatsapp_template_name)}
             dailyCap={gym.daily_send_cap}
             winBackSample={
               winBackAudience[0]
