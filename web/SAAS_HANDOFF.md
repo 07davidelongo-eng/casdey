@@ -1,250 +1,133 @@
 # casdey SaaS — build handoff
 
 What the product is, how the offer works in code, what's verified, and the
-exact steps left to go live. Design rationale for the original build is in the
-plan at `.claude/plans/claude-so-this-session-melodic-wren.md`.
+env vars needed to run it. Rewritten 2026-09-03 for the gym/fitness product
+(the earlier version described the pre-pivot dental build and is superseded).
+
+> **The path to a ready V1 lives in `SAAS_V1_PLAN.md`** (the single source of
+> truth: Track A build / B ops / C prod-verify / D Davide's walkthrough).
+> Business, pricing, infrastructure and outreach context live in the root
+> `CLAUDE.md`. This file is the product/deployment reference those two point at.
 
 ## What it is
 
-The product the marketing site promises, built into the same Next.js app under
-`/app`: accounts (email/password + Google), patient CSV import, dormant-patient
-detection, re-engagement email campaigns, Stripe-billed Premium, and the GDPR
-controls patient data requires. All additive: new routes/files only, so the
-landing and waitlist pages are untouched.
+A SaaS for **gyms and fitness studios**: it finds **lapsed members** (came once
+or twice, or cancelled, and never came back), re-engages them by email in the
+gym's own name, and books returns straight into the gym's calendar. Built into
+the same Next.js app as the marketing site, under `/app`. Domain model:
+**gym / member / booking / service / lapsed / returned** (the dental model —
+practice / patient / appointment / dormant — was renamed throughout in the
+2026-08 pivot; see `CLAUDE.md`).
 
-## Deployment state (as of 2026-08-17)
+## Deployment state (as of 2026-09-03)
 
-- **Landing + waitlist were LIVE** at https://casdey.com (Vercel, `main`, DNS
-  moved off GoDaddy; Zoho email untouched) as of this snapshot. Both are now
-  mid-pivot (dental to gym/fitness); see `CLAUDE.md`'s "Niche pivot" section
-  for the current routing and copy state, not reflected here.
-  **Correction (2026-08-19):** the "Pro Trial, running 13–27 Aug 2026" claim
-  below is no longer trusted, a Hobby-plan cron limit was hit in production
-  on 2026-08-19, which shouldn't happen on a Pro account. Vercel had a card
-  on file but was showing as "Pro Trial" in billing as of 2026-08-17, not yet
-  auto-converted or manually converted to paid; the actual plan needs
-  confirming directly on the Vercel billing page, see `CLAUDE.md`'s Vercel
-  infrastructure bullet for the full outage this surfaced.
-- **The SaaS's email + billing env vars are set in Vercel Production and prod
-  has been redeployed (2026-08-17), so `/app` and `/login` now serve**
-  — `NEXT_PUBLIC_SUPABASE_*`, the full `STRIPE_*` set (live keys, 4 prices, 2
-  coupons, webhook secret), `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`, and
-  `CRON_SECRET`. Two production-only bugs were found and fixed getting here:
-  (1) `NEXT_PUBLIC_SUPABASE_URL` in Vercel carried a `/rest/v1` suffix (the
-  documented gotcha) and broke prod auth — corrected in Vercel, and the Supabase
-  clients now reject that suffix in code; (2) Supabase Auth's Site URL was still
-  `localhost:3000` with an empty redirect allowlist (breaking OAuth + email
-  links) — set to `https://casdey.com` + a `casdey.com/**` allowlist. Email/
-  password auth is confirmed working in prod. **Signup/reset email now works**
-  too: Supabase Auth was on its free-tier shared SMTP (silently non-delivering),
-  now switched to custom SMTP → Resend (`smtp.resend.com:465`, user `resend`,
-  sender `no-reply@mail.casdey.com`). A **password-reset flow** was also added
-  2026-08-17 (there was none): `/reset-password` + `/api/auth/reset-password` +
-  a "Forgot password?" link. Still unverified/gated: the Google OAuth consent
-  screen (shared by login + Calendar) is still in Testing, which limits real
-  Google sign-ins to test users until it's published/verified.
+- **Marketing homepage `/`** redirects to `/waitlist` in production (gym-facing
+  waitlist). **`/app`, `/login`, `/book/*`, `/u/*`, `/terms/*`, `/privacy` are
+  reachable in production** — V1 is invited-only, so the homepage stays behind
+  the redirect until a separate "go fully public" decision.
+- **Email + billing env vars are set in Vercel Production** and `/app` serves:
+  `NEXT_PUBLIC_SUPABASE_*`, the live `STRIPE_*` set (secret key, 4 prices, 2
+  coupons, webhook secret), `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`,
+  `CRON_SECRET`. Email/password auth works in prod; auth transactional email
+  routes through Resend custom SMTP.
+- **Google Calendar is NOT wired in prod yet.** `GOOGLE_CALENDAR_*` and
+  `CALENDAR_TOKEN_KEY` are deliberately absent from Vercel, so the booking loop
+  is inert in production until they're added (plan item B2, after the OAuth
+  consent screen is verified, B1). Booking works locally, where they are set.
+- **WhatsApp was removed in the pivot** (gyms don't fit the channel). The code
+  is recoverable from git history if the niche ever wants it; it is not part of
+  the current product.
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
-  eu-west-1 — corrected 2026-08-15, earlier docs said Frankfurt) backs both
-  the waitlist and the SaaS. Migrations through `0010` are **applied** (run
-  directly via `pg`, since the earlier SQL-editor attempts only ever applied
-  fragments — that saga is resolved). `0007` is the guarantee, `0008` is the
-  self-test patient flag, `0009` is the WhatsApp channel, `0010` is the
-  booking/calendar loop (see below).
+  eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0013`
+  (`0011` dental→gym rename, `0012` at-risk campaigns, `0013` cancellation
+  reason). Whether `0011`–`0013` are applied to the live project is unconfirmed
+  (plan item B3) — prod `/app` working suggests they are, but confirm directly.
+- **Vercel plan** (Hobby vs Pro) is unconfirmed; the campaign-send cron in
+  `vercel.json` runs once daily to stay within the Hobby limit (plan item B5).
 
 ## The offer model (implemented) — see `src/lib/plan.ts`
 
-Trial → Free → Premium, per Davide's "Offer evolution" in CLAUDE.md:
+Trial → Free → Premium (Davide's "Offer evolution" in `CLAUDE.md`). The plan is
+**derived from the gym row, never stored** (`effectivePlan`), so it can't go
+stale; `capabilities(gym)` is the single source of truth for what a gym can do.
 
-- **Free week (trial):** a new signup in the V1/waitlist window gets 7 days of
-  full Premium, **no card taken**. Set at onboarding (`trial_ends_at`), managed
-  by casdey, never by Stripe.
-- **Free plan:** when the week ends the account drops to Free. Free **can import
-  its list and see who's dormant** (the teaser) but **cannot send campaigns**
-  (the gated action). Nothing is charged on Free.
-- **Premium:** a real Stripe subscription entered by upgrading (card taken
-  then). £250/mo or €290/mo, £225/€262 annually. Early-adopter practices get a
-  **lifetime discount** (£50/€59 off, forever) applied automatically at
-  checkout via per-currency Stripe coupons.
-- **V2 later:** the free week retires for new signups; existing early adopters
-  keep their discount.
+- **Free week (trial):** a new signup gets 7 days of full Premium, **no card**.
+  Set at onboarding (`trial_ends_at`), casdey-managed, not a Stripe trial.
+- **Free plan** (after the week): deliberately limited, and this is the pull to
+  upgrade —
+  - can import and see the lapsed **count**, but **cannot send campaigns**;
+  - **lapsed identities are locked**: only the first `FREE_MEMBER_LIST_LIMIT`
+    (5) members are shown by name, the rest sit behind an upgrade card (the true
+    total is always visible);
+  - **member holding is capped**: `FREE_MEMBER_IMPORT_LIMIT` (50) total, a cap
+    on net-new members at import (re-imports that only update existing members
+    are never blocked). Both limits added 2026-09-03.
+- **Premium:** a real Stripe subscription (card taken at upgrade). £250/mo or
+  €290/mo, £225/€262 annually. V1/waitlist-window gyms get a **lifetime
+  discount** (£50/€59 off) applied automatically via per-currency coupons.
+- **Two env levers, not code:** `CASDEY_TRIAL_ENABLED` and
+  `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` for V2).
+  `early_adopter` is persisted per-gym so eligibility survives into V2.
 
-Key design points:
-- **Plan is derived, never stored** — `effectivePlan(practice)` decides from
-  `subscription_status` + `trial_ends_at`. Same philosophy as dormancy: no
-  stale flags. `capabilities(practice)` is the single source of truth for
-  `canSendCampaigns`.
-- **Two levers are env flags, not code:** `CASDEY_TRIAL_ENABLED` and
-  `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` in
-  Vercel for V2). `early_adopter` is persisted per-practice so eligibility
-  survives into V2.
-- **The offer is expected to keep changing** — the model is centralized in
-  `plan.ts` for exactly that reason.
+## What's verified
 
-### Still an open product decision
-The Free plan's limits are currently: **import + view dormant = yes, send =
-no**, and nothing else restricted. That's a sensible default that creates the
-upgrade pull, but the exact shape ("A LOT of limitations" per Davide) is a
-product call — e.g. a patient-count cap, or capping the dormant list preview.
-Those are easy to add in `capabilities()` when decided.
+- `tsc` / `lint` / `next build` clean; **`npm run test` 135/135** as of
+  2026-09-03 (dormancy/lapse, CSV parsing + platform headers, phone
+  normalisation, the plan model, the Free import cap, the setup checklist,
+  calendar availability, and more — the number is a floor, it moves per session).
+- The **full customer path was walked end-to-end pre-pivot** (2026-08-16):
+  signup → import → lapsed detection → campaign → Stripe checkout → guarantee
+  claim → refund → Google Calendar booking. **It has NOT been re-walked in
+  production since the gym rebuild** — that is plan Track C (prod verification)
+  and Track D (Davide's walkthrough).
+- The self-serve onboarding surfaces (first-run setup checklist, import wizard,
+  Free-plan locks, booking fail-closed, support FAQ) were verified in the local
+  browser 2026-09-03.
 
-## Verified
-
-- `npx tsc --noEmit`, `npm run lint`, `npm run build` — all clean
-- `npm run test` — **113/113 pass** as of 2026-08-16 (dormancy rules, CSV
-  parsing incl. phone normalisation, the plan model, calendar/booking, and
-  more — this number moves every session, treat it as a floor)
-- The onboarding RPC path was exercised end-to-end against the live DB
-  (create_practice via the API, then cleaned up)
-- Login page + auth handshake render; `/app/*` correctly redirects to `/login`
-- **The full customer path was walked end-to-end 2026-08-16** as a genuinely
-  fresh signup (not the existing `test@casdey.com` fixture): signup → email
-  confirmation → onboarding → CSV import → dormancy detection → campaign
-  build/send → real Stripe Checkout to Premium → guarantee claim → real
-  Stripe refund, plus the WhatsApp inbound webhook and the Google Calendar
-  booking loop. Found and fixed 5 real bugs along the way — see the dated
-  bullets in `CLAUDE.md` Stage 2 progress and `SAAS_ROADMAP.md` items #2 and
-  #8 for detail. A second permanent test fixture, "Stress Test Dental
-  Clinic", now exists in the live Supabase project and Stripe test mode
-  alongside `test@casdey.com`/"Bridge Street Dental", complete with a
-  completed guarantee-refund cycle in its history.
-
-The upgrade-with-discount half of the loop (Free send-gate → upgrade → send)
-was verified for real 2026-08-16 as part of the full-path walk above — no
-longer the open item it once was here.
-
-The rest of the loop **was** walked end-to-end on 2026-08-14 (signup → free
-week → import → build a campaign → approve → real send attempt) with a fake
-12-patient CSV against the local dev server. Import and dormancy detection
-worked exactly as designed (8/12 correctly flagged dormant). The send itself
-surfaced the gap below.
-
-### Go-live blocker: campaign email has no per-practice sending identity — fixed locally 2026-08-15
-`emailProvider()` in `src/lib/messaging.ts` picks Zoho whenever `RESEND_API_KEY`
-is unset. Zoho can only send as **casdey's own `info@casdey.com`**, not the
-practice, and per the code's own comment it **cannot set a reply-to at all**
-("Zoho rejects any reply-to address it has not verified, which an arbitrary
-practice inbox never will be").
-
-Confirmed live on 2026-08-14: approving a test campaign queued 8 real send
-attempts through the real Zoho account. Zoho rejected all 8 with `550 5.4.6
-Unusual sending activity detected`, its abuse/rate-limit trigger, almost
-certainly because this is the **same Zoho account the real cold-outreach
-automation sends cold emails from** — a second unrelated burst read as spam
-activity.
-
-**Fixed locally 2026-08-15:** created a Resend account, added `mail.casdey.com`
-as a verified sending domain (a subdomain, so Zoho's own MX/SPF/DKIM on the
-root `casdey.com` are untouched), added the required DNS records at GoDaddy,
-and set `RESEND_API_KEY` + `CASDEY_SENDING_ADDRESS=no-reply@mail.casdey.com`
-in `web/.env.local`. Confirmed locally: the campaign builder's "replies go to
-casdey" warning no longer renders, meaning `emailProvider()` now picks Resend.
-
-**Still open before real practices can send:** the two env vars
-(`RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`) were added to **Vercel**
-production on 2026-08-17 and production has since been redeployed, so the send
-path is live in prod — but no real send through Resend has been tested against
-production yet (a real self-test + approved campaign was confirmed working
-locally 2026-08-16, as part of the full-path walk in Verified above). Note the
-2026-08-17 stress-test hardening: `siteUrl()` now throws in production if
-`NEXT_PUBLIC_SITE_URL` is missing rather than baking `localhost` into
-unsubscribe/booking links, and the cron drain claims each row atomically so
-overlapping runs can't double-send.
-
-## To go live / to test the full flow — env vars
+## To run / go live — env vars
 
 In `web/.env.local` (local) or Vercel (production):
 
-- **Supabase Auth:** `NEXT_PUBLIC_SUPABASE_URL` (bare project URL, not
-  `/rest/v1`), `NEXT_PUBLIC_SUPABASE_ANON_KEY`. *(Set locally, and in Vercel
-  Production as of 2026-08-17.)*
-- **Google OAuth:** create an OAuth client, paste into Supabase → Auth →
-  Providers → Google, register the callback URL. Email/password works without
-  it; the Google button needs it. *(Client created and enabled in Supabase —
-  see Stage 2 progress in CLAUDE.md — but whether its consent screen is
-  Published rather than stuck in Testing mode is still unchecked as of
-  2026-08-17; Testing mode would block real Google sign-ins.)*
-- **Stripe:** `STRIPE_SECRET_KEY`, the four `STRIPE_PRICE_*`, and the two
-  `STRIPE_COUPON_*` ids. *(Test-mode set locally via `scripts/stripe-setup.mjs`
-  — idempotent, but the script deliberately refuses to run against a live key.
-  Live-mode product/prices/coupons were created by hand in the Stripe
-  dashboard on 2026-08-17 to match the test-mode spec, and all six live ids
-  are now set in Vercel Production.)*
-- **`STRIPE_WEBHOOK_SECRET`** from `stripe listen --forward-to
-  localhost:3000/api/stripe/webhook` (local) or the endpoint secret (prod).
-  Without it, an upgrade won't sync back to `subscription_status`. The prod
-  endpoint must have **`invoice.paid`** enabled alongside the subscription
-  events (added 2026-08-15 for the guarantee, see `SAAS_ROADMAP.md` #8) — without
-  it, `practices.premium_started_at` and `subscription_payments` never get
-  written, and the guarantee can never start or find anything to refund. That
-  handler also fetches the invoice with `expand: ["payments"]` (fixed
-  2026-08-16, see `SAAS_ROADMAP.md` #8) — without it Stripe's API omits the
-  payment/charge id entirely, so a refund would have nothing to target. *(A
-  live endpoint, "casdey production" → `https://casdey.com/api/stripe/webhook`,
-  was created 2026-08-17 listening to exactly `checkout.session.completed`,
-  the three `customer.subscription.*` events, `invoice.paid`, and
-  `invoice.payment_failed`; its signing secret is set in Vercel Production.)*
-- **`RESEND_API_KEY`** (optional): without it, campaign email sends via Zoho,
-  which can't set a per-practice reply-to. With it + casdey.com verified,
-  replies land in the practice's own inbox. *(Set in Vercel Production as of
-  2026-08-17.)*
-- **`CRON_SECRET`** guards `POST /api/cron/send` (drains the send queue).
-  `web/vercel.json` registers the hourly Vercel cron hitting that path (added
-  2026-08-17). *(`CRON_SECRET` itself is now also set in Vercel Production as
-  of 2026-08-17 — both halves are done and production has been redeployed, so the
-  cron is live.)*
-- **Offer flags** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT`:
-  leave unset for V1; `"false"` for V2.
-- **WhatsApp (roadmap #2, built 2026-08-15, set locally, not yet live in
-  production):** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
-  `TWILIO_WHATSAPP_FROM` (E.164, no `whatsapp:` prefix — the code adds it),
-  and `ANTHROPIC_API_KEY` for the AI reply loop (`CASDEY_WHATSAPP_AI_MODEL`
-  optionally overrides the default `claude-haiku-4-5-20251001`) are all set
-  in `web/.env.local` (Twilio trial sandbox credentials; the Anthropic key is
-  a real key on the "casdey" Console org, which still has a **$0 credit
-  balance** — needs funds added before AI replies actually work, confirmed
-  still blocking as of 2026-08-16). None are set on Vercel. WhatsApp sending
-  is one shared casdey Twilio number for every practice (see
-  `src/lib/whatsapp/`), and going live for real (outside Twilio's WhatsApp
-  Sandbox) additionally needs Twilio WhatsApp Business API access, Meta
-  Business verification, and at least one Meta-approved message template (its
-  Content SID goes in Settings → WhatsApp per practice, not in an env var) —
-  external, manual steps Davide has to complete himself, same class of setup
-  as the Resend domain verification above. Twilio's inbound webhook must
-  point at `/api/whatsapp/webhook`.
-- **Google Calendar / booking loop (built 2026-08-15, wired and live-verified
-  2026-08-16):** `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`
-  (the existing "casdey web" OAuth client from Google sign-in above, reused —
-  same Google Cloud project, with the Calendar scopes added to its consent
-  screen and both `http://localhost:3000/api/calendar/google/callback` and
-  the `casdey.com` equivalent added as authorised redirect URIs), and
-  `CALENDAR_TOKEN_KEY` (a random AES-256 key that encrypts each practice's
-  stored Google tokens at rest — generate with `node -e
-  "console.log(require('crypto').randomBytes(32).toString('base64'))"`). All
-  three set in `web/.env.local`, not on Vercel. Without them, Settings →
-  Booking shows "not set up" rather than erroring — the rest of booking
-  (self-serve slot picker, casdey's own record of the appointment) works
-  without a connected calendar, it just cannot see or write to Google.
+- **Supabase:** `NEXT_PUBLIC_SUPABASE_URL` (bare project URL, **not** with a
+  `/rest/v1` suffix — the code now rejects that), `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+- **Google OAuth (sign-in):** an OAuth client in Supabase → Auth → Providers →
+  Google. Email/password works without it; the Google button needs it. The
+  consent screen must be published/verified (plan B1) for real prospects.
+- **Stripe:** `STRIPE_SECRET_KEY`, four `STRIPE_PRICE_*`, two `STRIPE_COUPON_*`,
+  and `STRIPE_WEBHOOK_SECRET`. The webhook endpoint must include **`invoice.paid`**
+  (feeds `premium_started_at` + `subscription_payments`, which the guarantee
+  needs) and the handler fetches invoices with `expand: ["payments"]`.
+- **`RESEND_API_KEY`** + **`CASDEY_SENDING_ADDRESS`**: campaign + auth email via
+  Resend (`mail.casdey.com`). Without the key, campaign email falls back to Zoho,
+  which can't set a per-gym reply-to.
+- **`CRON_SECRET`**: guards `POST /api/cron/send` (drains the send queue);
+  `vercel.json` registers the daily cron.
+- **Google Calendar (booking):** `GOOGLE_CALENDAR_CLIENT_ID`,
+  `GOOGLE_CALENDAR_CLIENT_SECRET` (reuse the "casdey web" OAuth client with the
+  Calendar scopes + redirect URIs added), and `CALENDAR_TOKEN_KEY` (AES-256 key
+  encrypting stored Google tokens: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+  Set locally; **not on Vercel yet** (B2). Without them, Settings → Booking shows
+  "not set up" and booking runs on casdey's own records only. The requested
+  scope is `calendar.app.created` + `calendar.freebusy` (narrowed 2026-09-03).
+- **Offer flags:** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT` —
+  unset for V1, `"false"` for V2.
 
-## Local testing (current session)
+## Local testing
 
-DB is migrated and ready; dev server runs on `:3000` (per `.claude/launch.json`;
-an earlier session used `:3002`, since killed); a confirmed test account
-`test@casdey.com` / `casdey-test-1234` exists (skips email confirmation). To
-see Import + Campaigns as a paid user without running Stripe, a practice's
-`trial_ends_at` can be extended or `subscription_status` set to `active`
-directly — but a fresh signup already lands in the 7-day trial with full access.
-
-`CRON_SECRET` in local `.env.local` was empty (fails closed by design, see
-`src/app/api/cron/send/route.ts`) and is now set to a random local-only value
-so `POST /api/cron/send` can be tested manually. `RESEND_API_KEY` is now set
-locally (2026-08-15) — draining the queue sends through Resend, not Zoho.
+Dev server on `:3000` (`.claude/launch.json`, name `casdey-web`). A confirmed
+test account `test@casdey.com` / `casdey-test-1234` exists (skips email
+confirmation) — it is the "Bridge Street Gym" fixture, currently on the Free
+plan with a small member list, useful for exercising the Free-plan locks. Local
+dev points at the live cloud DB (no local Postgres), so `/app` against real data
+needs migrations applied there.
 
 ## Out of scope (deliberately)
 
-Real Dentally/EXACT/R4 sync (both patient import and calendar write), SMS,
-the other practice-software integrations, live Stripe keys, invoicing. The
-Free plan's deeper limits (above) are a pending product decision, not built.
-WhatsApp and the booking/calendar loop (both previously listed here) are now
-built, see above, `CLAUDE.md` Stage 2 progress, and `SAAS_ROADMAP.md` #2 —
-SMS and real PMS-diary write specifically remain out of scope; Google
-Calendar is the one real diary casdey can write to today.
+- **WhatsApp** — removed in the pivot (recoverable from git if ever wanted).
+- **Real gym-software sync** (Mindbody/Glofox/TeamUp/ABC APIs, and LegitFit) —
+  the Mindbody adapter is a stub; **CSV export is the real, universal import
+  path** for V1. A direct integration is post-V1.
+- **SMS**, invoicing, and any real PMS-diary write other than Google Calendar.
+- The **win-back / comeback-offer** interactive page (roadmap #10) — a post-V1
+  idea, not started.

@@ -224,10 +224,18 @@ references in `brand assets`. Do a screenshot-compare pass (per
 for V1, so this is polish, not a launch blocker — but do it before any decision
 to republish.
 
-### A10. Docs rewrite — `todo` — housekeeping, do last
-Rewrite `SAAS_ROADMAP.md` and `SAAS_HANDOFF.md` into gym language and current
-deployment reality. Fold their still-live items into this doc. Low urgency;
-should not block Track C or D.
+### A10. Docs rewrite — `done 2026-09-03`
+- **`SAAS_HANDOFF.md` rewritten** into gym language and current reality: what the
+  product is (gym/member/booking), the real deployment state (/app live
+  invited-only, calendar env not in Vercel yet, WhatsApp removed, migrations
+  through 0013), the offer model incl. the new Free caps, what's verified
+  (135 tests; full path not re-walked since the pivot → Track C/D), the go-live
+  env vars, and out-of-scope. Points at this plan and `CLAUDE.md`.
+- **`SAAS_ROADMAP.md` kept as history, by design** — it's a dated build log of
+  items #1-#10; rewriting historical entries into new terminology would
+  misrepresent what was recorded at the time. It carries a banner marking it
+  superseded by this plan for V1 purposes.
+- `CLAUDE.md` pointer updated to match.
 
 ---
 
@@ -346,7 +354,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | A7 | GDPR/legal re-audit for gym | me | done (postal address → Davide) |
 | A8 | Free-plan limits implementation | me | done |
 | A9 | Marketing landing design review | me | todo |
-| A10 | Rewrite SAAS_ROADMAP + SAAS_HANDOFF | me | todo |
+| A10 | Rewrite SAAS_HANDOFF (ROADMAP kept as history) | me | done |
 | B1 | Google OAuth consent screen: publish + verify | Davide | todo — long pole |
 | B2 | Calendar env vars into Vercel | Davide | todo (after B1) |
 | B3 | Confirm migrations 0011/0012/0013 on live DB | Davide | todo |
