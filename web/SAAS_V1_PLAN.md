@@ -217,12 +217,21 @@ imported** (not hide revenue, not keep-minimal).
   error. `plan.ts` gains `memberImportLimit`; the plans FAQ now states the caps.
 - Suite 135/135, tsc/lint/build green.
 
-### A9. Marketing landing copy — design review — `todo`
-The gym-retargeted homepage copy was never design-reviewed against the
-references in `brand assets`. Do a screenshot-compare pass (per
-`CLAUDE_DESIGN.md`). Note: the homepage stays behind the `/waitlist` redirect
-for V1, so this is polish, not a launch blocker — but do it before any decision
-to republish.
+### A9. Marketing landing copy — design review — `done 2026-09-03`
+Screenshot-compared all seven sections (hero → CTA band → footer) against the
+`brand assets` reference (Finpay layout) and the v3 Iron & Brass brand guide.
+**Verdict: strong and on-brand** — a faithful, non-copied adaptation of the
+reference, gym-voiced copy, distinctive subject-specific signatures (the
+member-reactivation hero card, the lapse-"tail" bar chart), consistent tokens.
+Not templated.
+- **Fixed:** the footer tagline said "Cancelled-member reactivation" while the
+  whole page + the meta title use "lapsed"; changed to "Lapsed-member
+  reactivation" for consistency. `site-footer.tsx`.
+- **Flagged, not changed (tied to the republish decision):** the header CTA says
+  "Join the waitlist" while the hero/CTA-band say "Start your free week" — a
+  deliberate artifact of the unpublish (header was stripped to a waitlist CTA).
+  Align these when/if the homepage is republished (a separate V2-ish decision);
+  moot while `/` redirects to `/waitlist` for invited-only V1.
 
 ### A10. Docs rewrite — `done 2026-09-03`
 - **`SAAS_HANDOFF.md` rewritten** into gym language and current reality: what the
@@ -353,7 +362,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | A6 | Calendar prod hardening (fail-closed, scope, re-auth) | me | mostly done; 2 items deferred |
 | A7 | GDPR/legal re-audit for gym | me | done (postal address → Davide) |
 | A8 | Free-plan limits implementation | me | done |
-| A9 | Marketing landing design review | me | todo |
+| A9 | Marketing landing design review | me | done |
 | A10 | Rewrite SAAS_HANDOFF (ROADMAP kept as history) | me | done |
 | B1 | Google OAuth consent screen: publish + verify | Davide | todo — long pole |
 | B2 | Calendar env vars into Vercel | Davide | todo (after B1) |
