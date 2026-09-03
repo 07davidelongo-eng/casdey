@@ -7,9 +7,14 @@ import type { Interval } from "./availability";
  * (../messaging.ts): the handful of endpoints booking needs are smaller to
  * hand-roll than the whole SDK is to carry.
  *
- * Scopes requested are the narrowest that work: create/delete our own events
- * and read free/busy, plus openid+email so the gym can see which Google
- * account is connected. Not full `calendar` access.
+ * Scopes requested are the narrowest that work: `calendar.app.created` lets
+ * casdey create and manage only the events it creates itself (not read, edit or
+ * delete the owner's other events, which `calendar.events` would have allowed),
+ * plus `calendar.freebusy` to read busy times, plus openid+email so the gym can
+ * see which Google account is connected. Not full `calendar` access, and not
+ * even `calendar.events`: a booking tool never needs to touch an event it did
+ * not make. This narrower request is also easier to pass Google's OAuth
+ * verification with.
  *
  * The pure, network-free helpers (`buildConsentUrl`, `parseFreeBusy`) are
  * exported and unit tested; everything that actually calls Google is async and
@@ -23,7 +28,7 @@ const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 export const GOOGLE_CALENDAR_SCOPES = [
   "openid",
   "email",
-  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.app.created",
   "https://www.googleapis.com/auth/calendar.freebusy",
 ];
 

@@ -153,6 +153,16 @@ export default function ProcessingTermsPage() {
                   , for delivering messages. These receive a member&apos;s
                   email address and the message text, and nothing else.
                 </>,
+                <>
+                  <strong className="font-semibold text-ink">
+                    Google Calendar
+                  </strong>
+                  , only if the gym chooses to connect one, for writing bookings
+                  into the gym&apos;s own calendar. It receives the booked
+                  member&apos;s name and email address, and is processed by
+                  Google in the United States. A gym that does not connect a
+                  calendar shares nothing with Google.
+                </>,
               ]}
             />
 

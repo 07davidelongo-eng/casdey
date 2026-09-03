@@ -6,12 +6,16 @@ import {
   formatMoney,
   gymCurrency,
 } from "@/lib/money";
+import { buildSetupState } from "@/lib/setup";
+import { calendarConnectionView } from "@/lib/calendar/provider";
+import { isGoogleCalendarConfigured } from "@/lib/calendar/google";
+import { isCalendarKeyConfigured } from "@/lib/calendar/tokens";
 import { MemberTimeline } from "@/components/app/member-timeline";
+import { SetupChecklist } from "@/components/app/setup-checklist";
 import {
   ButtonLink,
   Card,
   CardTitle,
-  EmptyState,
   Notice,
   PageHeader,
   Stat,
@@ -28,6 +32,28 @@ export default async function DashboardPage(props: PageProps<"/app">) {
 
   const rule = ruleFor(gym);
   const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
+
+  // The first-run checklist. Derived from state the gym already has, so it
+  // ticks itself off and disappears once setup is done, no flag to persist.
+  const [{ count: approvedCampaigns }, calendar] = await Promise.all([
+    session.supabase
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .eq("gym_id", gym.id)
+      .not("approved_at", "is", null),
+    calendarConnectionView(gym.id),
+  ]);
+
+  const setup = buildSetupState({
+    memberCount: stats.members,
+    bookingValueSet: gym.booking_value_minor !== null,
+    lapsedAfterMonths: gym.lapsed_after_months,
+    maxVisits: gym.max_visits,
+    calendarConfigured:
+      isGoogleCalendarConfigured() && isCalendarKeyConfigured(),
+    calendarConnected: calendar.connected,
+    hasApprovedCampaign: (approvedCampaigns ?? 0) > 0,
+  });
 
   // The most recent return, if there is one. This is the only place the app
   // gets to show the thing it exists to cause.
@@ -56,15 +82,11 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           <div className="mb-6">
             <Notice>
               Your free week has started, everything unlocked and no card taken.
-              Import your list to see it work.
+              Work through the steps below to see it go.
             </Notice>
           </div>
         ) : null}
-        <EmptyState
-          title="Nothing to work with yet"
-          body="Import your member list and casdey will show you who came once or twice and never came back."
-          action={<ButtonLink href="/app/import">Import your list</ButtonLink>}
-        />
+        <SetupChecklist state={setup} />
       </>
     );
   }
@@ -89,6 +111,8 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           </Notice>
         </div>
       ) : null}
+
+      {!setup.complete ? <SetupChecklist state={setup} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Members" value={stats.members} />

@@ -6,7 +6,9 @@ import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { normalizeRow } from "@/lib/ingestion/csv";
+import { applyImportCap } from "@/lib/ingestion/cap";
 import { recordImportEvents, upsertMembers } from "@/lib/ingestion/upsert";
+import { capabilities } from "@/lib/plan";
 import type {
   ColumnMapping,
   DateFormat,
@@ -125,7 +127,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     return fail(`That file has more than ${MAX_ROWS} rows.`, 413);
   }
 
-  const members: RawMember[] = [];
+  let members: RawMember[] = [];
   const issues: RowIssue[] = [];
   let skipped = 0;
 
@@ -153,7 +155,57 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
   });
 
+  // Free plan holds only so many members. The cap is on net-new members, so a
+  // re-import that only updates members the gym already has is never blocked;
+  // new members beyond the cap are dropped and reported. Trial and Premium are
+  // uncapped (memberImportLimit is null), and this whole block is skipped.
+  const caps = capabilities(gym);
+  let capDroppedNew = 0;
+  if (caps.memberImportLimit != null && members.length > 0) {
+    const admin = supabaseAdmin();
+    const [{ count: currentTotal }, { data: existingRows }] = await Promise.all([
+      admin
+        .from("members")
+        .select("id", { count: "exact", head: true })
+        .eq("gym_id", gym.id)
+        .eq("is_test", false),
+      admin
+        .from("members")
+        .select("external_ref, email")
+        .eq("gym_id", gym.id)
+        .eq("is_test", false),
+    ]);
+
+    const existingRefs = new Set<string>();
+    const existingEmails = new Set<string>();
+    for (const row of existingRows ?? []) {
+      if (row.external_ref) existingRefs.add(row.external_ref as string);
+      if (row.email) existingEmails.add((row.email as string).toLowerCase());
+    }
+
+    const capped = applyImportCap(members, {
+      limit: caps.memberImportLimit,
+      currentTotal: currentTotal ?? 0,
+      existingRefs,
+      existingEmails,
+    });
+    members = capped.toWrite;
+    capDroppedNew = capped.droppedNew;
+  }
+
   if (members.length === 0) {
+    // Distinguish "nothing readable" from "the Free cap blocked it all", so the
+    // gym gets the upgrade prompt rather than a confusing mapping error.
+    if (capDroppedNew > 0) {
+      return Response.json(
+        {
+          ok: false,
+          error: `Your Free plan holds up to ${caps.memberImportLimit} members and you are at the limit. Upgrade to import more.`,
+          issues,
+        },
+        { status: 402 },
+      );
+    }
     return Response.json(
       {
         ok: false,
@@ -206,6 +258,20 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
   }
 
+  // Members dropped by the Free cap are not errors: the import worked, the plan
+  // is the limit. Report it as one clear, actionable line, not per row.
+  if (capDroppedNew > 0 && issues.length < MAX_REPORTED_ISSUES) {
+    issues.push({
+      row: 0,
+      field: "plan",
+      reason: `${capDroppedNew} new ${
+        capDroppedNew === 1 ? "member was" : "members were"
+      } not imported: the Free plan holds up to ${caps.memberImportLimit} members. Upgrade to bring in your whole list.`,
+    });
+  }
+
+  const totalSkipped = skipped + result.failed + capDroppedNew;
+
   await client
     .from("imports")
     .update({
@@ -214,7 +280,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         : "completed",
       imported_count: result.imported,
       updated_count: result.updated,
-      skipped_count: skipped + result.failed,
+      skipped_count: totalSkipped,
       report: { issues },
     })
     .eq("id", run.id);
@@ -229,7 +295,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       rows: rows.length,
       imported: result.imported,
       updated: result.updated,
-      skipped: skipped + result.failed,
+      skipped: totalSkipped,
     },
   });
 
@@ -237,7 +303,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     ok: true,
     imported: result.imported,
     updated: result.updated,
-    skipped: skipped + result.failed,
+    skipped: totalSkipped,
     total: rows.length,
     issues,
   });

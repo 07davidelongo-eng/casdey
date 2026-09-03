@@ -3,7 +3,22 @@ import "server-only";
 import { supabaseAdmin } from "../supabase";
 import type { Gym } from "../types";
 import { openSlots, type Interval } from "./availability";
-import { calendarFor } from "./provider";
+import { calendarFor, calendarNeedsReauth } from "./provider";
+
+/**
+ * A gym that relies on an external calendar we currently cannot read. Booking
+ * must surface this rather than offer slots it could not verify: showing a slot
+ * as free when the gym's real diary says otherwise is a double-booking, the one
+ * outcome the connected calendar exists to prevent. Thrown by gymOpenSlots;
+ * callers turn it into an explicit "we cannot show times right now" state.
+ */
+export class CalendarUnavailableError extends Error {
+  constructor(cause?: unknown) {
+    super("The gym's calendar could not be read");
+    this.name = "CalendarUnavailableError";
+    this.cause = cause;
+  }
+}
 
 /**
  * The open slots a member can actually pick from, right now, for one gym.
@@ -60,14 +75,29 @@ async function fetchGoogleBusy(
   timeMin: Date,
   timeMax: Date,
 ): Promise<Interval[]> {
+  const calendar = await calendarFor(gym.id);
+
+  if (!calendar) {
+    // Two cases look the same here (calendarFor returns null for both) but must
+    // not be treated the same:
+    //  - the gym never connected a calendar: casdey's own bookings are the
+    //    whole truth, so no external busy times is correct → [].
+    //  - the gym connected one and its token has since died: we would be
+    //    silently ignoring the real diary → fail closed instead.
+    if (await calendarNeedsReauth(gym.id)) {
+      throw new CalendarUnavailableError();
+    }
+    return [];
+  }
+
   try {
-    const calendar = await calendarFor(gym.id);
-    if (!calendar) return [];
     return await calendar.getBusy(timeMin, timeMax);
   } catch (error) {
-    // A stale/expired Google connection must not take the booking page down;
-    // it degrades to casdey's own bookings only, same as no connection.
+    // A connected calendar we cannot read (network, an API error, or a token
+    // that just died mid-request) means we cannot verify the gym's diary. Do
+    // not degrade to casdey-only, which would offer genuinely-busy slots as
+    // free; fail closed and let the caller tell the member to reach out.
     console.error("[booking] google free/busy failed", error);
-    return [];
+    throw new CalendarUnavailableError(error);
   }
 }

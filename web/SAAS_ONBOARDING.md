@@ -1,5 +1,9 @@
 # casdey — V1 onboarding plan (self-serve)
 
+> Part 2's readiness gates are folded into the sequenced build plan in
+> `SAAS_V1_PLAN.md` (Track A + Track C). This file stays as the detail on the
+> self-serve flow itself and the post-signup playbook.
+
 Drafted 2026-09-02. This is a **plan on the shelf**, to execute when V1 is ready
 and it's time to onboard the engaged leads coming out of outreach. Not built yet.
 

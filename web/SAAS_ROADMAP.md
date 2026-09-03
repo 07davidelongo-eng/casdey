@@ -1,5 +1,10 @@
 # casdey SaaS — fixes & features roadmap
 
+> **The authoritative path to a ready V1 is now `SAAS_V1_PLAN.md`.** It merges
+> this roadmap's still-open items (#9 deferred, #10) with the onboarding
+> readiness gates and the ops tasks into one sequenced plan. Read that first.
+> This file is kept for the item-by-item build history below.
+
 Davide's list of software fixes/features to tackle before V1, dictated
 2026-08-14. Captured verbatim-in-intent here so it persists; we work these one
 at a time (or in small batches), not all at once. Current build state is in

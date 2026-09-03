@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { gymOpenSlots } from "@/lib/calendar/gym-slots";
+import { gymOpenSlots, CalendarUnavailableError } from "@/lib/calendar/gym-slots";
 import { gymCurrency } from "@/lib/money";
 import type { Gym } from "@/lib/types";
 import { BookingForm, type DayGroup, type ServiceOption } from "./form";
@@ -62,14 +62,33 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
     );
   }
 
-  const [slots, { data: services }] = await Promise.all([
-    gymOpenSlots(gym),
-    supabaseAdmin()
-      .from("services")
-      .select("id, name, price_minor")
-      .eq("gym_id", gym.id)
-      .order("position", { ascending: true }),
-  ]);
+  let slots;
+  try {
+    slots = await gymOpenSlots(gym);
+  } catch (error) {
+    // The gym relies on a calendar casdey cannot currently read. Do not show
+    // any times, because we cannot trust that any of them are actually free.
+    if (error instanceof CalendarUnavailableError) {
+      return (
+        <Shell>
+          <h1 className="display text-[1.375rem]">
+            We cannot show times right now
+          </h1>
+          <p className="mt-3 text-[0.9375rem] text-graphite">
+            {gym.name} is having a temporary problem with its calendar. Reply to
+            the message you received and we will find you a time by hand.
+          </p>
+        </Shell>
+      );
+    }
+    throw error;
+  }
+
+  const { data: services } = await supabaseAdmin()
+    .from("services")
+    .select("id, name, price_minor")
+    .eq("gym_id", gym.id)
+    .order("position", { ascending: true });
 
   const days = groupSlotsByDay(
     slots.map((s) => s.start),

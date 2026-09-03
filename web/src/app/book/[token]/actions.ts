@@ -4,7 +4,7 @@ import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { emailProvider, siteUrl } from "@/lib/messaging";
 import { buildIcs } from "@/lib/calendar/ics";
-import { gymOpenSlots } from "@/lib/calendar/gym-slots";
+import { gymOpenSlots, CalendarUnavailableError } from "@/lib/calendar/gym-slots";
 import { calendarFor } from "@/lib/calendar/provider";
 import type { Gym } from "@/lib/types";
 
@@ -78,7 +78,25 @@ export async function bookSlotAction(
   // Recompute fresh: the slot the member picked must still be open. This is
   // the same engine the page used to show it, so a slot the page offered a
   // moment ago is trusted only as far as this recheck confirms it still holds.
-  const stillOpen = (await gymOpenSlots(gym)).some(
+  let openNow;
+  try {
+    openNow = await gymOpenSlots(gym);
+  } catch (error) {
+    // The gym's calendar cannot be read right now, so we cannot confirm this
+    // slot is genuinely free. Refuse rather than book blind: booking a slot
+    // that turns out to clash is worse than asking the member to reach out.
+    if (error instanceof CalendarUnavailableError) {
+      return {
+        booked: false,
+        error:
+          "We could not confirm that time against the gym's calendar. Reply to the message you received and we will book you in.",
+        confirmedStartAt: null,
+      };
+    }
+    throw error;
+  }
+
+  const stillOpen = openNow.some(
     (slot) => slot.start.getTime() === startAt.getTime(),
   );
   if (!stillOpen) {

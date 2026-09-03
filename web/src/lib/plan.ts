@@ -37,6 +37,16 @@ export const TRIAL_DAYS = 7;
  */
 export const FREE_MEMBER_LIST_LIMIT = 5;
 
+/**
+ * How many members a Free gym can hold in total. A gym can try casdey on a
+ * slice of its list, but bringing the whole list in (where the real
+ * opportunity is) needs Premium. Enforced at import as a cap on NET-NEW
+ * members: re-importing to update the members already stored is never blocked,
+ * only adding beyond the cap is. Trial and Premium are uncapped. Dictated by
+ * Davide, Sept 2026, alongside the list-view lock above.
+ */
+export const FREE_MEMBER_IMPORT_LIMIT = 50;
+
 /** V1: new signups get the free week. Flip to "false" in Vercel for V2. */
 export function trialEnabledForNewSignups(): boolean {
   return (process.env.CASDEY_TRIAL_ENABLED ?? "true") !== "false";
@@ -88,6 +98,12 @@ export type Capabilities = {
    * because it is the gym's own data and a GDPR portability right.
    */
   memberListLimit: number | null;
+  /**
+   * The most members a gym may hold in total, or null for no limit. Free is
+   * capped (see FREE_MEMBER_IMPORT_LIMIT); Trial and Premium are not. Enforced
+   * at import against net-new members only.
+   */
+  memberImportLimit: number | null;
 };
 
 export function capabilities(
@@ -111,6 +127,7 @@ export function capabilities(
     // Only Free is capped. A past_due Premium (plan still "premium") keeps the
     // full list: they had Premium and only need to fix a card, not re-earn it.
     memberListLimit: plan === "free" ? FREE_MEMBER_LIST_LIMIT : null,
+    memberImportLimit: plan === "free" ? FREE_MEMBER_IMPORT_LIMIT : null,
   };
 }
 

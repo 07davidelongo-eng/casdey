@@ -49,6 +49,13 @@ async function loadConnection(
   return (data as CalendarConnection) ?? null;
 }
 
+/** Google returns `invalid_grant` when a refresh token is no longer usable.
+ *  The thrown error carries the raw token-endpoint body, so a substring match
+ *  is enough and avoids coupling to Google's exact error shape. */
+function isInvalidGrant(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("invalid_grant");
+}
+
 /** A non-expired access token for the connection, refreshing and persisting a
  *  new one when the stored token is within a minute of expiry. */
 async function validAccessToken(connection: CalendarConnection): Promise<string> {
@@ -65,9 +72,25 @@ async function validAccessToken(connection: CalendarConnection): Promise<string>
     throw new Error("Calendar connection has no refresh token; reconnect needed.");
   }
 
-  const refreshed = await refreshAccessToken(
-    decryptToken(connection.refresh_token_enc),
-  );
+  let refreshed;
+  try {
+    refreshed = await refreshAccessToken(
+      decryptToken(connection.refresh_token_enc),
+    );
+  } catch (error) {
+    // A dead refresh token (the user revoked casdey's access at Google, or the
+    // OAuth app is still unverified and Google expired the token after 7 days)
+    // comes back as invalid_grant. Mark the connection so Settings prompts a
+    // reconnect, then rethrow: the caller must fail closed, never proceed as
+    // though the calendar were readable.
+    if (isInvalidGrant(error)) {
+      await supabaseAdmin()
+        .from("calendar_connections")
+        .update({ status: "revoked" })
+        .eq("id", connection.id);
+    }
+    throw error;
+  }
 
   await supabaseAdmin()
     .from("calendar_connections")
@@ -131,6 +154,11 @@ export type CalendarConnectionView = {
   connected: boolean;
   email: string | null;
   calendarId: string | null;
+  /** A calendar was connected but its token has since gone dead (see
+   *  isInvalidGrant). The gym needs to reconnect; booking fails closed until
+   *  they do. A clean disconnect deletes the row, so this is only ever true
+   *  after a token death, never after a deliberate disconnect. */
+  needsReauth: boolean;
 };
 
 export async function calendarConnectionView(
@@ -145,5 +173,16 @@ export async function calendarConnectionView(
     connected,
     email: connection?.connected_email ?? null,
     calendarId: connection?.google_calendar_id ?? null,
+    needsReauth: Boolean(connection) && connection!.status === "revoked",
   };
+}
+
+/** Whether a gym relies on an external calendar that cannot currently be read
+ *  (connected-but-dead). booking must fail closed in this case rather than
+ *  silently offer slots it could not check against the real diary. A gym that
+ *  never connected returns false: casdey's own bookings are then the whole
+ *  truth and there is nothing to fail closed against. */
+export async function calendarNeedsReauth(gymId: string): Promise<boolean> {
+  const connection = await loadConnection(gymId);
+  return Boolean(connection) && connection!.status === "revoked";
 }

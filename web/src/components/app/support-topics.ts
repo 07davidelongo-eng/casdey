@@ -58,13 +58,24 @@ export const SUPPORT_TOPICS: SupportTopic[] = [
     keywords: ["test", "preview", "myself", "try", "yourself"],
   },
   {
+    id: "booking",
+    question: "How does booking work, and do I need to connect a calendar?",
+    answer: [
+      "When booking is on, each member gets a link in their message to pick a time themselves, and casdey books it in. Turn it on in Settings then Booking.",
+      "Connecting a Google Calendar is optional but worth it: casdey reads your free and busy times so it never offers a slot you are already in, and writes each booking into that calendar. Without one, booking still works, it just cannot see appointments made outside casdey.",
+      "If a connected calendar ever disconnects, casdey stops offering times until you reconnect, so it can never book over something already in your diary.",
+    ],
+    keywords: ["booking", "calendar", "google", "slots", "book", "diary", "availability", "connect", "appointment"],
+  },
+  {
     id: "plans",
     question: "What is the difference between Free and Premium?",
     answer: [
-      "Your free week is Premium: everything works, and no card is taken. When it ends your account rests on the Free plan, which still imports your list and shows who has gone quiet.",
-      "Sending campaigns is the Premium feature. Upgrade from Settings then Billing when you are ready to start writing to members.",
+      "Your free week is Premium: everything works, and no card is taken. When it ends your account rests on the Free plan.",
+      "Free still finds who has gone quiet and shows you the true count, but it holds up to 50 members and reveals only the first few by name. Sending campaigns, and seeing and contacting your whole list, are Premium.",
+      "Upgrade from Settings then Billing when you are ready to write to everyone.",
     ],
-    keywords: ["plan", "free", "premium", "trial", "upgrade", "price", "billing"],
+    keywords: ["plan", "free", "premium", "trial", "upgrade", "price", "billing", "limit", "cap"],
   },
   {
     id: "guarantee",
@@ -91,7 +102,7 @@ export const SUPPORT_TOPICS: SupportTopic[] = [
       "Open that member and mark them as returned. casdey sends the message, but the booking lands in your own diary, which casdey cannot see, so this step is yours.",
       "Marking it is what feeds the returned count and the recovered-revenue estimate on your Overview.",
     ],
-    keywords: ["returned", "returned", "booked", "returned", "mark", "reply"],
+    keywords: ["returned", "rebooked", "came back", "booked", "mark", "reply"],
   },
   {
     id: "unsubscribe",

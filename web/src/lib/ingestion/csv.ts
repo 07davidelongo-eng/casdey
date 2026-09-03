@@ -217,15 +217,21 @@ export function normalizeRow(
 // [\s_-]* rather than \s* on purpose: CSV exports as often write these
 // headers as "first_name" or "first-name" (snake/kebab case) as "First Name"
 // (space-separated), and a plain \s* only matched the latter.
+// Column names are drawn from real member exports across the target platforms:
+// Mindbody ("Client ID", "Last Visit"), Glofox ("Member ID", "Last Booking"),
+// TeamUp ("Customer", "Last attended"), ABC Fitness ("Last Check-In",
+// "Total Check-Ins"), plus generic snake_case. A gym confirms the guess before
+// anything is written, so the patterns lean towards catching a column rather
+// than leaving it blank.
 const HINTS: { field: keyof ColumnMapping; patterns: RegExp[] }[] = [
-  { field: "externalRef", patterns: [/^(member[\s_-]*)?(id|ref|reference|number|no)$/i, /member.*(id|ref)/i] },
+  { field: "externalRef", patterns: [/^((member|client|customer|contact)[\s_-]*)?(id|ref|reference|number|no)$/i, /(member|client|customer).*(id|ref)/i] },
   { field: "firstName", patterns: [/^(first|given|fore)[\s_-]*name$/i, /^first$/i] },
   { field: "lastName", patterns: [/^(last|sur|family)[\s_-]*name$/i, /^surname$/i, /^last$/i] },
-  { field: "fullName", patterns: [/^(full[\s_-]*)?name$/i, /^member([\s_-]*name)?$/i] },
+  { field: "fullName", patterns: [/^(full[\s_-]*)?name$/i, /^(member|customer|client)([\s_-]*name)?$/i] },
   { field: "email", patterns: [/e-?mail/i] },
-  { field: "phone", patterns: [/phone|mobile|tel/i] },
-  { field: "lastVisitAt", patterns: [/last.*(visit|booking|seen)/i, /(visit|booking).*date/i, /^date$/i] },
-  { field: "visitCount", patterns: [/visit.*(count|s\b)/i, /(number|no).*visits/i, /^visits$/i] },
+  { field: "phone", patterns: [/phone|mobile|tel|cell/i] },
+  { field: "lastVisitAt", patterns: [/last.*(visit|booking|seen|attend|check|class)/i, /(visit|booking|attend|check|class).*date/i, /^date$/i] },
+  { field: "visitCount", patterns: [/visit.*(count|s\b)/i, /(number|no|total).*(visit|attend|check|class)/i, /(attend|check).*(count|s\b)/i, /^(visits|attendances|check-?ins|classes)$/i] },
 ];
 
 export function guessMapping(headers: string[]): Partial<ColumnMapping> {

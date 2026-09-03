@@ -28,10 +28,12 @@ describe("buildConsentUrl", () => {
     );
   });
 
-  it("asks for the calendar scopes, not full access", () => {
+  it("asks only for app-created events and free/busy, not full or broad access", () => {
     const scope = parsed.searchParams.get("scope") ?? "";
-    expect(scope).toContain("calendar.events");
+    expect(scope).toContain("calendar.app.created");
     expect(scope).toContain("calendar.freebusy");
+    // Never the broad edit-all-events scope, nor full calendar access.
+    expect(scope).not.toContain("calendar.events");
     expect(scope).not.toContain("auth/calendar ");
     expect(GOOGLE_CALENDAR_SCOPES).toContain("email");
   });

@@ -215,6 +215,81 @@ describe("guessMapping", () => {
     expect(guess.visitCount).toBe("visit_count");
     expect(guess.externalRef).toBe("member_id");
   });
+
+  // The four platforms casdey's target gyms actually run. Header names taken
+  // from real member exports; the last-visit column is the one that must always
+  // land, since it is the only required field.
+
+  it("recognises a Mindbody client export ('Client ID', 'Last Visit')", () => {
+    const guess = guessMapping([
+      "Client ID",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Mobile Phone",
+      "Last Visit",
+      "Visits",
+    ]);
+
+    expect(guess.externalRef).toBe("Client ID");
+    expect(guess.firstName).toBe("First Name");
+    expect(guess.lastName).toBe("Last Name");
+    expect(guess.email).toBe("Email");
+    expect(guess.phone).toBe("Mobile Phone");
+    expect(guess.lastVisitAt).toBe("Last Visit");
+    expect(guess.visitCount).toBe("Visits");
+  });
+
+  it("recognises a Glofox members export ('Last Booking', 'Total Visits')", () => {
+    const guess = guessMapping([
+      "Member ID",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Phone Number",
+      "Last Booking",
+      "Total Visits",
+    ]);
+
+    expect(guess.externalRef).toBe("Member ID");
+    expect(guess.email).toBe("Email");
+    expect(guess.phone).toBe("Phone Number");
+    expect(guess.lastVisitAt).toBe("Last Booking");
+    expect(guess.visitCount).toBe("Total Visits");
+  });
+
+  it("recognises a TeamUp customers export ('Customer', 'Last attended')", () => {
+    const guess = guessMapping([
+      "Customer",
+      "Email",
+      "Phone",
+      "Last attended",
+      "Membership",
+    ]);
+
+    expect(guess.fullName).toBe("Customer");
+    expect(guess.email).toBe("Email");
+    expect(guess.phone).toBe("Phone");
+    expect(guess.lastVisitAt).toBe("Last attended");
+  });
+
+  it("recognises an ABC Fitness export ('Last Check-In', 'Total Check-Ins')", () => {
+    const guess = guessMapping([
+      "Member ID",
+      "First Name",
+      "Last Name",
+      "Email Address",
+      "Cell Phone",
+      "Last Check-In",
+      "Total Check-Ins",
+    ]);
+
+    expect(guess.externalRef).toBe("Member ID");
+    expect(guess.email).toBe("Email Address");
+    expect(guess.phone).toBe("Cell Phone");
+    expect(guess.lastVisitAt).toBe("Last Check-In");
+    expect(guess.visitCount).toBe("Total Check-Ins");
+  });
 });
 
 describe("normalizePhoneForCountry", () => {

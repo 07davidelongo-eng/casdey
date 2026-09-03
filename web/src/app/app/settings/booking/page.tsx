@@ -46,6 +46,17 @@ export default async function BookingSettingsPage(
           bookings made outside casdey.
         </p>
 
+        {connection.needsReauth ? (
+          <div className="mb-5">
+            <Notice tone="warn">
+              Your Google Calendar disconnected and needs reconnecting. Until you
+              do, casdey will not offer members any booking times, so it can
+              never book over something already in your diary. Reconnect below to
+              switch booking back on.
+            </Notice>
+          </div>
+        ) : null}
+
         {!configured ? (
           <Notice tone="warn">
             Calendar connection is not set up on this server yet.
@@ -72,7 +83,9 @@ export default async function BookingSettingsPage(
           </div>
         ) : isOwner ? (
           <ButtonLink href="/api/calendar/google/connect" variant="quiet">
-            Connect Google Calendar
+            {connection.needsReauth
+              ? "Reconnect Google Calendar"
+              : "Connect Google Calendar"}
           </ButtonLink>
         ) : (
           <p className="text-[0.9375rem] text-stone">Not connected.</p>
