@@ -367,38 +367,43 @@ JD's cold-outreach asks, pulled into V1 per §0. The first two of JD's four
 (at-risk detection, cancellation reasons) already shipped in `88ff34f`. These
 are the rest.
 
-### E1. WhatsApp channel + AI reply loop — revive for gym — `todo` — firm V1
-Restore the WhatsApp channel that was built pre-pivot (`81d9a93`, `314c291`)
-and deleted in the gym rebuild (`25af6aa`, which also dropped the four
-`whatsapp_*` tables via migration `0011`). Last intact at commit `c3c9a25`.
-- **Restore + adapt** these files from `c3c9a25`, renaming dental→gym
-  (`practice`→`gym`, `patient`→`member`, `patients/[id]`→`members/[id]`) and
-  re-integrating with the **diverged** post-pivot code (`campaigns.ts` now has
-  at-risk + cancellation audience branches; `types.ts` `Channel` is narrowed to
-  `"email"`; `template.ts` has `{{reason}}`):
-  - `src/lib/whatsapp/{twilio,signature,signature.test,send,ai-agent,campaign-send}.ts`
-  - `src/app/api/whatsapp/webhook/route.ts`
-  - `src/app/app/settings/whatsapp/{page,form,actions}.tsx`
-  - `src/app/app/patients/[id]/whatsapp-conversation.tsx` → `members/[id]/`
-  - `src/app/app/campaigns/[id]/whatsapp-test-form.tsx`
-- **New migration `0014_whatsapp_channel_gym.sql`** — re-add gym-native
-  `whatsapp_conversations` / `whatsapp_messages` / `whatsapp_suppressions` /
-  `whatsapp_events` (was `0009`, dropped by `0011`), widen `campaigns.channel`
-  back to `('email','whatsapp')`, re-add `members.consent_whatsapp`,
-  `gyms.whatsapp_enabled` / `whatsapp_template_name`. RLS mirroring the other
-  gym tables (`is_gym_user` / `is_gym_owner`).
-- **Fix the 5 audit bugs while restoring** (from the 2026-08-17 stress test,
-  never fixed because the channel was cut): malformed first AI turn; non-atomic
-  reply-cap race; history slice takes oldest not newest; STOP/opt-out is
-  English-only; no moderation on AI output.
-- **Legal:** add Twilio (US) back to the DPA sub-processor list + `/privacy`,
-  scoped to gyms that enable WhatsApp (Art. 28 + 44). A7 removed it as
-  "not in V1" — that reverts.
-- **Env (prod):** `TWILIO_*` + `ANTHROPIC_API_KEY` into Vercel (currently
-  deliberately absent). Real send also needs **B8** (Twilio upgrade).
-- Keep the shared-number model (one casdey WhatsApp number for all gyms,
-  mirrors `mail.casdey.com`), mandatory campaign approval, the per-conversation
-  reply cap + human handoff.
+### E1. WhatsApp channel + AI reply loop — revive for gym — `code done 2026-09-03; prod verify + B8 left` — firm V1
+Restored the WhatsApp channel built pre-pivot (`81d9a93`, `314c291`) and
+deleted in the gym rebuild (`25af6aa`). Commit `cd0fd70`.
+- **Done — engine.** `src/lib/whatsapp/{twilio,signature,send,ai-agent,campaign-send}.ts`
+  restored from `c3c9a25` and adapted to gym (`gym`/`member`/`gym_id`/
+  `member_id`, `is_gym_user` RLS). `sanitize.ts` split out (testable, like
+  `signature.ts`). `buildWhatsAppAudience()` in `campaigns.ts` — lapsed +
+  cancelled, gated on phone + `consent_whatsapp`, phone-keyed suppression.
+- **Done — migration `0014_whatsapp_channel_gym.sql`, APPLIED to the live DB
+  2026-09-03** (transaction, verified). Re-adds `whatsapp_conversations` /
+  `_messages` / `_suppressions` / `_events`, widens `campaigns.channel` back to
+  `('email','whatsapp')`, adds `members.consent_whatsapp`,
+  `gyms.whatsapp_enabled` / `whatsapp_template_name`,
+  `campaigns.whatsapp_template_name`, and a new `claim_whatsapp_ai_turn()` SQL
+  function for the atomic reply-cap claim.
+- **Done — the 5 audit bugs, fixed on the way back in:** (1) leading assistant
+  (template) turns dropped so the Anthropic array starts with the member;
+  (2) reply-cap race → atomic `claim_whatsapp_ai_turn()` UPDATE…RETURNING;
+  (3) history now newest-first + LIMIT then reversed; (4) STOP keywords cover
+  DE/FR/ES/PT/IT/NL; (5) `sanitizeReply()` drops a reply that invents a
+  time/price or gives injury/training advice (12 unit tests).
+- **Done — UI.** Settings → WhatsApp tab (enable + template SID). New-campaign
+  form gets an Email/WhatsApp switch (WhatsApp = win-back only, no
+  subject/body). `createCampaignAction` / `approveCampaignAction` branch on
+  channel; a WhatsApp campaign sends its template batch synchronously on
+  approval → `sent`. Campaign detail: WhatsApp test-send (typed number, E.164)
+  + opener card. Member page: read-only conversation card with the hand-off.
+- **Done — legal.** Twilio (US) + Anthropic (US) back on the DPA
+  sub-processor list, scoped to gyms that enable WhatsApp. `.env.example`
+  documents `TWILIO_*` + `ANTHROPIC_API_KEY` + `CASDEY_WHATSAPP_AI_MODEL`.
+- **Left:** (a) **B8** — Davide upgrades the Twilio account off the trial tier
+  (Content Templates + inbound webhook config are gated); nothing sends in
+  prod until then, though the UI + `disabled`-provider fallback work.
+  (b) `TWILIO_*` + `ANTHROPIC_API_KEY` into Vercel Production.
+  (c) Point Twilio's inbound webhook at `https://casdey.com/api/whatsapp/webhook`.
+  (d) Prod verification: one real template send + reply loop + STOP + hand-off
+  (folds into Track C).
 
 ### E2. Direct gym-software API sync — `todo` — best-effort V1, drop to V2 if walled
 Real member-list sync from JD's gym platform, replacing CSV re-upload. The
@@ -503,7 +508,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
 | B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | todo |
 | B9 | Confirm JD's gym software + API access (feeds E2) | Davide | todo |
-| E1 | WhatsApp channel + AI reply loop — revive for gym | me | todo — firm V1 |
+| E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
 | E2 | Direct gym-software API sync | me | todo — best-effort, may exit to V2 (gate B9) |
 | C1 | Live-mode Stripe checkout + refund in prod | both | todo |
 | C2 | Real Resend campaign send in prod | both | todo |

@@ -40,15 +40,20 @@ practice / patient / appointment / dormant — was renamed throughout in the
   byte-identical in Vercel and local `web/.env.local` — local dev and prod share
   the same Supabase DB, and that key encrypts calendar tokens at rest, so a
   mismatched key shows "Connected" but silently fails to decrypt.
-- **WhatsApp was removed in the pivot** (gyms don't fit the channel). The code
-  is recoverable from git history if the niche ever wants it; it is not part of
-  the current product.
+- **WhatsApp was removed in the pivot, then revived for V1 (Track E1, commit
+  `cd0fd70`)** after an engaged lead asked for it. The channel code is back
+  gym-native, migration `0014` is applied to the live DB, and the UI (Settings
+  → WhatsApp, a channel switch on the new-campaign form, a test-send, a
+  member-page conversation card) is wired. It does not send in prod yet:
+  needs the Twilio account upgraded off the trial tier (plan B8),
+  `TWILIO_*` + `ANTHROPIC_API_KEY` in Vercel, and Twilio's inbound webhook
+  pointed at `/api/whatsapp/webhook`. Until then it degrades cleanly.
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
-  eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0013`
+  eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0014`
   (`0011` dental→gym rename, `0012` at-risk campaigns, `0013` cancellation
-  reason). **All of `0011`–`0013` are confirmed applied to the live project
-  (2026-09-03, plan item B3 done)** via a read-only schema probe over
-  `SUPABASE_DB_URL`.
+  reason, `0014` WhatsApp channel revival — Track E1). **`0011`–`0013` were
+  confirmed applied via a read-only probe (2026-09-03, plan item B3); `0014`
+  was applied the same day in a verified transaction over `SUPABASE_DB_URL`.**
 - **Vercel plan confirmed Hobby (2026-09-03, plan item B5 done).** The
   campaign-send cron in `vercel.json` runs once daily (`0 3 * * *`) to stay
   within the Hobby once-a-day cron cap; revert to hourly only if upgraded to Pro.
@@ -132,10 +137,10 @@ needs migrations applied there.
 
 ## Out of scope (deliberately)
 
-- **WhatsApp** — removed in the pivot (recoverable from git if ever wanted).
 - **Real gym-software sync** (Mindbody/Glofox/TeamUp/ABC APIs, and LegitFit) —
   the Mindbody adapter is a stub; **CSV export is the real, universal import
-  path** for V1. A direct integration is post-V1.
+  path** for V1. A direct integration is Track E2: best-effort V1, allowed to
+  slip to V2 if the vendor partner-API wall is too slow.
 - **SMS**, invoicing, and any real PMS-diary write other than Google Calendar.
 - The **win-back / comeback-offer** interactive page (roadmap #10) — a post-V1
   idea, not started.
