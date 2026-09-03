@@ -46,8 +46,9 @@ practice / patient / appointment / dormant — was renamed throughout in the
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
   eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0013`
   (`0011` dental→gym rename, `0012` at-risk campaigns, `0013` cancellation
-  reason). Whether `0011`–`0013` are applied to the live project is unconfirmed
-  (plan item B3) — prod `/app` working suggests they are, but confirm directly.
+  reason). **All of `0011`–`0013` are confirmed applied to the live project
+  (2026-09-03, plan item B3 done)** via a read-only schema probe over
+  `SUPABASE_DB_URL`.
 - **Vercel plan confirmed Hobby (2026-09-03, plan item B5 done).** The
   campaign-send cron in `vercel.json` runs once daily (`0 3 * * *`) to stay
   within the Hobby once-a-day cron cap; revert to hourly only if upgraded to Pro.
