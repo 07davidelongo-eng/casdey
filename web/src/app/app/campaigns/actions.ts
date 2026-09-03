@@ -142,10 +142,14 @@ async function createWhatsAppCampaign(
   session: Awaited<ReturnType<typeof requireActiveGym>>["session"],
   formData: FormData,
 ): Promise<CampaignState> {
-  // Track F / F4: capabilities(gym).canUseWhatsApp is now computed (Pro/trial
-  // only in the proposed split). NOT enforced here yet — the Standard/Pro
-  // feature split is unconfirmed (F0). Wire this once F0 lands:
-  //   if (!capabilities(gym).canUseWhatsApp) return { error: "WhatsApp is on Pro." };
+  // The WhatsApp channel is a Pro feature (the trial grants it too). Standard
+  // and Free are email-only. See src/lib/plan.ts / SAAS_V1_PLAN.md §F0.
+  if (!capabilities(gym).canUseWhatsApp) {
+    return {
+      error:
+        "The WhatsApp channel is on the Pro plan. Upgrade from Settings → Billing to send over WhatsApp; email campaigns work on your current plan.",
+    };
+  }
   if (!gym.whatsapp_enabled || !gym.whatsapp_template_name) {
     return {
       error:
@@ -461,7 +465,7 @@ export async function approveCampaignAction(
   if (!capabilities(gym).canSendCampaigns) {
     return {
       error:
-        "Sending is a Premium feature. Upgrade from billing to send this campaign. You can keep building it in the meantime.",
+        "Sending needs a paid plan. Choose Standard or Pro from billing to send this campaign. You can keep building it in the meantime.",
     };
   }
 
@@ -560,6 +564,14 @@ async function approveWhatsAppCampaign(
 ): Promise<CampaignState> {
   if (!campaign.whatsapp_template_name) {
     return { error: "This campaign has no approved template on file." };
+  }
+  // Re-check the tier: a gym could have built this on Pro/trial and dropped to
+  // Standard before approving.
+  if (!capabilities(gym).canUseWhatsApp) {
+    return {
+      error:
+        "The WhatsApp channel is on the Pro plan. Upgrade from Settings → Billing to send this campaign.",
+    };
   }
   if (!gym.whatsapp_enabled) {
     return { error: "WhatsApp is turned off for this gym. Turn it back on to send." };

@@ -1,13 +1,15 @@
 import { requireGym } from "@/lib/dal";
 import { currencyFor } from "@/lib/countries";
 import {
+  capabilities,
   earlyAdopterProgramActive,
   effectivePlan,
   isPaidPlan,
   planLabel,
   trialDaysLeft,
 } from "@/lib/plan";
-import { isStripeConfigured, plansFor } from "@/lib/stripe";
+import type { PlanTier } from "@/lib/types";
+import { isStripeConfigured, pricePlansFor } from "@/lib/stripe";
 import { loadGuaranteeLedgerForStatus, loadGuaranteeStatus } from "@/lib/guarantee-data";
 import { formatMoney, gymCurrency } from "@/lib/money";
 import {
@@ -29,10 +31,15 @@ export default async function BillingPage(
   const { gym, role, session } = await requireGym();
 
   const plan = effectivePlan(gym);
+  const caps = capabilities(gym);
   const currency = currencyFor(gym.country);
-  const plans = plansFor(currency);
   const daysLeft = trialDaysLeft(gym);
   const discounted = gym.early_adopter && earlyAdopterProgramActive();
+
+  // What to offer: a Standard gym can still go Pro; everyone else sees both.
+  const offerTiers: PlanTier[] =
+    plan === "standard" ? ["pro"] : ["standard", "pro"];
+  const showUpgrade = !isPaidPlan(plan) || plan === "standard";
   const errorMessage = typeof params.error === "string" ? params.error : null;
   const guarantee = await loadGuaranteeStatus(session.supabase, gym);
   const guaranteeCurrency = gymCurrency(gym);
@@ -51,7 +58,7 @@ export default async function BillingPage(
         </Notice>
       ) : null}
       {params.upgraded ? (
-        <Notice>Welcome to Premium. Sending is on.</Notice>
+        <Notice>You&apos;re upgraded. Sending is on.</Notice>
       ) : null}
       {params.cancelled ? (
         <Notice>Checkout was cancelled, so nothing changed.</Notice>
@@ -95,14 +102,14 @@ export default async function BillingPage(
         ) : plan === "free" ? (
           <p className="text-[0.9375rem] text-graphite">
             You are on the Free plan. You can import your list and see who has
-            gone quiet, but sending campaigns is a Premium feature. Nothing is
+            gone quiet, but sending campaigns needs a paid plan. Nothing is
             charged on Free.
           </p>
         ) : (
           <p className="text-[0.9375rem] text-graphite">
             {gym.subscription_status === "past_due"
               ? "Your last payment did not go through. Sending is paused until the card is updated."
-              : "Premium is active. Sending is on."}
+              : `${planLabel(plan)} is active. Sending is on.`}
             {gym.current_period_end ? (
               <>
                 {" "}
@@ -128,9 +135,22 @@ export default async function BillingPage(
         ) : null}
       </Card>
 
-      {/* The guarantee, once there is anything to say about it. Silent for
-          anyone who has never paid: there is nothing to guarantee yet. */}
-      {!(guarantee.state === "not_started" && guarantee.reason === "not_premium") ? (
+      {/* The guarantee is a Pro feature. A Standard gym sees a short pointer to
+          it; a gym that has never paid sees nothing (nothing to guarantee). */}
+      {!caps.hasGuarantee ? (
+        isPaidPlan(plan) ? (
+          <Card>
+            <CardTitle>The profit-or-nothing guarantee</CardTitle>
+            <p className="text-[0.9375rem] text-graphite">
+              The guarantee is on the Pro plan: if casdey does not recover more
+              than it costs in your first month, you claim a full refund of that
+              month. Upgrade to Pro to have casdey stand behind the results.
+            </p>
+          </Card>
+        ) : null
+      ) : !(
+          guarantee.state === "not_started" && guarantee.reason === "not_premium"
+        ) ? (
         <Card>
           <CardTitle>The profit-or-nothing guarantee</CardTitle>
 
@@ -251,81 +271,115 @@ export default async function BillingPage(
         </Card>
       ) : null}
 
-      {/* Upgrade path, shown to anyone not already on a paid tier.
-          TODO (Track F, F3): this section still speaks of a single "Premium"
-          plan and lists the old 4 prices via plansFor(). It becomes a
-          Standard/Pro chooser once F0's numbers and F2's Stripe prices land. */}
-      {!isPaidPlan(plan) ? (
-        <div>
-          <h2 className="display mb-1 text-[1.25rem]">
-            {plan === "trial" ? "Stay on a paid plan" : "Upgrade"}
-          </h2>
-          <p className="mb-4 text-[0.9375rem] text-graphite">
-            A paid plan is where casdey actually sends: it works the quiet half
-            of your list for you, start to finish. Billed in{" "}
-            {currency === "gbp" ? "pounds" : "euros"}.
-          </p>
+      {/* Upgrade path. Trial / Free see Standard + Pro; a Standard gym sees
+          Pro only. A paid Pro gym sees nothing here. */}
+      {showUpgrade ? (
+        <div className="space-y-8">
+          <div>
+            <h2 className="display mb-1 text-[1.25rem]">
+              {plan === "standard"
+                ? "Upgrade to Pro"
+                : plan === "trial"
+                  ? "Choose a plan for after your free week"
+                  : "Choose a plan"}
+            </h2>
+            <p className="text-[0.9375rem] text-graphite">
+              A paid plan is where casdey sends: it works the quiet half of your
+              list for you, start to finish. Billed in{" "}
+              {currency === "gbp" ? "pounds" : "euros"}.
+            </p>
+          </div>
 
           {discounted ? (
-            <div className="mb-4">
-              <Notice>
-                As an early adopter you keep{" "}
-                <span className="literal">
-                  {currency === "gbp" ? "£50" : "€59"}
-                </span>{" "}
-                a month off, for as long as you stay subscribed.
-              </Notice>
-            </div>
+            <Notice>
+              As an early adopter you keep{" "}
+              <span className="literal">20% off</span> either paid plan, for as
+              long as you stay subscribed.
+            </Notice>
           ) : null}
 
           {role !== "owner" ? (
-            <Notice tone="warn">
-              Only the gym owner can set up billing.
-            </Notice>
+            <Notice tone="warn">Only the gym owner can set up billing.</Notice>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {plans.map((p) => (
-                <form
-                  key={p.envVar}
-                  action="/api/stripe/checkout"
-                  method="post"
-                  className="card flex flex-col p-6"
-                >
-                  <input type="hidden" name="interval" value={p.interval} />
-                  <p className="label text-stone">
-                    {p.interval === "year" ? "Annual" : "Monthly"}
-                  </p>
-                  <p className="literal mt-2 text-[2rem] leading-none font-medium text-ink">
-                    {p.monthlyDisplay}
-                    <span className="text-[0.875rem] font-normal text-stone">
-                      {" "}
-                      /mo
-                    </span>
-                  </p>
-                  <p className="mt-2 mb-5 flex-1 text-[0.875rem] text-stone">
-                    {discounted
-                      ? `Before your ${currency === "gbp" ? "£50" : "€59"} discount.`
-                      : p.interval === "year"
-                        ? `Paid once a year, ${p.chargeDisplay}.`
-                        : "Paid monthly, cancel any time."}
-                  </p>
-                  <Button
-                    type="submit"
-                    variant={p.interval === "year" ? "quiet" : "primary"}
-                  >
-                    Go Premium
-                  </Button>
-                </form>
-              ))}
-            </div>
+            offerTiers.map((tier) => (
+              <TierBlock
+                key={tier}
+                tier={tier}
+                currency={currency}
+                discounted={discounted}
+              />
+            ))
           )}
 
-          <p className="mt-4 text-[0.875rem] text-stone">
-            If casdey does not recover more than it costs, you do not pay. Tell
-            us and we refund you.
+          <p className="text-[0.875rem] text-stone">
+            On Pro: if casdey does not recover more than it costs in your first
+            month, you do not pay. Tell us and we refund you.
           </p>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+const TIER_BLURB: Record<PlanTier, string> = {
+  standard:
+    "Email win-back and at-risk campaigns, casdey-owned booking, up to 200 members.",
+  pro: "Everything in Standard, plus the WhatsApp channel, the profit-or-nothing guarantee, and up to 2,000 members.",
+};
+
+function TierBlock({
+  tier,
+  currency,
+  discounted,
+}: {
+  tier: PlanTier;
+  currency: "gbp" | "eur";
+  discounted: boolean;
+}) {
+  const plans = pricePlansFor(tier, currency);
+  return (
+    <div>
+      <div className="mb-3 flex items-baseline gap-2">
+        <h3 className="text-[1.0625rem] font-semibold text-ink">
+          {tier === "pro" ? "Pro" : "Standard"}
+        </h3>
+        <span className="text-[0.8125rem] text-stone">{TIER_BLURB[tier]}</span>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {plans.map((p) => (
+          <form
+            key={p.envVar}
+            action="/api/stripe/checkout"
+            method="post"
+            className="card flex flex-col p-6"
+          >
+            <input type="hidden" name="tier" value={p.tier} />
+            <input type="hidden" name="interval" value={p.interval} />
+            <p className="label text-stone">
+              {p.interval === "year" ? "Annual" : "Monthly"}
+            </p>
+            <p className="literal mt-2 text-[2rem] leading-none font-medium text-ink">
+              {p.monthlyDisplay}
+              <span className="text-[0.875rem] font-normal text-stone"> /mo</span>
+            </p>
+            <p className="mt-2 mb-5 flex-1 text-[0.875rem] text-stone">
+              {discounted
+                ? "Before your 20% early-adopter discount."
+                : p.interval === "year"
+                  ? `Paid once a year, ${p.chargeDisplay}.`
+                  : "Paid monthly, cancel any time."}
+            </p>
+            <Button
+              type="submit"
+              variant={p.interval === "year" ? "quiet" : "primary"}
+            >
+              {p.interval === "year"
+                ? `${tier === "pro" ? "Pro" : "Standard"}, annual`
+                : `Go ${tier === "pro" ? "Pro" : "Standard"}`}
+            </Button>
+          </form>
+        ))}
+      </div>
     </div>
   );
 }

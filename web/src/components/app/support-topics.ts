@@ -69,22 +69,23 @@ export const SUPPORT_TOPICS: SupportTopic[] = [
   },
   {
     id: "plans",
-    question: "What is the difference between Free and Premium?",
+    question: "What are the plans — Free, Standard, Pro?",
     answer: [
-      "Your free week is Premium: everything works, and no card is taken. When it ends your account rests on the Free plan.",
-      "Free still finds who has gone quiet and shows you the true count, but it holds up to 50 members and reveals only the first few by name. Sending campaigns, and seeing and contacting your whole list, are Premium.",
-      "Upgrade from Settings then Billing when you are ready to write to everyone.",
+      "Your free week is the full Pro experience: everything works, no card taken. When it ends your account rests on the Free plan.",
+      "Free finds who has gone quiet and shows the true count, but holds up to 50 members, reveals only the first few by name, and cannot send.",
+      "Standard sends email win-back and at-risk campaigns and holds up to 200 members. Pro adds the WhatsApp channel, the profit-or-nothing guarantee, and up to 2,000 members.",
+      "Early adopters keep 20% off either paid plan for life. Choose a plan from Settings then Billing.",
     ],
-    keywords: ["plan", "free", "premium", "trial", "upgrade", "price", "billing", "limit", "cap"],
+    keywords: ["plan", "free", "standard", "pro", "premium", "trial", "upgrade", "price", "billing", "limit", "cap", "whatsapp"],
   },
   {
     id: "guarantee",
     question: "How does the profit-or-nothing guarantee work?",
     answer: [
-      "For your first month on Premium, casdey tracks the revenue you recover against what you paid. If the recovered revenue does not beat the cost, you can claim a full refund of that month from Settings then Billing.",
+      "The guarantee is a Pro-plan feature. For your first month on Pro, casdey tracks the revenue you recover against what you paid. If the recovered revenue does not beat the cost, you can claim a full refund of that month from Settings then Billing.",
       "The estimate uses what you tell casdey a returning member is worth. Set that in Settings so the figure reflects your own prices.",
     ],
-    keywords: ["guarantee", "refund", "money back", "profit", "worth it"],
+    keywords: ["guarantee", "refund", "money back", "profit", "worth it", "pro"],
   },
   {
     id: "revenue",

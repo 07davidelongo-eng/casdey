@@ -438,68 +438,112 @@ Pulled into V1 2026-09-03. Replaces today's Free vs Premium (`src/lib/plan.ts`,
 F0. Everything below is the implementation shape once F0 lands; nothing starts
 before it.
 
-### F0. Tier definitions — `blocked, Davide`
-Needed before any F1–F6 work:
-- **Prices**: Standard and Pro, each in **GBP + EUR**, **monthly + annual**.
-  (Today's Premium is £250/€290 monthly, £225/€262-equivalent annual — does Pro
-  inherit that, is Standard the new cheaper middle, or are both repriced?)
-- **Capability split** per tier across: sending campaigns; total member cap;
-  member-list view cap; the WhatsApp channel; the profit-or-nothing guarantee;
-  at-risk campaigns; LegitFit/API sync (E2); calendar booking; number of gym
-  user seats.
-- **Lifetime early-adopter discount** — applies to Standard, Pro, or both?
-- **Existing accounts** — a gym currently on "Premium" maps to Standard or Pro?
-- **Free** — stays as-is (import + see lapsed, 5-row list cap, 50-member cap,
-  no send), or does the split change it?
+### F0. Tier definitions — `answered 2026-09-03` (Davide)
 
-### F1. Plan model — `structural part done 2026-09-03; caps/gates pending F0`
-Done (compiles, 153 tests green, migration `0016` applied to the live DB —
-2 existing paying gyms backfilled to `pro`, 1 untiered):
-- `Plan` type is now `"trial" | "free" | "standard" | "pro"` (`premium`
-  retired). `isPaidPlan()` helper. `planLabel()` updated.
-- `gyms.plan_tier` (`'standard' | 'pro' | null`) added by `0016`.
-  `effectivePlan()` returns the stored tier for an active/past_due sub, and
-  **defaults a tier-less active sub to `pro`** (safe) until F2's price env
-  vars exist.
-- `capabilities()` is now a per-plan table with `canUseWhatsApp` +
-  `hasGuarantee` added alongside the existing flags. The trial grants
-  everything Pro does. `past_due` still holds sending while keeping grants.
-- Webhook resolves `plan_tier` via `planTierForPriceId()` in `stripe.ts`
-  (reads `STRIPE_PRICE_<TIER>_<CCY>_<INTERVAL>` env vars, returns null until
-  F2 sets them — writes `plan_tier` only when a tier resolves, never nulls).
-- `couponIdFor()` prefers a single `STRIPE_COUPON_PERCENT` (the coming flat
-  20%) over the old per-currency fixed coupons.
-- **PROPOSED, not enforced (pending F0):** Standard `memberImportLimit` = 500;
-  WhatsApp + guarantee Pro-only. The two gate sites (WhatsApp campaign create,
-  guarantee claim) carry TODO comments — the checks are one line each once F0
-  confirms the split.
+casdey's market is **Europe**, so pricing leads in **EUR**; GBP keeps its own
+round numbers for UK, not a live conversion.
 
-### F2. Stripe products/prices — `todo` (needs F0)
-`stripe.ts` `PLANS` becomes tier-aware: 8 prices (2 tiers × 2 currencies × 2
-intervals), new env vars (`STRIPE_PRICE_STANDARD_GBP_MONTH`, …).
-`scripts/stripe-setup.mjs` creates 2 products + 8 prices in **test mode**;
-**live** products/prices/coupons created by hand in the dashboard (the
-established rule — the script refuses a live key). Update the live webhook if
-the event set changes (it should not).
+| | **Free** | **Standard** | **Pro** |
+|---|---|---|---|
+| Monthly | €0 | **€99** (~£89) | **€289** (~£249) |
+| Annual (2 months free) | — | €990 | €2,890 |
+| Early-adopter (lifetime −20%, both tiers) | — | eff. €79 | eff. €231 |
+| Send email campaigns (win-back + at-risk) | ✗ | ✓ | ✓ |
+| Member cap (net-new, at import) | 50 | **200** | **2,000** |
+| Member-list view | 5 rows | full | full |
+| Booking / calendar | ✗ | ✓ | ✓ |
+| WhatsApp channel | ✗ | ✗ | **✓** |
+| Profit-or-nothing guarantee | ✗ | ✗ | **✓** |
+| LegitFit sync (E2, if it ships) | ✗ | ✗ | ✓ |
 
-### F3. Checkout + billing UI — `todo` (needs F0)
-`api/stripe/checkout` takes a `tier`. `settings/billing/page.tsx` shows three
-tiers with upgrade / downgrade / switch-interval, the guarantee where it
-applies, and the early-adopter discount where it applies.
+- **Existing "Premium" accounts → Pro** (already backfilled by `0016`).
+- **Discount** is now a single flat **20% percent-off** coupon
+  (`STRIPE_COUPON_PERCENT`), currency-agnostic, replacing the old per-currency
+  £50/€59 fixed coupons. Applies to both paid tiers.
+- **Free is unchanged.**
 
-### F4. Guarantee + discount interaction — `todo` (needs F0)
-If the profit-or-nothing guarantee is Pro-only (or all-paid), gate
-`api/guarantee/claim` + its billing-page entry accordingly. Map the
-early-adopter coupon to the right tier(s).
+**Cost basis (why these numbers).** Recorded so the rationale isn't lost:
+- Fixed/shared infra (Supabase, Vercel, shared Twilio number, Resend base):
+  **~€0–2 / gym / month**, shrinks with scale. Not a pricing input.
+- Email (Resend): ~€0.0004/email → **€0.20–0.75 / gym / month**. Negligible.
+- **WhatsApp opener (Pro only, the one cost that matters):** ~**€0.06** per
+  marketing template, EU blended. Scales linearly with members contacted:
+  200 → €12, 500 → €30, 1,000 → €60, 2,000 → €120, 5,000 → €300 / month. The
+  opener fires once; monthly re-runs only hit newly-lapsed members, so a Pro
+  gym's steady-state WhatsApp cost falls to ~€10–30/mo after month one. The
+  reply-loop conversation is inside WhatsApp's 24h service window = free.
+- AI replies (Claude Haiku 4.5, $1/$5 per 1M tok): ~€0.011 per conversation →
+  **€1–2 / gym / month**. Negligible.
+- **COGS: Standard ~€1.50–3/mo (~97% margin at €99). Pro ~€15–125/mo
+  (first-month WhatsApp-driven), ~€15–35/mo steady-state → ~57% worst first
+  month, ~90%+ ongoing at €289.**
+- This is why **Pro is capped at 2,000, not unlimited** (a 5,000-member Pro
+  gym WhatsApping monthly ≈ €300 COGS vs €289 revenue), and why **WhatsApp +
+  the guarantee are Pro-only** (WhatsApp is the entire reason Pro costs more
+  to serve; the guarantee is a real refund liability). Standard's 200 cap is a
+  product/upsell lever, not a cost one — email is ~free to serve.
 
-### F5. Copy + FAQ — `todo`
-`planLabel`, every upgrade prompt, the support FAQ's plan topic, the
-onboarding "your free week" framing, and any Free-plan lock copy updated for
-three tiers.
+### F1. Plan model — `code done 2026-09-03`
+- `Plan` = `"trial" | "free" | "standard" | "pro"` (`premium` retired).
+  `isPaidPlan()` helper. `planLabel()` → Free / Free week / Standard / Pro.
+- `gyms.plan_tier` (`'standard' | 'pro' | null`) added by `0016` (applied to
+  the live DB; 2 existing paying gyms backfilled to `pro`, 1 untiered).
+  `effectivePlan()` returns the stored tier for an active/past_due sub;
+  **defaults a tier-less active sub to `pro`** until F2's price env vars exist.
+- `capabilities()` is a per-plan table: `canSendCampaigns` /
+  `canUseWhatsApp` / `hasGuarantee` / `memberListLimit` / `memberImportLimit`.
+  **Caps: Free 50, Standard 200, Pro 2,000.** WhatsApp + guarantee are Pro
+  (trial grants both). `past_due` holds sending, keeps feature grants.
+- **Gates wired:** WhatsApp campaign create + approve reject if
+  `!canUseWhatsApp`; `api/guarantee/claim` rejects if `!hasGuarantee`; the
+  import route's over-cap message is plan-aware (Pro → "contact us", not
+  "upgrade").
+- Webhook resolves `plan_tier` from the subscription price via
+  `planTierForPriceId()`, writing it only when a tier resolves (never nulls).
 
-### F6. Tests — `todo`
-`plan.test.ts` extended for the tier matrix; a webhook test that a
-subscription's price id resolves to the right `plan_tier`.
+### F2. Stripe products/prices — `code done 2026-09-03; Davide runs the script + sets env`
+- `stripe.ts`: `PRICE_PLANS` (8 entries, EUR-first), `pricePlansFor(tier,
+  ccy)`, `findPricePlan(tier, ccy, interval)`, `priceIdFor(plan)`.
+  `couponIdFor()` prefers `STRIPE_COUPON_PERCENT` (flat 20%), old per-currency
+  coupons as fallback.
+- `scripts/stripe-setup.mjs` rewritten: creates **2 products (casdey Standard,
+  casdey Pro), 8 prices, 1 × 20% forever coupon** in **test mode**. Refuses a
+  live key.
+- `.env.example` documents the 9 new vars
+  (`STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` + `STRIPE_COUPON_PERCENT`).
+- **Left to Davide:** run `node scripts/stripe-setup.mjs` (test) → paste the
+  ids into `web/.env.local`; create the same 2 products / 8 prices / 20%
+  coupon by hand in the **live** dashboard; set all 9 vars in **Vercel
+  Production**. The live webhook event set is unchanged.
+
+### F3. Checkout + billing UI — `code done 2026-09-03`
+- `api/stripe/checkout` takes `tier` (`standard`|`pro`, default `pro`) +
+  `interval`; currency still derived from country.
+- `settings/billing/page.tsx`: Free/trial see a Standard + Pro chooser (each
+  with monthly + annual cards); a Standard gym sees "Upgrade to Pro" only; a
+  paid Pro gym sees no upgrade block. Discount copy = "20% off either plan".
+  `PlanPill` renders Standard/Pro.
+
+### F4. Guarantee + discount — `code done 2026-09-03`
+- `api/guarantee/claim` rejects a non-Pro gym ("The guarantee is on the Pro
+  plan"). The billing page's guarantee card shows a Pro-upsell line for a
+  Standard gym, the full status card for trial/Pro, nothing for Free.
+- The early-adopter coupon (`STRIPE_COUPON_PERCENT`, 20% forever) is
+  currency-agnostic and applies to whichever paid tier the gym picks — no
+  per-tier mapping needed.
+
+### F5. Copy + FAQ — `done 2026-09-03`
+Swept "Premium" → tier-aware wording across billing page/banner, the support
+FAQ's plan + guarantee topics, the campaign send-gate error, the import-page
+note, the waitlist FAQ ("pick a paid plan", "lifetime 20%"). `premium_started_at`
+(DB column) and internal `not_premium` guarantee reason left as-is.
+
+### F6. Tests — `plan matrix done; webhook mapping not unit-tested`
+`plan.test.ts` covers the 4-plan capability matrix incl. the 200/2,000 caps
+and the Standard/Pro WhatsApp+guarantee split. `planTierForPriceId` +
+webhook price→tier mapping are not unit-tested (no webhook test harness;
+`stripe.ts` is `server-only` so not importable in vitest; logic is a trivial
+env lookup). Confirmed instead at C1 (real checkout in prod).
 
 ---
 
@@ -598,13 +642,13 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B9 | Confirm JD's gym software + API access (feeds E2) | Davide | platform = LegitFit; API-access question still open |
 | E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
 | E2 | Direct LegitFit member sync | me | blocked — needs a LegitFit export path JD can authorise; else → V2 |
-| F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | blocked — needed before F1–F6 |
-| F1 | Plan model: `standard` tier + stored `plan_tier` (migration 0016) | me | structure done + 0016 applied; caps/gates pending F0 |
-| F2 | Stripe: 2 products / 8 prices, tier-aware `stripe.ts` + setup script | me + Davide | todo — needs F0 |
-| F3 | Checkout `tier` param + 3-tier billing UI | me | todo — needs F0 |
-| F4 | Guarantee + early-adopter discount gated to the right tier(s) | me | todo — needs F0 |
-| F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | todo |
-| F6 | Tests: tier capability matrix + price-id→tier webhook mapping | me | todo |
+| F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | done 2026-09-03 — Standard €99 / Pro €289; caps 200 / 2,000; WhatsApp + guarantee Pro-only; flat 20% early-adopter |
+| F1 | Plan model: 4-plan capabilities, caps 50/200/2000, gates wired | me | code done 2026-09-03 |
+| F2 | Stripe: tier-aware stripe.ts + 8-price setup script | me + Davide | code done; **Davide** runs the script + sets 9 env vars (test `.env.local` + live dashboard + Vercel) |
+| F3 | Checkout tier param + 3-tier billing UI | me | code done 2026-09-03 |
+| F4 | Guarantee Pro-gated; 20% coupon currency-agnostic | me | code done 2026-09-03 |
+| F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | done 2026-09-03 |
+| F6 | Tests: 4-plan capability matrix | me | done (webhook price→tier verified at C1) |
 | C1 | Live-mode Stripe checkout + refund in prod | both | todo |
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |

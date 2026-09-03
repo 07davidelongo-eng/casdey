@@ -8,7 +8,7 @@ import { recordAudit } from "@/lib/audit";
 import { normalizeRow } from "@/lib/ingestion/csv";
 import { applyImportCap } from "@/lib/ingestion/cap";
 import { recordImportEvents, upsertMembers } from "@/lib/ingestion/upsert";
-import { capabilities } from "@/lib/plan";
+import { capabilities, planLabel } from "@/lib/plan";
 import type {
   ColumnMapping,
   DateFormat,
@@ -155,11 +155,16 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
   });
 
-  // Free plan holds only so many members. The cap is on net-new members, so a
-  // re-import that only updates members the gym already has is never blocked;
-  // new members beyond the cap are dropped and reported. Trial and Premium are
-  // uncapped (memberImportLimit is null), and this whole block is skipped.
+  // Each plan holds only so many members (Free 50, Standard 200, Pro 2,000;
+  // the trial is uncapped). The cap is on net-new members, so a re-import that
+  // only updates members the gym already has is never blocked; new members
+  // beyond the cap are dropped and reported.
   const caps = capabilities(gym);
+  // Pro is the top tier, so "upgrade" makes no sense there — point at support.
+  const overCapAdvice =
+    caps.plan === "pro"
+      ? "Contact us at info@casdey.com to raise it."
+      : "Upgrade to bring in your whole list.";
   let capDroppedNew = 0;
   if (caps.memberImportLimit != null && members.length > 0) {
     const admin = supabaseAdmin();
@@ -200,7 +205,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       return Response.json(
         {
           ok: false,
-          error: `Your Free plan holds up to ${caps.memberImportLimit} members and you are at the limit. Upgrade to import more.`,
+          error: `Your ${planLabel(caps.plan)} plan holds up to ${caps.memberImportLimit} members and you are at the limit. ${overCapAdvice}`,
           issues,
         },
         { status: 402 },
@@ -258,7 +263,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
   }
 
-  // Members dropped by the Free cap are not errors: the import worked, the plan
+  // Members dropped by the plan cap are not errors: the import worked, the plan
   // is the limit. Report it as one clear, actionable line, not per row.
   if (capDroppedNew > 0 && issues.length < MAX_REPORTED_ISSUES) {
     issues.push({
@@ -266,7 +271,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       field: "plan",
       reason: `${capDroppedNew} new ${
         capDroppedNew === 1 ? "member was" : "members were"
-      } not imported: the Free plan holds up to ${caps.memberImportLimit} members. Upgrade to bring in your whole list.`,
+      } not imported: the ${planLabel(caps.plan)} plan holds up to ${caps.memberImportLimit} members. ${overCapAdvice}`,
     });
   }
 

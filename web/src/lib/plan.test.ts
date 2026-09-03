@@ -128,7 +128,7 @@ describe("capabilities", () => {
     expect(c.memberImportLimit).toBe(50);
   });
 
-  it("Standard: sends email, no WhatsApp, no guarantee, member cap", () => {
+  it("Standard: sends email, no WhatsApp, no guarantee, 200 member cap", () => {
     const c = capabilities(
       gym({ subscription_status: "active", plan_tier: "standard" }),
       NOW,
@@ -137,10 +137,10 @@ describe("capabilities", () => {
     expect(c.canUseWhatsApp).toBe(false);
     expect(c.hasGuarantee).toBe(false);
     expect(c.memberListLimit).toBeNull();
-    expect(c.memberImportLimit).toBe(500);
+    expect(c.memberImportLimit).toBe(200);
   });
 
-  it("Pro: sends everything, WhatsApp + guarantee, uncapped", () => {
+  it("Pro: sends everything, WhatsApp + guarantee, 2000 member cap", () => {
     const c = capabilities(
       gym({ subscription_status: "active", plan_tier: "pro" }),
       NOW,
@@ -148,7 +148,7 @@ describe("capabilities", () => {
     expect(c.canSendCampaigns).toBe(true);
     expect(c.canUseWhatsApp).toBe(true);
     expect(c.hasGuarantee).toBe(true);
-    expect(c.memberImportLimit).toBeNull();
+    expect(c.memberImportLimit).toBe(2000);
   });
 
   it("stops a past_due paid tier from sending, but keeps its feature grants", () => {

@@ -1,14 +1,14 @@
 import type { RawMember } from "./types";
 
 /**
- * Enforces the Free plan's total-member cap at import time.
+ * Enforces a plan's total-member cap at import time.
  *
  * The cap is on NET-NEW members, never on updates: a gym re-importing its list
  * to refresh members it already has must always go through, whatever plan it is
  * on. Only members that do not already exist (by the gym's reference or by
  * email) count against the remaining capacity, and any beyond it are dropped
- * and reported so the gym knows to upgrade. Trial and Premium pass `limit:
- * null` and nothing is capped.
+ * and reported so the gym knows to upgrade. The trial passes `limit: null` and
+ * nothing is capped; Free / Standard / Pro pass 50 / 200 / 2,000.
  *
  * Pure and framework-free so the decision is unit tested directly; the import
  * route supplies the existing keys and current total from the database.

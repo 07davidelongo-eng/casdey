@@ -28,8 +28,8 @@ export default async function ImportPage() {
       />
 
       {/* Importing and seeing who is lapsed is open to every plan, including
-          Free. Sending is where Premium is required, and that gate lives on the
-          campaigns side. */}
+          Free. Sending is where a paid plan is required, and that gate lives on
+          the campaigns side. */}
       {!gym.processing_agreed_at ? (
         <ProcessingAgreement
           gymName={gym.name}

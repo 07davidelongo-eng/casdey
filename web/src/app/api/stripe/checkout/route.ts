@@ -5,9 +5,10 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { currencyFor } from "@/lib/countries";
 import { earlyAdopterProgramActive } from "@/lib/plan";
+import type { PlanTier } from "@/lib/types";
 import {
   couponIdFor,
-  findPlan,
+  findPricePlan,
   priceIdFor,
   stripeClient,
   type PlanInterval,
@@ -17,15 +18,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Upgrades a gym to Premium.
+ * Upgrades a gym to a paid tier (Standard or Pro).
  *
  * This is a straight paid subscription: the free week happened earlier and was
  * casdey's to give, so there is no Stripe trial here and the card is charged
- * now. An early-adopter gym gets its lifetime discount coupon applied, so
+ * now. An early-adopter gym gets its lifetime 20% discount coupon applied, so
  * the reduced price rides on the subscription for as long as it stays.
  *
- * The currency is decided here from the gym's country, never from the
- * request body: otherwise anyone could post their way onto the cheaper plan.
+ * The currency is decided here from the gym's country, never from the request
+ * body: otherwise anyone could post their way onto the cheaper currency. The
+ * tier and interval DO come from the form (the gym is choosing them), but only
+ * from a fixed set.
  */
 export async function POST(request: NextRequest): Promise<Response> {
   const { gym, session } = await requireOwner();
@@ -33,9 +36,11 @@ export async function POST(request: NextRequest): Promise<Response> {
   const form = await request.formData().catch(() => null);
   const rawInterval = form?.get("interval");
   const interval: PlanInterval = rawInterval === "year" ? "year" : "month";
+  const rawTier = form?.get("tier");
+  const tier: PlanTier = rawTier === "standard" ? "standard" : "pro";
 
   const currency = currencyFor(gym.country);
-  const plan = findPlan(currency, interval);
+  const plan = findPricePlan(tier, currency, interval);
   if (!plan) {
     return NextResponse.json({ error: "Unknown plan." }, { status: 400 });
   }
@@ -96,7 +101,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       actorId: session.userId,
       actorEmail: session.email,
       action: "billing.started",
-      meta: { currency, interval, discounted: Boolean(coupon) },
+      meta: { tier, currency, interval, discounted: Boolean(coupon) },
     });
 
     // 303 so the browser turns the form POST into a GET on Stripe's page.

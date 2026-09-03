@@ -73,7 +73,7 @@ const QUESTIONS = [
   },
   {
     q: "What does it cost after the free week?",
-    a: "Your account drops to a Free plan, not a bill: you keep importing your list and seeing who has cancelled at no cost. If you want casdey writing to them and booking them into a class, upgrade to Premium whenever you're ready, and joining the waitlist locks in a lifetime discount on that price for as long as you stay subscribed. Either way it is the only spend, no ad budget needed, and if it does not recover more than it costs, you do not pay.",
+    a: "Your account drops to a Free plan, not a bill: you keep importing your list and seeing who has cancelled at no cost. If you want casdey writing to them and booking them into a class, pick a paid plan whenever you're ready, and joining the waitlist locks in a lifetime 20% discount for as long as you stay subscribed. Either way it is the only spend, no ad budget needed, and on the top plan, if it does not recover more than it costs, you do not pay.",
   },
   {
     q: "When does it launch?",

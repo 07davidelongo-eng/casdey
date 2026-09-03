@@ -5,6 +5,7 @@ import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { loadGuaranteeStatus } from "@/lib/guarantee-data";
 import { paymentsFundingWindow } from "@/lib/guarantee";
+import { capabilities } from "@/lib/plan";
 import { stripeClient } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -28,10 +29,16 @@ export async function POST(request: NextRequest): Promise<Response> {
   const origin = request.nextUrl.origin;
   const back = new URL("/app/settings/billing", origin);
 
-  // Track F / F4: the guarantee is a paid-tier promise today (any active
-  // subscription, via premium_started_at). The proposed 3-tier split makes it
-  // Pro-only. NOT enforced yet — the Standard/Pro feature split is unconfirmed
-  // (F0). Wire once F0 lands: if (!capabilities(gym).hasGuarantee) reject.
+  // The profit-or-nothing guarantee is a Pro feature (the trial grants it too).
+  // A Standard gym has a real subscription but no guarantee. See §F0.
+  if (!capabilities(gym).hasGuarantee) {
+    back.searchParams.set(
+      "error",
+      "The profit-or-nothing guarantee is on the Pro plan.",
+    );
+    return NextResponse.redirect(back, 303);
+  }
+
   const status = await loadGuaranteeStatus(session.supabase, gym);
 
   if (status.state !== "claimable") {

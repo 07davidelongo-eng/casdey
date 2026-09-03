@@ -55,13 +55,15 @@ export const MEMBER_LIST_LIMIT: Record<Plan, number | null> = {
  * cap on NET-NEW members: re-importing to update members already stored is
  * never blocked, only adding beyond the cap is. null = no limit.
  *
- * NOTE (Track F, F0): Standard's 500 is a PROPOSED default pending Davide's
- * tier sheet. Change the one number here when it lands.
+ * Track F / F0 (2026-09-03): Free 50, Standard 200, Pro 2,000. Pro is capped
+ * (not unlimited) because the WhatsApp opener costs ~€0.06/member and a
+ * 5,000-member Pro gym sending monthly would erase the margin — see
+ * SAAS_V1_PLAN.md §F0 cost basis.
  */
 export const MEMBER_IMPORT_LIMIT: Record<Plan, number | null> = {
   free: 50,
-  standard: 500,
-  pro: null,
+  standard: 200,
+  pro: 2000,
   trial: null,
 };
 

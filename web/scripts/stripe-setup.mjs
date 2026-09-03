@@ -1,16 +1,20 @@
 /**
- * Creates the casdey product and its four prices in Stripe, then prints the
+ * Creates the two casdey products (Standard, Pro) and their eight prices in
+ * Stripe test mode, plus the lifetime early-adopter coupon, then prints the
  * environment lines to paste into web/.env.local.
  *
  *   node scripts/stripe-setup.mjs
  *
- * Safe to run more than once: every price carries a lookup key, and an existing
- * one is reused rather than duplicated. Prices in Stripe are immutable, so
- * changing an amount means creating a new price and updating the env var, which
- * is exactly what re-running with a changed AMOUNTS table does.
+ * casdey's market is Europe, so prices lead in EUR; GBP keeps its own round
+ * numbers for the UK. Annual is "two months free" — 10x the monthly rate.
  *
- * Refuses to run against a live key. Creating live prices is a decision to make
- * in the dashboard, deliberately, not a side effect of running a script.
+ * Safe to run more than once: every price carries a lookup key and an existing
+ * matching one is reused. Prices in Stripe are immutable, so changing an amount
+ * means creating a new price and moving the lookup key, which is exactly what
+ * re-running with a changed AMOUNTS table does.
+ *
+ * Refuses to run against a live key. Creating live prices is a deliberate
+ * dashboard decision, not a script side effect — mirror this spec by hand.
  */
 
 import fs from "node:fs";
@@ -51,47 +55,62 @@ if (!key) {
 if (!key.startsWith("sk_test_") && !key.startsWith("rk_test_")) {
   console.error(
     "That is not a test-mode key. This script only creates test data.\n" +
-      "Create live prices in the Stripe dashboard by hand.",
+      "Create live products/prices/coupon in the Stripe dashboard by hand,\n" +
+      "matching the amounts below.",
   );
   process.exit(1);
 }
 
 const stripe = new Stripe(key, { apiVersion: "2026-07-29.dahlia" });
 
-// Amounts in the smallest unit. Annual is billed once at 12x the monthly rate.
-const AMOUNTS = [
-  { lookupKey: "casdey_gbp_month", currency: "gbp", interval: "month", amount: 25_000, envVar: "STRIPE_PRICE_GBP_MONTH", label: "£250 / month" },
-  { lookupKey: "casdey_gbp_year",  currency: "gbp", interval: "year",  amount: 270_000, envVar: "STRIPE_PRICE_GBP_YEAR",  label: "£2,700 / year (£225 a month)" },
-  { lookupKey: "casdey_eur_month", currency: "eur", interval: "month", amount: 29_000, envVar: "STRIPE_PRICE_EUR_MONTH", label: "€290 / month" },
-  { lookupKey: "casdey_eur_year",  currency: "eur", interval: "year",  amount: 314_400, envVar: "STRIPE_PRICE_EUR_YEAR",  label: "€3,144 / year (€262 a month)" },
+const PRODUCTS = [
+  {
+    id: "casdey_standard",
+    name: "casdey Standard",
+    description:
+      "Lapsed-member win-back for gyms: email win-back + at-risk campaigns, casdey-owned booking, up to 200 members.",
+  },
+  {
+    id: "casdey_pro",
+    name: "casdey Pro",
+    description:
+      "Everything in Standard, plus the WhatsApp channel, the profit-or-nothing guarantee, and up to 2,000 members.",
+  },
 ];
 
-const PRODUCT_ID = "casdey_reactivation";
+// Amounts in the smallest currency unit. Annual = 10x monthly (two months free).
+const AMOUNTS = [
+  // Standard
+  { productId: "casdey_standard", lookupKey: "casdey_standard_eur_month", currency: "eur", interval: "month", amount: 9_900,  envVar: "STRIPE_PRICE_STANDARD_EUR_MONTH", label: "Standard €99 / month" },
+  { productId: "casdey_standard", lookupKey: "casdey_standard_eur_year",  currency: "eur", interval: "year",  amount: 99_000, envVar: "STRIPE_PRICE_STANDARD_EUR_YEAR",  label: "Standard €990 / year" },
+  { productId: "casdey_standard", lookupKey: "casdey_standard_gbp_month", currency: "gbp", interval: "month", amount: 8_900,  envVar: "STRIPE_PRICE_STANDARD_GBP_MONTH", label: "Standard £89 / month" },
+  { productId: "casdey_standard", lookupKey: "casdey_standard_gbp_year",  currency: "gbp", interval: "year",  amount: 89_000, envVar: "STRIPE_PRICE_STANDARD_GBP_YEAR",  label: "Standard £890 / year" },
+  // Pro
+  { productId: "casdey_pro", lookupKey: "casdey_pro_eur_month", currency: "eur", interval: "month", amount: 28_900,  envVar: "STRIPE_PRICE_PRO_EUR_MONTH", label: "Pro €289 / month" },
+  { productId: "casdey_pro", lookupKey: "casdey_pro_eur_year",  currency: "eur", interval: "year",  amount: 289_000, envVar: "STRIPE_PRICE_PRO_EUR_YEAR",  label: "Pro €2,890 / year" },
+  { productId: "casdey_pro", lookupKey: "casdey_pro_gbp_month", currency: "gbp", interval: "month", amount: 24_900,  envVar: "STRIPE_PRICE_PRO_GBP_MONTH", label: "Pro £249 / month" },
+  { productId: "casdey_pro", lookupKey: "casdey_pro_gbp_year",  currency: "gbp", interval: "year",  amount: 249_000, envVar: "STRIPE_PRICE_PRO_GBP_YEAR",  label: "Pro £2,490 / year" },
+];
 
-async function ensureProduct() {
+async function ensureProduct(spec) {
   try {
-    const existing = await stripe.products.retrieve(PRODUCT_ID);
+    const existing = await stripe.products.retrieve(spec.id);
     console.log(`product   ${existing.id} (exists)`);
     return existing;
   } catch (error) {
     if (error?.code !== "resource_missing") throw error;
   }
-
   const product = await stripe.products.create({
-    id: PRODUCT_ID,
-    name: "casdey",
-    description:
-      "Dormant-patient reactivation for dental practices. Finds the patients who came once or twice and never rebooked, then re-engages them.",
+    id: spec.id,
+    name: spec.name,
+    description: spec.description,
   });
   console.log(`product   ${product.id} (created)`);
   return product;
 }
 
-async function ensurePrice(product, spec) {
-  const found = await stripe.prices.list({
-    lookup_keys: [spec.lookupKey],
-    limit: 1,
-  });
+async function ensurePrice(spec) {
+  const found = await stripe.prices.list({ lookup_keys: [spec.lookupKey], limit: 1 });
 
   if (found.data.length > 0) {
     const price = found.data[0];
@@ -99,19 +118,15 @@ async function ensurePrice(product, spec) {
       price.unit_amount === spec.amount &&
       price.currency === spec.currency &&
       price.recurring?.interval === spec.interval;
-
     if (matches) {
       console.log(`price     ${price.id}  ${spec.label} (exists)`);
       return price;
     }
-
-    // Amounts cannot be edited. Move the lookup key onto a new price so the
-    // old one stops being found while existing subscriptions on it continue.
     console.log(`price     ${price.id}  ${spec.label} (amount changed, replacing)`);
   }
 
   const price = await stripe.prices.create({
-    product: product.id,
+    product: spec.productId,
     currency: spec.currency,
     unit_amount: spec.amount,
     recurring: { interval: spec.interval },
@@ -119,18 +134,20 @@ async function ensurePrice(product, spec) {
     transfer_lookup_key: found.data.length > 0,
     nickname: spec.label,
   });
-
   console.log(`price     ${price.id}  ${spec.label} (created)`);
   return price;
 }
 
-// The lifetime early-adopter discount, one coupon per currency because a
-// fixed-amount Stripe coupon is single-currency. `duration: forever` is what
-// makes it lifetime: once applied to a subscription it never stops.
-const COUPONS = [
-  { id: "casdey_early_gbp", amount_off: 5_000, currency: "gbp", envVar: "STRIPE_COUPON_GBP", label: "£50/mo off, forever (early adopter)" },
-  { id: "casdey_early_eur", amount_off: 5_900, currency: "eur", envVar: "STRIPE_COUPON_EUR", label: "€59/mo off, forever (early adopter)" },
-];
+// The lifetime early-adopter discount: a single flat 20% percent-off coupon.
+// Currency-agnostic (unlike a fixed-amount coupon) so one coupon covers both
+// currencies and both paid tiers. `duration: forever` is what makes it
+// lifetime: once applied to a subscription it never stops.
+const COUPON = {
+  id: "casdey_early_20pct",
+  percent_off: 20,
+  envVar: "STRIPE_COUPON_PERCENT",
+  label: "20% off, forever (early adopter)",
+};
 
 async function ensureCoupon(spec) {
   try {
@@ -140,11 +157,9 @@ async function ensureCoupon(spec) {
   } catch (error) {
     if (error?.code !== "resource_missing") throw error;
   }
-  // Coupon ids are chosen by us, so they are stable across runs.
   const coupon = await stripe.coupons.create({
     id: spec.id,
-    amount_off: spec.amount_off,
-    currency: spec.currency,
+    percent_off: spec.percent_off,
     duration: "forever",
     name: spec.label,
   });
@@ -152,18 +167,15 @@ async function ensureCoupon(spec) {
   return coupon;
 }
 
-const product = await ensureProduct();
-const lines = [];
+for (const spec of PRODUCTS) await ensureProduct(spec);
 
+const lines = [];
 for (const spec of AMOUNTS) {
-  const price = await ensurePrice(product, spec);
+  const price = await ensurePrice(spec);
   lines.push(`${spec.envVar}=${price.id}`);
 }
-
-for (const spec of COUPONS) {
-  const coupon = await ensureCoupon(spec);
-  lines.push(`${spec.envVar}=${coupon.id}`);
-}
+const coupon = await ensureCoupon(COUPON);
+lines.push(`${COUPON.envVar}=${coupon.id}`);
 
 console.log("\nAdd these to web/.env.local:\n");
 console.log(lines.join("\n"));

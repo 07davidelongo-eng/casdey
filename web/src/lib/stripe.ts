@@ -6,13 +6,19 @@ import type { Currency } from "./countries";
 import type { PlanTier } from "./types";
 
 /**
- * Stripe wiring: the paid Premium tier.
+ * Stripe wiring for the two paid tiers (Track F).
  *
- * Premium is £250/mo or €290/mo, or £225/mo and €262/mo billed annually. It is
- * a real subscription entered when a gym upgrades from the Free plan; the
- * free week that precedes Free is casdey's to give and never touches Stripe
- * (see src/lib/plan.ts). Gyms flagged early_adopter carry a lifetime
- * discount coupon on that subscription.
+ * casdey's market is Europe, so prices lead in EUR; GBP keeps its own round
+ * numbers for the UK, not a live conversion. See SAAS_V1_PLAN.md §F0.
+ *
+ *   Standard  €99/mo   (£89)    €990/yr    (£890)    — email win-back + at-risk
+ *   Pro       €289/mo  (£249)   €2,890/yr  (£2,490)  — + WhatsApp + guarantee
+ *
+ * Annual is "two months free" — 10x the monthly rate, billed once.
+ *
+ * The free week that precedes a paid tier is casdey's to give and never
+ * touches Stripe (see src/lib/plan.ts). A gym flagged early_adopter carries a
+ * lifetime 20% discount coupon on its subscription, on either tier.
  *
  * None of these numbers appear in public marketing copy. They are shown in the
  * app, at the point somebody is actually deciding to pay.
@@ -39,70 +45,114 @@ export function stripeClient(): Stripe {
 
 export type PlanInterval = "month" | "year";
 
-export type Plan = {
+export type PricePlan = {
+  tier: PlanTier;
   currency: Currency;
   interval: PlanInterval;
-  /** What the gym sees per month, which is the number they compare. */
+  /** Effective per-month figure, which is the number a gym compares. */
   monthlyDisplay: string;
   /** What actually leaves the account, and how often. */
   chargeDisplay: string;
+  /** STRIPE_PRICE_<TIER>_<CURRENCY>_<INTERVAL> — the id lives in the env, not
+   *  here, because test-mode and live-mode ids differ. */
   envVar: string;
 };
 
-export const PLANS: Plan[] = [
+export const PRICE_PLANS: PricePlan[] = [
+  // Standard
   {
-    currency: "gbp",
-    interval: "month",
-    monthlyDisplay: "£250",
-    chargeDisplay: "£250 a month",
-    envVar: "STRIPE_PRICE_GBP_MONTH",
-  },
-  {
-    currency: "gbp",
-    interval: "year",
-    monthlyDisplay: "£225",
-    chargeDisplay: "£2,700 a year",
-    envVar: "STRIPE_PRICE_GBP_YEAR",
-  },
-  {
+    tier: "standard",
     currency: "eur",
     interval: "month",
-    monthlyDisplay: "€290",
-    chargeDisplay: "€290 a month",
-    envVar: "STRIPE_PRICE_EUR_MONTH",
+    monthlyDisplay: "€99",
+    chargeDisplay: "€99 a month",
+    envVar: "STRIPE_PRICE_STANDARD_EUR_MONTH",
   },
   {
+    tier: "standard",
     currency: "eur",
     interval: "year",
-    monthlyDisplay: "€262",
-    chargeDisplay: "€3,144 a year",
-    envVar: "STRIPE_PRICE_EUR_YEAR",
+    monthlyDisplay: "€83",
+    chargeDisplay: "€990 a year",
+    envVar: "STRIPE_PRICE_STANDARD_EUR_YEAR",
+  },
+  {
+    tier: "standard",
+    currency: "gbp",
+    interval: "month",
+    monthlyDisplay: "£89",
+    chargeDisplay: "£89 a month",
+    envVar: "STRIPE_PRICE_STANDARD_GBP_MONTH",
+  },
+  {
+    tier: "standard",
+    currency: "gbp",
+    interval: "year",
+    monthlyDisplay: "£74",
+    chargeDisplay: "£890 a year",
+    envVar: "STRIPE_PRICE_STANDARD_GBP_YEAR",
+  },
+  // Pro
+  {
+    tier: "pro",
+    currency: "eur",
+    interval: "month",
+    monthlyDisplay: "€289",
+    chargeDisplay: "€289 a month",
+    envVar: "STRIPE_PRICE_PRO_EUR_MONTH",
+  },
+  {
+    tier: "pro",
+    currency: "eur",
+    interval: "year",
+    monthlyDisplay: "€241",
+    chargeDisplay: "€2,890 a year",
+    envVar: "STRIPE_PRICE_PRO_EUR_YEAR",
+  },
+  {
+    tier: "pro",
+    currency: "gbp",
+    interval: "month",
+    monthlyDisplay: "£249",
+    chargeDisplay: "£249 a month",
+    envVar: "STRIPE_PRICE_PRO_GBP_MONTH",
+  },
+  {
+    tier: "pro",
+    currency: "gbp",
+    interval: "year",
+    monthlyDisplay: "£207",
+    chargeDisplay: "£2,490 a year",
+    envVar: "STRIPE_PRICE_PRO_GBP_YEAR",
   },
 ];
 
-export function plansFor(currency: Currency): Plan[] {
-  return PLANS.filter((plan) => plan.currency === currency);
+/** The month + year options for one tier in one currency. */
+export function pricePlansFor(tier: PlanTier, currency: Currency): PricePlan[] {
+  return PRICE_PLANS.filter((p) => p.tier === tier && p.currency === currency);
 }
 
-export function findPlan(
+export function findPricePlan(
+  tier: PlanTier,
   currency: Currency,
   interval: PlanInterval,
-): Plan | undefined {
-  return PLANS.find(
-    (plan) => plan.currency === currency && plan.interval === interval,
+): PricePlan | undefined {
+  return PRICE_PLANS.find(
+    (p) => p.tier === tier && p.currency === currency && p.interval === interval,
   );
 }
 
 /**
  * Price ids live in the environment, not in code: the test-mode and live-mode
  * ids differ, and hardcoding either one guarantees the wrong one ships.
- * Run `node scripts/stripe-setup.mjs` to create them and print the values.
+ * Run `node scripts/stripe-setup.mjs` to create the test-mode ids and print
+ * the values; live ids are created by hand in the dashboard.
  */
-export function priceIdFor(plan: Plan): string {
+export function priceIdFor(plan: PricePlan): string {
   const id = process.env[plan.envVar];
   if (!id) {
     throw new Error(
-      `Stripe price is not configured: set ${plan.envVar}. Run "node scripts/stripe-setup.mjs" to create the prices.`,
+      `Stripe price is not configured: set ${plan.envVar}. Run "node scripts/stripe-setup.mjs" to create the test-mode prices.`,
     );
   }
   return id;
@@ -113,14 +163,11 @@ export function isStripeConfigured(): boolean {
 }
 
 /**
- * The lifetime early-adopter discount coupon for a currency, or undefined if
- * none is configured. Fixed-amount coupons are single-currency in Stripe, so
- * there is one per currency (£50 off, €59 off), created by scripts/stripe-setup.mjs.
- *
- * NOTE (Track F, F4): the discount is moving to a flat lifetime 20% (a single
- * percent-off coupon works across every currency and both paid tiers), which
- * will replace these two fixed-amount coupons. `STRIPE_COUPON_PERCENT` is the
- * env var it will read once F2 creates it.
+ * The lifetime early-adopter discount coupon. Track F moved this to a single
+ * flat 20% percent-off coupon (`STRIPE_COUPON_PERCENT`), which is
+ * currency-agnostic and applies to both paid tiers — replacing the old
+ * per-currency fixed-amount coupons (£50 / €59). The `currency` argument is
+ * kept for the legacy fallback only.
  */
 export function couponIdFor(currency: Currency): string | undefined {
   return (
@@ -133,24 +180,18 @@ export function couponIdFor(currency: Currency): string | undefined {
 
 /**
  * Track F: which paid tier a Stripe price id belongs to, or null if it does
- * not match a configured tier price. The env vars are set in F2 (they need
- * F0's numbers first); until then this always returns null and
- * effectivePlan() falls back to treating any active subscription as Pro.
- *
- * Env var shape: STRIPE_PRICE_<TIER>_<CURRENCY>_<INTERVAL>, e.g.
- * STRIPE_PRICE_STANDARD_GBP_MONTH, STRIPE_PRICE_PRO_EUR_YEAR.
+ * not match a configured tier price. The env vars are set by
+ * `scripts/stripe-setup.mjs` (test) or by hand in the dashboard (live); until
+ * then this returns null and effectivePlan() falls back to treating any active
+ * subscription as Pro.
  */
-export function planTierForPriceId(priceId: string | null | undefined): PlanTier | null {
+export function planTierForPriceId(
+  priceId: string | null | undefined,
+): PlanTier | null {
   if (!priceId) return null;
-  const tiers: PlanTier[] = ["standard", "pro"];
-  const currencies = ["GBP", "EUR"];
-  const intervals = ["MONTH", "YEAR"];
-  for (const tier of tiers) {
-    for (const currency of currencies) {
-      for (const interval of intervals) {
-        const envVar = `STRIPE_PRICE_${tier.toUpperCase()}_${currency}_${interval}`;
-        if (process.env[envVar] && process.env[envVar] === priceId) return tier;
-      }
+  for (const plan of PRICE_PLANS) {
+    if (process.env[plan.envVar] && process.env[plan.envVar] === priceId) {
+      return plan.tier;
     }
   }
   return null;

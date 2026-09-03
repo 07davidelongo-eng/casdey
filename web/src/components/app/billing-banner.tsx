@@ -5,8 +5,8 @@ import { effectivePlan, isPaidPlan, trialDaysLeft } from "@/lib/plan";
 
 /**
  * A one-line status strip, shown only when there is something worth saying. A
- * gym comfortably inside its free week, or paid up on Premium, gets no
- * banner at all.
+ * gym comfortably inside its free week, or paid up on a plan, gets no banner
+ * at all.
  *
  * Tone rule from the brand guide: state the position, offer the fix, get out of
  * the way. No urgency theatre.
@@ -25,10 +25,10 @@ export function BillingBanner({ gym }: { gym: Gym }) {
           <span className="literal font-medium">
             {left} {left === 1 ? "day" : "days"}
           </span>
-          . After that you keep everything except sending, unless you go
-          Premium.
+          . After that you keep everything except sending, unless you pick a
+          plan.
         </span>
-        <BannerLink href="/app/settings/billing">See Premium</BannerLink>
+        <BannerLink href="/app/settings/billing">See plans</BannerLink>
       </Banner>
     );
   }
@@ -51,9 +51,9 @@ export function BillingBanner({ gym }: { gym: Gym }) {
     <Banner tone="info">
       <span>
         You are on the Free plan. Import and see who is lapsed as much as you
-        like. Sending is Premium.
+        like. Sending needs a paid plan.
       </span>
-      <BannerLink href="/app/settings/billing">Go Premium</BannerLink>
+      <BannerLink href="/app/settings/billing">See plans</BannerLink>
     </Banner>
   );
 }
