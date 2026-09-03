@@ -51,16 +51,19 @@ items already shipped (at-risk campaigns, cancellation reasons — commit
 the #10 win-back/comeback-offer interactive page, republishing the public
 marketing homepage (invited-only signup does not need it).
 
-**Parked future direction — Davide's stated intent, 2026-09-03 (NOT V1; do not
-start until D passes, recorded so it isn't lost):**
+**3-tier pricing — pulled INTO V1 on 2026-09-03** (Davide's call, same move as
+the WhatsApp rescope). **Free / Standard / Pro** replaces today's Free vs
+Premium. Now **Track F** below. Blocked on Davide supplying the tier
+definitions (prices per tier in GBP + EUR, monthly + annual; the capability
+split; how the lifetime early-adopter discount and existing "Premium" accounts
+map across three tiers).
+
+**Still parked (NOT V1; do not start until D passes, recorded so it isn't
+lost):**
 - **Brand identity refresh** — a new colour palette, fonts and logo, superseding
   the v3 "Iron & Brass" system (`brand assets/casdey-brand-guide.html` +
   `web/src/app/globals.css` tokens). A deliberate re-do of the visual identity,
-  not a tweak.
-- **Three plan tiers: Free / Standard / Pro** — replacing today's Free vs
-  Premium in `web/src/lib/plan.ts` (aligns with the earlier go-to-market note's
-  Free/Starter/Pro idea). Needs pricing + capability scoping per tier and
-  matching Stripe products/prices before it can ship.
+  not a tweak. Needs Davide's design direction before any work can start.
 
 ---
 
@@ -428,6 +431,63 @@ sit next to it behind the same `ingestion` interface.
 
 ---
 
+## 3.6. TRACK F — 3-tier pricing (Free / Standard / Pro)
+
+Pulled into V1 2026-09-03. Replaces today's Free vs Premium (`src/lib/plan.ts`,
+`src/lib/stripe.ts`). **Blocked until Davide supplies the tier sheet** — see
+F0. Everything below is the implementation shape once F0 lands; nothing starts
+before it.
+
+### F0. Tier definitions — `blocked, Davide`
+Needed before any F1–F6 work:
+- **Prices**: Standard and Pro, each in **GBP + EUR**, **monthly + annual**.
+  (Today's Premium is £250/€290 monthly, £225/€262-equivalent annual — does Pro
+  inherit that, is Standard the new cheaper middle, or are both repriced?)
+- **Capability split** per tier across: sending campaigns; total member cap;
+  member-list view cap; the WhatsApp channel; the profit-or-nothing guarantee;
+  at-risk campaigns; LegitFit/API sync (E2); calendar booking; number of gym
+  user seats.
+- **Lifetime early-adopter discount** — applies to Standard, Pro, or both?
+- **Existing accounts** — a gym currently on "Premium" maps to Standard or Pro?
+- **Free** — stays as-is (import + see lapsed, 5-row list cap, 50-member cap,
+  no send), or does the split change it?
+
+### F1. Plan model — `todo` (needs F0)
+`Plan` type gains `"standard"`; the paid tier a subscription represents is
+**stored** (`gyms.plan_tier`, new migration `0016`) because `effectivePlan`
+can no longer infer "any active sub → premium". Webhook writes it from the
+subscription's price id. `capabilities()` branches per tier. Backfill existing
+active subs per F0's mapping.
+
+### F2. Stripe products/prices — `todo` (needs F0)
+`stripe.ts` `PLANS` becomes tier-aware: 8 prices (2 tiers × 2 currencies × 2
+intervals), new env vars (`STRIPE_PRICE_STANDARD_GBP_MONTH`, …).
+`scripts/stripe-setup.mjs` creates 2 products + 8 prices in **test mode**;
+**live** products/prices/coupons created by hand in the dashboard (the
+established rule — the script refuses a live key). Update the live webhook if
+the event set changes (it should not).
+
+### F3. Checkout + billing UI — `todo` (needs F0)
+`api/stripe/checkout` takes a `tier`. `settings/billing/page.tsx` shows three
+tiers with upgrade / downgrade / switch-interval, the guarantee where it
+applies, and the early-adopter discount where it applies.
+
+### F4. Guarantee + discount interaction — `todo` (needs F0)
+If the profit-or-nothing guarantee is Pro-only (or all-paid), gate
+`api/guarantee/claim` + its billing-page entry accordingly. Map the
+early-adopter coupon to the right tier(s).
+
+### F5. Copy + FAQ — `todo`
+`planLabel`, every upgrade prompt, the support FAQ's plan topic, the
+onboarding "your free week" framing, and any Free-plan lock copy updated for
+three tiers.
+
+### F6. Tests — `todo`
+`plan.test.ts` extended for the tier matrix; a webhook test that a
+subscription's price id resolves to the right `plan_tier`.
+
+---
+
 ## 4. TRACK C — production verification (me + Davide, after A + B green)
 
 Not the same as Davide's walkthrough — this is targeted proof each integration
@@ -485,10 +545,14 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
   be redone.
 - Track D is **last**. Davide's manual walkthrough is the acceptance gate, never
   a debugging tool mid-build.
-- **WhatsApp (E1) and gym-software sync (E2) are now V1** (rescoped 2026-09-03).
-  E1 is firm; E2 is best-effort and may exit back to V2 if its partner-API
-  access is too slow (gate at B9). Run Track E in parallel with the tail of
-  Track A; it must be green before Track C signs off.
+- **WhatsApp (E1) and LegitFit sync (E2) are now V1** (rescoped 2026-09-03).
+  E1 is firm and code-complete; E2 is best-effort and may exit back to V2 if
+  LegitFit has no authorisable export path (gate at B9).
+- **3-tier pricing (Track F) is now V1** (rescoped 2026-09-03). Entirely
+  blocked on F0 (Davide's tier sheet); no F work starts before it. F must be
+  green before Track C signs off Stripe (C1).
+- **Brand identity refresh stays parked** (post-D). Needs Davide's design
+  direction; not a V1 blocker.
 - Remaining true-V2 items (#10 offer page, homepage republish) do not enter any
   track until D passes.
 
@@ -518,7 +582,14 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | todo |
 | B9 | Confirm JD's gym software + API access (feeds E2) | Davide | platform = LegitFit; API-access question still open |
 | E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
-| E2 | Direct gym-software API sync | me | todo — best-effort, may exit to V2 (gate B9) |
+| E2 | Direct LegitFit member sync | me | blocked — needs a LegitFit export path JD can authorise; else → V2 |
+| F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | blocked — needed before F1–F6 |
+| F1 | Plan model: `standard` tier + stored `plan_tier` (migration 0016) | me | todo — needs F0 |
+| F2 | Stripe: 2 products / 8 prices, tier-aware `stripe.ts` + setup script | me + Davide | todo — needs F0 |
+| F3 | Checkout `tier` param + 3-tier billing UI | me | todo — needs F0 |
+| F4 | Guarantee + early-adopter discount gated to the right tier(s) | me | todo — needs F0 |
+| F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | todo |
+| F6 | Tests: tier capability matrix + price-id→tier webhook mapping | me | todo |
 | C1 | Live-mode Stripe checkout + refund in prod | both | todo |
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |
