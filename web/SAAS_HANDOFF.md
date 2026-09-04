@@ -29,12 +29,14 @@ practice / patient / appointment / dormant — was renamed throughout in the
   `NEXT_PUBLIC_SUPABASE_*`, `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`,
   `RESEND_API_KEY`, `CASDEY_SENDING_ADDRESS`, `CRON_SECRET`. Email/password
   auth works in prod; auth transactional email routes through Resend custom
-  SMTP. **Not yet in Vercel (Track F, F2):** the 3-tier price ids
-  `STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` + `STRIPE_COUPON_PERCENT`
-  (the old 4-price / 2-coupon set the code used is retired). A *new* paid
-  upgrade can't complete in prod until these are created (test via
-  `npm run setup:stripe`, live by hand) and set; existing paying gyms are
-  unaffected (`plan_tier` backfilled to `pro` by `0016`).
+  SMTP. **The 3-tier Stripe config is now live too (F2 done 2026-09-04):**
+  the live catalogue (casdey Standard, casdey Pro, 8 prices, the
+  `casdey_early_20pct` 20%-forever coupon) exists, and all 9 vars
+  (`STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` +
+  `STRIPE_COUPON_PERCENT`) are set in Vercel Production and Preview. The 6
+  retired vars were removed, so Production carries exactly 11 `STRIPE_*` vars:
+  8 prices, 1 coupon, secret key, webhook secret. Verified by
+  `npm run check:stripe` against the live key.
   **Check the result with `npm run check:stripe`** rather than by eye: it calls
   Stripe and confirms all 9 values resolve to real, active, correctly-priced
   objects in that key's mode, catching the hand-entry mistakes (missing var,
@@ -112,8 +114,14 @@ included), which needed `server-only` aliased to `test/server-only-stub.ts` in
 - **Two env levers, not code:** `CASDEY_TRIAL_ENABLED` and
   `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` for V2).
   `early_adopter` is persisted per-gym so eligibility survives into V2.
-- **Not live yet:** the Stripe products/prices/coupon and their env vars —
-  `scripts/stripe-setup.mjs` builds the test-mode set; live is Davide's (F2).
+- **Live as of 2026-09-04 (F2):** the products, prices and coupon exist in
+  Stripe live mode and their 9 env vars are in Vercel. Built by
+  `npm run setup:stripe -- --live` (the old blanket live-key refusal is now an
+  explicit opt-in flag), verified by `npm run check:stripe`.
+- **Test mode is still empty**, because the only Stripe key on the dev machine
+  is the live one. Paste the test secret key into `web/.env.local` and run
+  `npm run setup:stripe` (no flag) before doing any local billing work — a
+  local checkout against the current config would charge a real card.
 
 ## What's verified
 

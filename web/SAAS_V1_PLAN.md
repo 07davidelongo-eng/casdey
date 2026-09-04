@@ -504,7 +504,7 @@ round numbers for UK, not a live conversion.
 - Webhook resolves `plan_tier` from the subscription price via
   `planTierForPriceId()`, writing it only when a tier resolves (never nulls).
 
-### F2. Stripe products/prices — `code done 2026-09-03; Davide runs the script + sets env`
+### F2. Stripe products/prices — `done 2026-09-04 (live catalogue created + Vercel set)`
 - `stripe.ts`: `PRICE_PLANS` (8 entries, EUR-first), `pricePlansFor(tier,
   ccy)`, `findPricePlan(tier, ccy, interval)`, `priceIdFor(plan)`.
   `couponIdFor()` prefers `STRIPE_COUPON_PERCENT` (flat 20%), old per-currency
@@ -514,10 +514,29 @@ round numbers for UK, not a live conversion.
   live key.
 - `.env.example` documents the 9 new vars
   (`STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` + `STRIPE_COUPON_PERCENT`).
-- **Left to Davide:** run `npm run setup:stripe` (test) → paste the ids into
-  `web/.env.local`; create the same 2 products / 8 prices / 20% coupon by hand
-  in the **live** dashboard; set all 9 vars in **Vercel Production**. The live
-  webhook event set is unchanged.
+- **Done 2026-09-04, live.** The blanket "refuses a live key" guard became an
+  explicit opt-in (`npm run setup:stripe -- --live`) instead: the point was to
+  stop an *accidental* live run, and a flag does that without making the live
+  catalogue a hand-typing exercise. Creating prices charges nobody; they are
+  catalogue entries, immutable once made but archivable, and no money moves
+  until a checkout completes.
+  - Live now holds **casdey Standard** and **casdey Pro**, their 8 prices, and
+    `casdey_early_20pct` (20% off, forever). The script is idempotent (lookup
+    keys), so a re-run reports "exists" rather than duplicating.
+  - All 9 vars are set in **Vercel Production and Preview**, and the **6
+    retired ones were removed** (`STRIPE_PRICE_{EUR,GBP}_{MONTH,YEAR}`, which
+    nothing reads, and `STRIPE_COUPON_{GBP,EUR}`, the fixed-amount £50/€59
+    coupons that would over-discount Standard if they ever became reachable).
+    Production now carries exactly 11 `STRIPE_*` vars: 8 prices, 1 coupon, the
+    secret key, the webhook secret.
+  - Verified with `npm run check:stripe` against the live key: all 8 prices
+    resolve to active, correctly-priced recurring prices, and the coupon is 20%
+    forever. The live webhook event set is unchanged.
+- **Still open, and Davide's:** `web/.env.local` has no test-mode set, because
+  the only Stripe key on this machine is the **live** one. Paste the test
+  secret key from the Stripe dashboard and run `npm run setup:stripe` (no flag)
+  to build the test catalogue. Until then, do not run a local checkout: it
+  would charge a real card.
 - **Verify it with `npm run check:stripe` (added 2026-09-04) rather than by
   eye.** It reads the env, calls Stripe, and confirms each of the 9 values
   resolves to a real, active, correctly-priced recurring price (and a 20%
@@ -680,7 +699,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | E2 | Direct LegitFit member sync | me | blocked — needs a LegitFit export path JD can authorise; else → V2 |
 | F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | done 2026-09-03 — Standard €99 / Pro €289; caps 200 / 2,000; WhatsApp + guarantee Pro-only; flat 20% early-adopter |
 | F1 | Plan model: 4-plan capabilities, caps 50/200/2000, gates wired | me | code done 2026-09-03 |
-| F2 | Stripe: tier-aware stripe.ts + 8-price setup script | me + Davide | code done; **Davide** runs the script + sets 9 env vars (test `.env.local` + live dashboard + Vercel) |
+| F2 | Stripe: tier-aware stripe.ts + 8-price setup script | me + Davide | done 2026-09-04 — live catalogue created, 9 vars set in Vercel, 6 retired ones removed, verified by `check:stripe`; test-mode set still owed (needs Davide's test key) |
 | F3 | Checkout tier param + 3-tier billing UI | me | code done 2026-09-03 |
 | F4 | Guarantee Pro-gated; 20% coupon currency-agnostic | me | code done 2026-09-03 |
 | F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | done 2026-09-03 |

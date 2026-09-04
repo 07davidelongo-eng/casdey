@@ -42,13 +42,35 @@ if (!key) {
   process.exit(1);
 }
 
-if (!key.startsWith("sk_test_") && !key.startsWith("rk_test_")) {
+const isTestKey = key.startsWith("sk_test_") || key.startsWith("rk_test_");
+const wantsLive = process.argv.includes("--live");
+
+if (!isTestKey && !wantsLive) {
   console.error(
-    "That is not a test-mode key. This script only creates test data.\n" +
-      "Create live products/prices/coupon in the Stripe dashboard by hand,\n" +
-      "matching the amounts below.",
+    "That is a LIVE key, and this script creates real billing objects.\n" +
+      "\n" +
+      "Nothing here charges anybody — products, prices and coupons are catalogue\n" +
+      "entries, and no money moves until a customer completes a checkout. But live\n" +
+      "prices are immutable once created (they can only be archived), so this is\n" +
+      "deliberately opt-in rather than something a stray run can do:\n" +
+      "\n" +
+      "  npm run setup:stripe -- --live\n" +
+      "\n" +
+      "Then verify what it made with `npm run check:stripe`.",
   );
   process.exit(1);
+}
+
+if (isTestKey && wantsLive) {
+  console.error("--live was passed, but this is a test-mode key. Drop the flag.");
+  process.exit(1);
+}
+
+if (wantsLive) {
+  console.log(
+    "LIVE mode: creating real products, prices and the early-adopter coupon.\n" +
+      "No customer is charged by this; it only fills the catalogue.\n",
+  );
 }
 
 const stripe = new Stripe(key, { apiVersion: "2026-07-29.dahlia" });
@@ -127,12 +149,24 @@ for (const spec of AMOUNTS) {
 const coupon = await ensureCoupon(COUPON);
 lines.push(`${COUPON.envVar}=${coupon.id}`);
 
-console.log("\nAdd these to web/.env.local:\n");
-console.log(lines.join("\n"));
-console.log(
-  "\nStill needed for the full flow:\n" +
-    "  STRIPE_SECRET_KEY=...   (test key, same one this script used)\n" +
-    "  STRIPE_WEBHOOK_SECRET=whsec_...\n" +
-    "\nGet the webhook secret by running:\n" +
-    "  stripe listen --forward-to localhost:3000/api/stripe/webhook\n",
-);
+if (wantsLive) {
+  console.log("\nSet these in Vercel (Production and Preview):\n");
+  console.log(lines.join("\n"));
+  console.log(
+    "\nThen redeploy — Vercel only picks up env vars on a new deployment — and\n" +
+      "verify what landed:\n" +
+      "  npm run check:stripe\n" +
+      "\nDo NOT put these in web/.env.local: local would then run against live\n" +
+      "prices. Local wants the test-mode set, from this script without --live.\n",
+  );
+} else {
+  console.log("\nAdd these to web/.env.local:\n");
+  console.log(lines.join("\n"));
+  console.log(
+    "\nStill needed for the full flow:\n" +
+      "  STRIPE_SECRET_KEY=...   (test key, same one this script used)\n" +
+      "  STRIPE_WEBHOOK_SECRET=whsec_...\n" +
+      "\nGet the webhook secret by running:\n" +
+      "  stripe listen --forward-to localhost:3000/api/stripe/webhook\n",
+  );
+}

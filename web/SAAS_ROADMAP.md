@@ -671,7 +671,7 @@ pending — see each item for its specific gate.
 is **published to production** with **no verification review required** (B1), the
 Calendar env vars **are** in Vercel (B2), and the deferred #9 items have landed.
 Still genuinely open: the Twilio account upgrade (B8) that gates WhatsApp
-sending, and the 3-tier Stripe prices/coupon (F2).
+sending. (The 3-tier Stripe prices/coupon, F2, were completed 2026-09-04.)
 
 ## Open questions to pin down as we go
 - #2: **answered** — Twilio for the WhatsApp Business API provider, Claude
