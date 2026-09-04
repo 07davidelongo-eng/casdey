@@ -51,6 +51,25 @@ export class ResendKeyNotPermittedError extends Error {
   }
 }
 
+/**
+ * casdey's own Resend account holds as many domains as its plan allows.
+ *
+ * This is not an error in the gym's setup, and no amount of retrying or DNS
+ * fixing clears it: per-gym sending needs one Resend domain per gym, so the
+ * plan's domain allowance is a hard ceiling on how many gyms can send under
+ * their own name at once. Surfaced as its own type so it reads as the
+ * operator problem it is rather than as the gym doing something wrong.
+ */
+export class ResendDomainLimitError extends Error {
+  constructor(detail: string) {
+    super(
+      `casdey's Resend account is at its plan's domain limit, so no further ` +
+        `gym domain can be registered until the plan is raised. Resend said: ${detail}`,
+    );
+    this.name = "ResendDomainLimitError";
+  }
+}
+
 export type ResendDomain = {
   id: string;
   name: string;
@@ -96,9 +115,29 @@ async function call(
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    if (response.status === 401 || response.status === 403) {
-      throw new ResendKeyNotPermittedError(detail.slice(0, 300));
+
+    // Resend answers 403 for two unrelated situations, and they need different
+    // answers: a key that may not manage domains at all, and an account that
+    // has as many domains as its plan allows. Reading the status alone maps
+    // the second onto the first and sends the reader hunting through env vars
+    // for a problem that is really a billing one.
+    let name = "";
+    let message = "";
+    try {
+      const body = JSON.parse(detail) as { name?: string; message?: string };
+      name = body.name ?? "";
+      message = body.message ?? "";
+    } catch {
+      /* Not JSON; fall through to the generic error below. */
     }
+
+    if (name === "restricted_api_key" || response.status === 401) {
+      throw new ResendKeyNotPermittedError(message || detail.slice(0, 300));
+    }
+    if (response.status === 403 && /domain limit/i.test(message)) {
+      throw new ResendDomainLimitError(message);
+    }
+
     throw new Error(
       `Resend ${init?.method ?? "GET"} ${path} failed: ${response.status} ${detail.slice(0, 300)}`,
     );

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ResendDomainLimitError,
   ResendKeyNotPermittedError,
   ResendNotConfiguredError,
   createSendingDomain,
@@ -91,13 +92,21 @@ describe("a key that is not allowed to manage domains", () => {
     );
   });
 
-  it("treats 403 the same way", async () => {
-    vi.stubEnv("RESEND_ADMIN_API_KEY", "re_send_only");
-    globalThis.fetch = answer(403, { message: "forbidden" }) as unknown as typeof fetch;
+  it("is told apart from the OTHER thing Resend answers 403 for", async () => {
+    // Found the hard way: a plan domain limit is also a 403, and mapping it to
+    // the key error told the gym sending was "not switched on for this
+    // deployment" — wrong cause, wrong remedy, and it sends whoever reads it
+    // hunting through env vars for a billing problem.
+    vi.stubEnv("RESEND_ADMIN_API_KEY", "re_admin");
+    globalThis.fetch = answer(403, {
+      statusCode: 403,
+      message: "You have reached the domain limit of your plan. Upgrade to add more.",
+      name: "validation_error",
+    }) as unknown as typeof fetch;
 
-    await expect(getSendingDomain("d1")).rejects.toBeInstanceOf(
-      ResendKeyNotPermittedError,
-    );
+    const error = await createSendingDomain("x.com").catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ResendDomainLimitError);
+    expect(error).not.toBeInstanceOf(ResendKeyNotPermittedError);
   });
 
   it("leaves other failures as ordinary errors", async () => {

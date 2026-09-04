@@ -6,6 +6,7 @@ import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import {
+  ResendDomainLimitError,
   ResendKeyNotPermittedError,
   ResendNotConfiguredError,
   createSendingDomain,
@@ -37,6 +38,11 @@ function friendly(error: unknown): string {
   // is standing these are the same problem, and neither is fixed by retrying.
   if (error instanceof ResendKeyNotPermittedError) {
     return "Sending from your own domain is not switched on for this deployment yet. Get in touch and we will sort it.";
+  }
+  // Also ours to fix, but a different fix, so it gets a different sentence: the
+  // gym has done nothing wrong and nothing on their side will change this.
+  if (error instanceof ResendDomainLimitError) {
+    return "We have hit a capacity limit on our side for custom sending domains. Get in touch and we will raise it for you.";
   }
   const detail = error instanceof Error ? error.message : "";
   if (/already exists|duplicate/i.test(detail)) {

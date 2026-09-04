@@ -756,10 +756,61 @@ through it rather than on top of it.** Migration `0017`.
 > switched on rather than told to retry. **`npm run check:resend`** probes both
 > keys against the real API and exits non-zero; it reports this exact failure.
 >
-> **Still owed:** create the Full-access key at resend.com/api-keys, set it in
-> `web/.env.local` and in Vercel Production + Preview, then run the check. The
-> create → DNS → verify loop has still never been exercised against a real
-> domain.
+> **Done later the same day:** the Full-access key `casdey-domains-admin` was
+> created, set in `web/.env.local` and in Vercel Production + Preview, and
+> `npm run check:resend` passes. The UI was then driven end to end for the first
+> time (connect → `AWAITING DNS` → records table → check again), which found the
+> two things below.
+
+**G1a. The Resend plan is the real ceiling — found 2026-09-04, NOT a code problem.**
+Connecting a second gym domain through the UI returned:
+
+```
+403 "You have reached the domain limit of your plan. Upgrade to add more."
+```
+
+casdey is on Resend **Free: 3 domains, 3,000 emails/month, 100 emails/day.**
+Two of those three domains are casdey's own (`casdey.com`, `mail.casdey.com`),
+so **exactly one gym can have its own sending domain today**. Per-gym sending
+needs one Resend domain per gym, so the plan's domain allowance is a hard
+ceiling on how many gyms can send under their own name at once.
+
+**The daily send cap is the more urgent half.** 100 emails/day makes casdey
+unusable for even one real gym: a single win-back campaign across a few hundred
+lapsed members exceeds a day's entire allowance, and the cron drains once daily.
+This is not a per-gym-identity problem, it caps the core product.
+
+| Resend plan | Domains | Gyms with own domain | Emails/mo | Daily cap | Cost |
+|---|---|---|---|---|---|
+| Free (current) | 3 | **1** | 3,000 | **100** | $0 |
+| Pro | 10 | 8 | 50,000 | none | $20/mo |
+| Pro + domains add-on | 110 | 108 | 50,000 | none | $40/mo |
+| Scale | 1,000 | 998 | 100,000 | none | $90/mo |
+
+**Recommendation: Pro ($20/mo) is needed before the first real gym sends
+anything at all**, daily cap first and domains second. The domains add-on
+(+100 for $20/mo) is not needed until customer nine. This is the first genuine
+recurring cost the product cannot avoid, and it is small — but it must be
+spent before Track C/D can mean anything, because today a verification pass
+would hit the 100/day wall rather than testing casdey.
+
+**G1b. A 403 from Resend means two different things.** The first cut of the
+error mapping treated every 401/403 as "this key may not manage domains", so
+the plan limit above surfaced to the gym as "sending from your own domain is
+not switched on for this deployment" — wrong cause, wrong remedy. Now split by
+Resend's `name` field: `restricted_api_key` (or any 401) is the key error,
+`403` + "domain limit" is `ResendDomainLimitError` with its own message.
+
+**Still unproven:** verification has never returned `verified` for a gym
+domain. `testgym.casdey.com` sat `pending` for ~50 minutes with all three DNS
+records provably correct in public DNS. It is a subdomain of `casdey.com`,
+which is already verified on the same account, and that overlap is the likely
+cause — so this needs retrying on an unrelated domain before anything is read
+into it.
+
+**Also noted:** per-gym sending appears nowhere in onboarding. The "Finish
+setting up" checklist has five items and Sending is not one of them, so the
+feature is invisible unless a gym digs into Settings.
 
 - `src/lib/email/domains.ts` wraps Resend's Domains API (create / verify /
   get / delete) plus strict input normalising. **Resend verifies the domain,
@@ -923,7 +974,8 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |
 | C4 | Every wizard step verified in prod | both | todo |
-| G1 | Email from the gym's own domain (Resend per-gym) | me | code done 2026-09-04 — **blocked**: needs a Full-access `RESEND_ADMIN_API_KEY`; the send-only key 401s on every `/domains` call. `npm run check:resend` |
+| G1 | Email from the gym's own domain (Resend per-gym) | me | code + UI done 2026-09-04, admin key live. **Verification never yet observed** — retry on a domain unrelated to casdey.com |
+| G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | **blocks everything that sends.** Free caps at 100 emails/day and 3 domains (= 1 gym). Needed before Track C means anything |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate |
