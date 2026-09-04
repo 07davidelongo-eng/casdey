@@ -87,9 +87,10 @@ export function ServicesForm({
     <Card>
       <CardTitle>Your service prices</CardTitle>
       <p className="mb-5 text-[0.875rem] text-stone">
-        The memberships, classes and sessions you offer and what they cost. casdey uses these to show
-        members what a visit is worth in a message, and to value the work it
-        books back in. Add as many as you like.
+        The memberships, classes and sessions you offer and what they cost. casdey
+        uses these to show members what a visit is worth in a message. Add as many
+        as you like. What a recovered member is worth to you is a separate setting,
+        and it is the one the revenue estimate and the guarantee actually use.
       </p>
 
       <div className="space-y-3">
