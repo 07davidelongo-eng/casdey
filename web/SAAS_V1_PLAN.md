@@ -40,8 +40,9 @@ items already shipped (at-risk campaigns, cancellation reasons — commit
 `88ff34f`). The remaining two become **Track E**:
 - **E1. WhatsApp channel revival** — firm V1 addition. Revive the built-then-
   deleted WhatsApp + AI-reply-loop code, adapt it to the gym model, fix the 5
-  known audit bugs. External blocker: Davide must upgrade the Twilio account
-  (trial gates outbound). Channel choice confirmed **WhatsApp** (not SMS).
+  known audit bugs. The external blocker was Twilio's trial tier; **cleared
+  2026-09-04 (B8)**. The remaining gate is a Meta-approved sender plus template
+  approval. Channel choice confirmed **WhatsApp** (not SMS).
 - **E2. Direct gym-software API sync** — was best-effort V1, allowed to drop to
   V2 if the partner-API wall proved too slow. **It exited to V2 on 2026-09-04**,
   which is exactly the outcome this bullet allowed for: LegitFit publishes no
@@ -364,11 +365,46 @@ removed via `vercel project rm web`. `vercel projects ls` now shows only
 ### B7. Decide Free-plan limits — `done 2026-09-03`
 Davide chose **lock lapsed identities + cap members imported**. A8 built both.
 
-### B8. Upgrade the Twilio account — `todo` (blocks E1 prod send)
-The WhatsApp channel's outbound send has always been blocked on Twilio's trial
-limits (Content Templates + custom webhook config both gated behind a paid
-account). E1 can be built and tested against the sandbox, but a real prospect
-WhatsApp send needs the upgrade. Davide's to do.
+### B8. Upgrade the Twilio account — `done 2026-09-04` (E1 prod send now gated on a Meta sender, not on billing)
+
+**Done.** Davide upgraded and funded the account; verified via the Twilio API
+rather than the dashboard: `type` went **Trial → Full**, `status: active`,
+balance **$20.00 USD**. The Content Template API, which returned an error on
+trial, now returns HTTP 200 — so the tier gate genuinely lifted.
+- Upgraded as **Individual**, not Business: there is no Partita IVA yet, so
+  there is no VAT number to enter and no EU B2B reverse charge. Consequence:
+  Twilio charges Italian VAT (22%) on usage until a P.IVA exists, at which
+  point the tax details can be updated in place. See the Legal/tax section of
+  `CLAUDE.md`.
+- **Auto-recharge deliberately left off** for now. casdey is a bulk sender and
+  the WhatsApp reply loop's five bug fixes have never run against real traffic;
+  with auto-recharge on, a runaway loop tops itself up, with it off the worst
+  case is that it stops at $20. Revisit after a real campaign behaves.
+- **Vercel (Production + Preview):** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`
+  and `ANTHROPIC_API_KEY` are set. They take effect on the next deployment,
+  which is needed anyway when the sender lands.
+- **`TWILIO_WHATSAPP_FROM` deliberately NOT set in Vercel.** The value in
+  `web/.env.local` (`+4915888623971`) is **Twilio's shared WhatsApp Sandbox
+  number, not a number casdey owns** — the account holds 0 phone numbers. The
+  sandbox only delivers to people who have joined it with a join code, so
+  setting it in Production would make `whatsappProvider()` report the channel
+  as **enabled** while real member messages silently reached nobody. Since the
+  provider requires all three vars, omitting this one keeps the channel
+  honestly **disabled** (settings save, sends error clearly) until a real
+  sender exists. Set it in the same pass that adds the sender.
+
+**What actually blocks a real WhatsApp send now — not money:**
+- A **WhatsApp sender approved by Meta** (0 phone numbers, 0 messaging services
+  on the account today), and **template approval** for the opener (0 content
+  templates). Both are review processes measured in days.
+- The **inbound webhook** (`https://casdey.com/api/whatsapp/webhook`) is
+  configured *on a sender*, so it cannot be pointed anywhere until the sender
+  exists. It is not a separate blocker, it is a step of the same task.
+
+### B8 (original description + account reference, kept for context)
+The WhatsApp channel's outbound send was blocked on Twilio's trial limits
+(Content Templates + custom webhook config both gated behind a paid account).
+That gate is now lifted — see the B8 entry above.
 
 **Which account to log into (established 2026-09-04, it was not written down
 anywhere):**
@@ -381,8 +417,8 @@ anywhere):**
   "You shared some Google Account data with Twilio", shows the signup went
   through Google SSO.
 - Account SID starts `ACd3a30e46…` (full value in `web/.env.local`), created
-  **2026-08-15**, still **`type: Trial`** as of 2026-09-04 — checked via the
-  Twilio API, so B8 is genuinely still open, not silently done.
+  **2026-08-15**. Upgraded to **`type: Full`** on 2026-09-04 (verified via the
+  Twilio API, not the dashboard).
 - Note `info@casdey.com` is a Zoho **group**, delivered to both Davide and
   Abhi, so Twilio mail reaches them both.
 
@@ -434,12 +470,21 @@ deleted in the gym rebuild (`25af6aa`). Commit `cd0fd70`.
 - **Done — legal.** Twilio (US) + Anthropic (US) back on the DPA
   sub-processor list, scoped to gyms that enable WhatsApp. `.env.example`
   documents `TWILIO_*` + `ANTHROPIC_API_KEY` + `CASDEY_WHATSAPP_AI_MODEL`.
-- **Left:** (a) **B8** — Davide upgrades the Twilio account off the trial tier
-  (Content Templates + inbound webhook config are gated); nothing sends in
-  prod until then, though the UI + `disabled`-provider fallback work.
-  (b) `TWILIO_*` + `ANTHROPIC_API_KEY` into Vercel Production.
-  (c) Point Twilio's inbound webhook at `https://casdey.com/api/whatsapp/webhook`.
-  (d) Prod verification: one real template send + reply loop + STOP + hand-off
+- **Left, as of 2026-09-04:**
+  (a) ~~B8, the Twilio trial upgrade~~ — **done**, Trial to Full, $20 balance,
+  verified via the API; the Content Template endpoint now returns 200.
+  (b) ~~`TWILIO_*` + `ANTHROPIC_API_KEY` into Vercel~~ — **partly done**:
+  `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `ANTHROPIC_API_KEY` are in
+  Production and Preview. **`TWILIO_WHATSAPP_FROM` is deliberately still
+  unset** — see B8 for why (the local value is Twilio's shared Sandbox number,
+  and setting it would flip the channel to "enabled" while messages reached
+  nobody). It goes in with the real sender.
+  (c) **A WhatsApp sender approved by Meta, plus template approval.** This is
+  now the real blocker: the account has 0 phone numbers, 0 messaging services
+  and 0 content templates. Days, not minutes.
+  (d) Point Twilio's inbound webhook at `https://casdey.com/api/whatsapp/webhook`
+  — configured *on the sender*, so it is a step of (c), not separate.
+  (e) Prod verification: one real template send + reply loop + STOP + hand-off
   (folds into Track C).
 
 ### E2. Direct LegitFit member sync — `EXITS TO V2 (decided 2026-09-04)`
@@ -765,7 +810,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B5 | Confirm Vercel plan; revert cron if Pro | Davide | done — Hobby |
 | B6 | Delete stray empty Vercel project "web" | Davide | done — removed, only `casdey` remains |
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
-| B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | todo |
+| B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | done 2026-09-04 — Trial→Full verified via API, $20 balance; Vercel has SID/TOKEN/ANTHROPIC. E1 prod send now gated on a Meta-approved sender + templates, not billing |
 | B9 | Confirm JD's gym software + API access (feeds E2) | Davide | closed 2026-09-04 — LegitFit, no developer API, Zapier is trigger-only → E2 to V2 |
 | E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
 | E2 | Direct LegitFit member sync | me | **exits to V2** 2026-09-04 — no API, and Zapier triggers cannot backfill the historical members casdey needs; CSV (A3) is the V1 path |

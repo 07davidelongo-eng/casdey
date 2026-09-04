@@ -58,10 +58,16 @@ practice / patient / appointment / dormant — was renamed throughout in the
   `cd0fd70`)** after an engaged lead asked for it. The channel code is back
   gym-native, migration `0014` is applied to the live DB, and the UI (Settings
   → WhatsApp, a channel switch on the new-campaign form, a test-send, a
-  member-page conversation card) is wired. It does not send in prod yet:
-  needs the Twilio account upgraded off the trial tier (plan B8),
-  `TWILIO_*` + `ANTHROPIC_API_KEY` in Vercel, and Twilio's inbound webhook
-  pointed at `/api/whatsapp/webhook`. Until then it degrades cleanly.
+  member-page conversation card) is wired. **B8 is done (2026-09-04):** the
+  Twilio account is off trial (`type: Full`, $20 balance, verified via the API),
+  and `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `ANTHROPIC_API_KEY` are in
+  Vercel Production and Preview. It still does not send in prod, and the blocker
+  is no longer billing: it needs a **Meta-approved WhatsApp sender and an
+  approved template** (the account has 0 numbers, 0 messaging services, 0
+  templates), and the inbound webhook is configured on that sender.
+  `TWILIO_WHATSAPP_FROM` is deliberately unset in Vercel so the channel stays
+  honestly disabled rather than claiming to be enabled — see `SAAS_V1_PLAN.md`
+  B8. Until then it degrades cleanly.
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
   eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0014`
   (`0011` dental→gym rename, `0012` at-risk campaigns, `0013` cancellation

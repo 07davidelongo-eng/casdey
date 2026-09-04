@@ -670,8 +670,10 @@ pending — see each item for its specific gate.
 `SAAS_HANDOFF.md` are current).** Of the gates listed above: the consent screen
 is **published to production** with **no verification review required** (B1), the
 Calendar env vars **are** in Vercel (B2), and the deferred #9 items have landed.
-Still genuinely open: the Twilio account upgrade (B8) that gates WhatsApp
-sending. (The 3-tier Stripe prices/coupon, F2, were completed 2026-09-04.)
+Both remaining gates closed 2026-09-04: the 3-tier Stripe prices/coupon (F2)
+and the Twilio account upgrade (B8, Trial to Full, verified via the API).
+WhatsApp still cannot send, but the blocker is now a Meta-approved sender plus
+template approval, not billing.
 
 ## Open questions to pin down as we go
 - #2: **answered** — Twilio for the WhatsApp Business API provider, Claude
