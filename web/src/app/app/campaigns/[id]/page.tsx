@@ -15,6 +15,20 @@ import {
 } from "@/components/app/ui";
 import type { Campaign, MessageStatus } from "@/lib/types";
 
+export async function generateMetadata(
+  props: PageProps<"/app/campaigns/[id]">,
+) {
+  const { id } = await props.params;
+  const { gym, session } = await requireGym();
+  const { data } = await session.supabase
+    .from("campaigns")
+    .select("name")
+    .eq("id", id)
+    .eq("gym_id", gym.id)
+    .maybeSingle();
+  return { title: (data?.name as string | undefined) ?? "Campaign" };
+}
+
 export default async function CampaignPage(
   props: PageProps<"/app/campaigns/[id]">,
 ) {

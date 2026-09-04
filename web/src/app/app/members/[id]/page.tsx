@@ -33,6 +33,24 @@ const EVENT_LABEL: Record<MemberEventType, string> = {
   cancelled: "Marked as cancelled",
 };
 
+export async function generateMetadata(
+  props: PageProps<"/app/members/[id]">,
+) {
+  const { id } = await props.params;
+  const { gym, session } = await requireGym();
+  const { data } = await session.supabase
+    .from("members")
+    .select("first_name, last_name")
+    .eq("id", id)
+    .eq("gym_id", gym.id)
+    .maybeSingle();
+  return {
+    title: data
+      ? memberName(data as Pick<Member, "first_name" | "last_name">)
+      : "Member",
+  };
+}
+
 export default async function MemberPage(
   props: PageProps<"/app/members/[id]">,
 ) {
