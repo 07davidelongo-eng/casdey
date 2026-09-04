@@ -514,10 +514,28 @@ round numbers for UK, not a live conversion.
   live key.
 - `.env.example` documents the 9 new vars
   (`STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` + `STRIPE_COUPON_PERCENT`).
-- **Left to Davide:** run `node scripts/stripe-setup.mjs` (test) → paste the
-  ids into `web/.env.local`; create the same 2 products / 8 prices / 20%
-  coupon by hand in the **live** dashboard; set all 9 vars in **Vercel
-  Production**. The live webhook event set is unchanged.
+- **Left to Davide:** run `npm run setup:stripe` (test) → paste the ids into
+  `web/.env.local`; create the same 2 products / 8 prices / 20% coupon by hand
+  in the **live** dashboard; set all 9 vars in **Vercel Production**. The live
+  webhook event set is unchanged.
+- **Verify it with `npm run check:stripe` (added 2026-09-04) rather than by
+  eye.** It reads the env, calls Stripe, and confirms each of the 9 values
+  resolves to a real, active, correctly-priced recurring price (and a 20%
+  forever coupon) in whichever mode the key belongs to. It catches exactly the
+  mistakes hand-entry makes: a missing var, a test id in the live config, a
+  product id pasted instead of a price id, two vars pointing at the same price,
+  a wrong amount, an archived price, a fixed-amount coupon where the flat 20%
+  belongs. Read-only, safe against the live account, exits non-zero on any
+  problem. Run it against the live key before C1:
+  `STRIPE_SECRET_KEY=sk_live_... npm run check:stripe`.
+- The price table now lives once, in `scripts/price-spec.mjs`, shared by the
+  setup and check scripts; `stripe.test.ts` asserts it still agrees with
+  `PRICE_PLANS`, so the app cannot drift from what Stripe was told to charge.
+- **Current state (checked 2026-09-04):** `web/.env.local` still holds the
+  **retired** 4-var names (`STRIPE_PRICE_{GBP,EUR}_{MONTH,YEAR}`) and both old
+  coupons; none of the 9 new vars are set, in either mode. Note also that the
+  local `STRIPE_SECRET_KEY` is a **live** key, so a local checkout would take
+  real money — worth swapping for the test key while testing.
 
 ### F3. Checkout + billing UI — `code done 2026-09-03`
 - `api/stripe/checkout` takes `tier` (`standard`|`pro`, default `pro`) +

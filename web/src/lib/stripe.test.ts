@@ -136,3 +136,60 @@ describe("couponIdFor", () => {
     expect(couponIdFor("gbp")).toBeUndefined();
   });
 });
+
+/**
+ * PRICE_PLANS (what the app charges) and scripts/price-spec.mjs (what the setup
+ * script creates in Stripe and what the check script verifies) describe the same
+ * eight prices. They are separate files because one is TypeScript the app
+ * imports and the other is a plain module the Node scripts import, so nothing
+ * but this test stops them drifting apart — and drifting apart means the app
+ * offering a price Stripe never created, or the checker approving the wrong
+ * amount.
+ */
+describe("PRICE_PLANS vs the script price spec", () => {
+  it("covers exactly the same eight env vars", async () => {
+    const { AMOUNTS } = await import("../../scripts/price-spec.mjs");
+
+    expect(AMOUNTS.map((a: { envVar: string }) => a.envVar).sort()).toEqual(
+      PRICE_PLANS.map((p) => p.envVar).sort(),
+    );
+  });
+
+  it("agrees on the tier, currency and interval behind each env var", async () => {
+    const { AMOUNTS } = await import("../../scripts/price-spec.mjs");
+
+    for (const amount of AMOUNTS) {
+      const plan = PRICE_PLANS.find((p) => p.envVar === amount.envVar);
+      expect(plan, `no PRICE_PLANS entry for ${amount.envVar}`).toBeDefined();
+      expect({
+        tier: plan!.tier,
+        currency: plan!.currency,
+        interval: plan!.interval,
+      }).toEqual({
+        tier: amount.tier,
+        currency: amount.currency,
+        interval: amount.interval,
+      });
+    }
+  });
+
+  it("shows the customer the amount Stripe actually charges", async () => {
+    const { AMOUNTS } = await import("../../scripts/price-spec.mjs");
+
+    // chargeDisplay is the "what leaves the account" string on the billing page.
+    // It must contain the real figure, or the page quotes a price we do not take.
+    for (const amount of AMOUNTS) {
+      const plan = PRICE_PLANS.find((p) => p.envVar === amount.envVar)!;
+      const symbol = amount.currency === "gbp" ? "£" : "€";
+      const figure = (amount.amount / 100).toLocaleString("en-GB");
+
+      expect(
+        plan.chargeDisplay,
+        `${amount.envVar}: "${plan.chargeDisplay}" should quote ${symbol}${figure}`,
+      ).toContain(`${symbol}${figure}`);
+      expect(plan.chargeDisplay).toContain(
+        amount.interval === "year" ? "a year" : "a month",
+      );
+    }
+  });
+});

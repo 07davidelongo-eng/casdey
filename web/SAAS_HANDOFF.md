@@ -33,8 +33,14 @@ practice / patient / appointment / dormant — was renamed throughout in the
   `STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` + `STRIPE_COUPON_PERCENT`
   (the old 4-price / 2-coupon set the code used is retired). A *new* paid
   upgrade can't complete in prod until these are created (test via
-  `scripts/stripe-setup.mjs`, live by hand) and set; existing paying gyms are
+  `npm run setup:stripe`, live by hand) and set; existing paying gyms are
   unaffected (`plan_tier` backfilled to `pro` by `0016`).
+  **Check the result with `npm run check:stripe`** rather than by eye: it calls
+  Stripe and confirms all 9 values resolve to real, active, correctly-priced
+  objects in that key's mode, catching the hand-entry mistakes (missing var,
+  test id in live config, product id instead of price id, duplicate ids, wrong
+  amount, archived price, fixed-amount coupon). Read-only and safe against the
+  live account; exits non-zero on any problem.
 - **Google Calendar is now wired in prod (2026-09-03, plan item B2 done).**
   `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` and
   `CALENDAR_TOKEN_KEY` are set in Vercel Production and deployed; Settings →
