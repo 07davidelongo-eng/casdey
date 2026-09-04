@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 
 import { planTierForPriceId, stripeClient } from "@/lib/stripe";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
-import type { SubscriptionStatus } from "@/lib/types";
+import type { PlanTier, SubscriptionStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -258,6 +258,15 @@ function toIso(seconds: number | null | undefined): string | null {
   return typeof seconds === "number" ? new Date(seconds * 1000).toISOString() : null;
 }
 
+/**
+ * The tier stamped on the subscription by /api/stripe/checkout. Narrowed here
+ * rather than trusted: metadata is a free-form string map, and only the two
+ * paid tiers are meaningful on a subscription.
+ */
+function tierFromMetadata(value: string | undefined): PlanTier | null {
+  return value === "standard" || value === "pro" ? value : null;
+}
+
 async function syncSubscription(
   subscription: Stripe.Subscription,
   fallbackGymId?: string,
@@ -273,10 +282,17 @@ async function syncSubscription(
   const item = subscription.items.data[0];
   const price = item?.price;
 
-  // Track F: which paid tier this subscription's price belongs to. Null until
-  // F2 sets the STRIPE_PRICE_<TIER>_* env vars, at which point effectivePlan()
-  // stops defaulting an active subscription to Pro and reads this instead.
-  const planTier = planTierForPriceId(price?.id);
+  // Track F: which paid tier this subscription's price belongs to.
+  //
+  // Two independent sources, deliberately. The price id is authoritative when
+  // the STRIPE_PRICE_<TIER>_* env vars are configured, because it reflects what
+  // Stripe is actually billing. But those nine vars are set by hand (F2), and a
+  // missing or mistyped Standard one would resolve nothing here — which
+  // effectivePlan() reads as Pro, handing a €99 gym the WhatsApp channel and a
+  // refundable guarantee. So checkout also stamps the chosen tier onto the
+  // subscription metadata, and that is used whenever the price lookup fails.
+  const planTier =
+    planTierForPriceId(price?.id) ?? tierFromMetadata(subscription.metadata?.plan_tier);
 
   const update = {
     stripe_subscription_id: subscription.id,

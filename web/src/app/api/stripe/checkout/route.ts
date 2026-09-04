@@ -78,7 +78,12 @@ export async function POST(request: NextRequest): Promise<Response> {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceIdFor(plan), quantity: 1 }],
-      subscription_data: { metadata: { gym_id: gym.id } },
+      // plan_tier rides along on the subscription so the webhook never has to
+      // guess. Reverse-matching the price id against the STRIPE_PRICE_* env
+      // vars is the primary path, but that only works when every one of those
+      // vars is set correctly; a half-configured environment would otherwise
+      // resolve nothing and quietly fall back to Pro on a Standard sub.
+      subscription_data: { metadata: { gym_id: gym.id, plan_tier: tier } },
       // A coupon and manual promotion codes cannot both be offered at once, so
       // the automatic early-adopter discount takes precedence when it applies.
       ...(coupon
@@ -86,7 +91,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         : { allow_promotion_codes: true }),
       // Belt and braces: the webhook reads this if the subscription metadata is
       // ever missing.
-      metadata: { gym_id: gym.id },
+      metadata: { gym_id: gym.id, plan_tier: tier },
       client_reference_id: gym.id,
       success_url: `${origin}/app/settings/billing?upgraded=1`,
       cancel_url: `${origin}/app/settings/billing?cancelled=1`,

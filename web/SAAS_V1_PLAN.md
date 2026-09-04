@@ -538,12 +538,26 @@ FAQ's plan + guarantee topics, the campaign send-gate error, the import-page
 note, the waitlist FAQ ("pick a paid plan", "lifetime 20%"). `premium_started_at`
 (DB column) and internal `not_premium` guarantee reason left as-is.
 
-### F6. Tests — `plan matrix done; webhook mapping not unit-tested`
+### F6. Tests — `done 2026-09-04`
 `plan.test.ts` covers the 4-plan capability matrix incl. the 200/2,000 caps
-and the Standard/Pro WhatsApp+guarantee split. `planTierForPriceId` +
-webhook price→tier mapping are not unit-tested (no webhook test harness;
-`stripe.ts` is `server-only` so not importable in vitest; logic is a trivial
-env lookup). Confirmed instead at C1 (real checkout in prod).
+and the Standard/Pro WhatsApp+guarantee split.
+
+**Closed 2026-09-04.** The price→tier mapping is no longer left to C1. The
+`server-only` import that made `stripe.ts` untestable is now aliased to a stub
+inside vitest only (`test/server-only-stub.ts`, wired in `vitest.config.mts`),
+and `src/lib/stripe.test.ts` covers `planTierForPriceId`, the 8-price table and
+`couponIdFor` — including the half-configured cases. 164 tests total.
+
+**Real bug found while closing it — tier resolution could silently over-grant.**
+`planTierForPriceId` reverse-matches a Stripe price id against the nine
+`STRIPE_PRICE_*` env vars, which are set by hand (F2). If a Standard var was
+missing or mistyped, the lookup resolved nothing, the webhook left `plan_tier`
+null, and `effectivePlan()` reads a null tier on an active subscription as
+**Pro** — handing a €99/mo Standard gym the WhatsApp channel and the
+*refundable* profit-or-nothing guarantee. Fixed by not depending on the env
+vars alone: `/api/stripe/checkout` now stamps the chosen tier onto the
+subscription metadata (`plan_tier`), and the webhook falls back to that
+whenever the price lookup fails. Price id stays authoritative when configured.
 
 ---
 
@@ -648,7 +662,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | F3 | Checkout tier param + 3-tier billing UI | me | code done 2026-09-03 |
 | F4 | Guarantee Pro-gated; 20% coupon currency-agnostic | me | code done 2026-09-03 |
 | F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | done 2026-09-03 |
-| F6 | Tests: 4-plan capability matrix | me | done (webhook price→tier verified at C1) |
+| F6 | Tests: 4-plan capability matrix + price→tier mapping | me | done 2026-09-04 — `stripe.test.ts` added; found + fixed the silent Standard→Pro over-grant |
 | C1 | Live-mode Stripe checkout + refund in prod | both | todo |
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |
