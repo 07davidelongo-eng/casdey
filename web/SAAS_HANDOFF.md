@@ -183,7 +183,13 @@ In `web/.env.local` (local) or Vercel (production):
   needs) and the handler fetches invoices with `expand: ["payments"]`.
 - **`RESEND_API_KEY`** + **`CASDEY_SENDING_ADDRESS`**: campaign + auth email via
   Resend (`mail.casdey.com`). Without the key, campaign email falls back to Zoho,
-  which can't set a per-gym reply-to.
+  which can't set a per-gym reply-to. This key is Sending-access-only on purpose.
+- **`RESEND_ADMIN_API_KEY`**: a second Resend key with **Full access**, used only
+  by Settings → Sending to register and verify a gym's own domain (G1). The
+  sending key cannot do this — Resend answers `401 restricted_api_key` on every
+  `/domains` call with it — so per-gym sending silently cannot work without this
+  one. Two keys rather than one so the credential in the hot send path cannot
+  delete other gyms' sending domains. Verify with `npm run check:resend`.
 - **`CRON_SECRET`**: guards `POST /api/cron/send` (drains the send queue);
   `vercel.json` registers the daily cron.
 - **Google Calendar (booking):** `GOOGLE_CALENDAR_CLIENT_ID`,

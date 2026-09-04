@@ -738,7 +738,29 @@ change reaches it.
 **The fix, both channels: the gym brings its own identity and casdey sends
 through it rather than on top of it.** Migration `0017`.
 
-### G1. Email from the gym's own domain — `done 2026-09-04`
+### G1. Email from the gym's own domain — `code done 2026-09-04, blocked on a key`
+> **Found 2026-09-04, after G1 was called done: this has never been able to
+> work.** `RESEND_API_KEY` was created Sending-access-only back on 2026-08-15,
+> which is correct for the send path but means every `/domains` call answers
+> `401 restricted_api_key`, locally and in production alike. Nothing surfaced
+> it — the gym was shown "we could not reach the email provider", which reads
+> as a blip worth retrying, and the retry could never succeed. A key's *scope*
+> is invisible until something calls what it cannot do.
+>
+> Fixed in code: domain management now reads a second, Full-access key
+> **`RESEND_ADMIN_API_KEY`** (falling back to `RESEND_API_KEY`, for a
+> deployment that has only one Full-access key). Kept separate deliberately —
+> the key sitting in the hot path of every campaign send should not be able to
+> list or delete the sending domains of every gym on casdey. A 401/403 is now
+> its own `ResendKeyNotPermittedError`, and the gym is told setup is not
+> switched on rather than told to retry. **`npm run check:resend`** probes both
+> keys against the real API and exits non-zero; it reports this exact failure.
+>
+> **Still owed:** create the Full-access key at resend.com/api-keys, set it in
+> `web/.env.local` and in Vercel Production + Preview, then run the check. The
+> create → DNS → verify loop has still never been exercised against a real
+> domain.
+
 - `src/lib/email/domains.ts` wraps Resend's Domains API (create / verify /
   get / delete) plus strict input normalising. **Resend verifies the domain,
   not casdey** — it only proves whoever set it up controls that DNS. There is
@@ -901,7 +923,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |
 | C4 | Every wizard step verified in prod | both | todo |
-| G1 | Email from the gym's own domain (Resend per-gym) | me | done 2026-09-04 — migration 0017, Settings → Sending |
+| G1 | Email from the gym's own domain (Resend per-gym) | me | code done 2026-09-04 — **blocked**: needs a Full-access `RESEND_ADMIN_API_KEY`; the send-only key 401s on every `/domains` call. `npm run check:resend` |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate |

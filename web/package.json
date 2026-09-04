@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:resend": "node scripts/resend-check.mjs",
     "check:stripe": "node scripts/stripe-check.mjs",
     "setup:stripe": "node scripts/stripe-setup.mjs"
   },

@@ -24,8 +24,30 @@ const API = "https://api.resend.com";
 
 export class ResendNotConfiguredError extends Error {
   constructor() {
-    super("RESEND_API_KEY is not set, so sending domains cannot be managed.");
+    super(
+      "Neither RESEND_ADMIN_API_KEY nor RESEND_API_KEY is set, so sending " +
+        "domains cannot be managed.",
+    );
     this.name = "ResendNotConfiguredError";
+  }
+}
+
+/**
+ * The key exists but Resend will not let it near the Domains API.
+ *
+ * Worth its own type because it is the one failure here that retrying can
+ * never fix: a sending-only key stays a sending-only key. Telling a gym owner
+ * to "try again shortly" would send them round a loop with no exit, so the
+ * caller says something honest instead and this shows up in the logs as an
+ * operator problem, which is what it is.
+ */
+export class ResendKeyNotPermittedError extends Error {
+  constructor(detail: string) {
+    super(
+      "The Resend API key is not permitted to manage domains. It needs Full " +
+        `access, not Sending access. Resend said: ${detail}`,
+    );
+    this.name = "ResendKeyNotPermittedError";
   }
 }
 
@@ -38,8 +60,22 @@ export type ResendDomain = {
   records: SendingDomainRecord[];
 };
 
+/**
+ * Managing domains and sending mail need different privileges, so they get
+ * different keys.
+ *
+ * `RESEND_API_KEY` is deliberately a Sending-access-only key: it sits in the
+ * hot path of every campaign send, and a key that leaks from there should not
+ * be able to list or delete the sending domains of every gym on casdey.
+ * Domain management is rare, deliberate, and needs Full access, so it reads
+ * `RESEND_ADMIN_API_KEY` first.
+ *
+ * The fallback to `RESEND_API_KEY` exists so a deployment that only has one
+ * Full-access key still works. It is not a way to make a restricted key do
+ * this job: that comes back as a 401 and is reported as one.
+ */
 function key(): string {
-  const value = process.env.RESEND_API_KEY;
+  const value = process.env.RESEND_ADMIN_API_KEY || process.env.RESEND_API_KEY;
   if (!value) throw new ResendNotConfiguredError();
   return value;
 }
@@ -60,6 +96,9 @@ async function call(
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
+    if (response.status === 401 || response.status === 403) {
+      throw new ResendKeyNotPermittedError(detail.slice(0, 300));
+    }
     throw new Error(
       `Resend ${init?.method ?? "GET"} ${path} failed: ${response.status} ${detail.slice(0, 300)}`,
     );

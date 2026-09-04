@@ -6,6 +6,7 @@ import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import {
+  ResendKeyNotPermittedError,
   ResendNotConfiguredError,
   createSendingDomain,
   deleteSendingDomain,
@@ -31,6 +32,11 @@ export type SendingState = { error: string | null; message: string | null };
 function friendly(error: unknown): string {
   if (error instanceof ResendNotConfiguredError) {
     return "Email sending is not configured on this deployment yet.";
+  }
+  // Same shape of answer as "not configured", deliberately: from where the gym
+  // is standing these are the same problem, and neither is fixed by retrying.
+  if (error instanceof ResendKeyNotPermittedError) {
+    return "Sending from your own domain is not switched on for this deployment yet. Get in touch and we will sort it.";
   }
   const detail = error instanceof Error ? error.message : "";
   if (/already exists|duplicate/i.test(detail)) {
