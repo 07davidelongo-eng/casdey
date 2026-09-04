@@ -370,6 +370,22 @@ limits (Content Templates + custom webhook config both gated behind a paid
 account). E1 can be built and tested against the sandbox, but a real prospect
 WhatsApp send needs the upgrade. Davide's to do.
 
+**Which account to log into (established 2026-09-04, it was not written down
+anywhere):**
+- The Twilio account is on **info@casdey.com**, not the personal Gmail.
+  Confirmed from the Zoho mailbox: Twilio's onboarding mail from 2026-08-15,
+  08-17 and 08-21 all went to `info@casdey.com`, and there is no Twilio mail at
+  all in `07davide.longo@gmail.com`.
+- **Sign in with "Continue with Google"** on the info@casdey.com Google
+  Account — there is probably no password. A Google notice on 2026-08-15,
+  "You shared some Google Account data with Twilio", shows the signup went
+  through Google SSO.
+- Account SID starts `ACd3a30e46…` (full value in `web/.env.local`), created
+  **2026-08-15**, still **`type: Trial`** as of 2026-09-04 — checked via the
+  Twilio API, so B8 is genuinely still open, not silently done.
+- Note `info@casdey.com` is a Zoho **group**, delivered to both Davide and
+  Abhi, so Twilio mail reaches them both.
+
 ### B9. Confirm JD's gym software — `closed 2026-09-04: LegitFit, no API → E2 to V2`
 JD runs **LegitFit** (Irish gym/studio booking + membership platform). The open
 sub-question (can they share API credentials?) is **answered: there is nothing
