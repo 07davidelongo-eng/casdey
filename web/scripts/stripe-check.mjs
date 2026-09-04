@@ -282,11 +282,57 @@ if (!env.STRIPE_WEBHOOK_SECRET) {
   );
 } else {
   ok("STRIPE_WEBHOOK_SECRET is set");
-  console.log(
-    `        (this script cannot tell whether it matches the ${mode} endpoint —\n` +
-      `         confirm in Stripe → Developers → Webhooks that an endpoint points at\n` +
-      `         https://casdey.com/api/stripe/webhook)`,
-  );
+}
+
+/**
+ * The events the webhook route actually handles. Missing any of these is
+ * silent: Stripe reports a healthy endpoint, the money is taken, and the gym
+ * is simply never marked as paying (or never downgraded when they cancel).
+ */
+const REQUIRED_EVENTS = [
+  "checkout.session.completed",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "invoice.paid",
+  "invoice.payment_failed",
+];
+
+const expectedPath = "/api/stripe/webhook";
+
+try {
+  const endpoints = await stripe.webhookEndpoints.list({ limit: 100 });
+  const ours = endpoints.data.filter((e) => e.url.endsWith(expectedPath));
+
+  if (ours.length === 0) {
+    bad(
+      `no ${mode}-mode webhook endpoint points at ${expectedPath}`,
+      endpoints.data.length === 0
+        ? "There are no webhook endpoints at all. Checkout would complete and take " +
+          "the money, but no gym would ever be marked as paying."
+        : `Found instead: ${endpoints.data.map((e) => e.url).join(", ")}`,
+    );
+  }
+
+  for (const endpoint of ours) {
+    if (endpoint.status !== "enabled") {
+      bad(`${endpoint.url} is "${endpoint.status}", not enabled`);
+      continue;
+    }
+    const missing = REQUIRED_EVENTS.filter(
+      (e) => !endpoint.enabled_events.includes(e) && !endpoint.enabled_events.includes("*"),
+    );
+    if (missing.length > 0) {
+      bad(
+        `${endpoint.url} is not subscribed to every event the route handles`,
+        `missing: ${missing.join(", ")}`,
+      );
+    } else {
+      ok(`${endpoint.url} — enabled, all ${REQUIRED_EVENTS.length} required events`);
+    }
+  }
+} catch (error) {
+  warn("could not list webhook endpoints", error.message);
 }
 
 /* ── verdict ───────────────────────────────────────────────────────────── */
