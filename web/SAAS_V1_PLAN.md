@@ -42,10 +42,11 @@ items already shipped (at-risk campaigns, cancellation reasons — commit
   deleted WhatsApp + AI-reply-loop code, adapt it to the gym model, fix the 5
   known audit bugs. External blocker: Davide must upgrade the Twilio account
   (trial gates outbound). Channel choice confirmed **WhatsApp** (not SMS).
-- **E2. Direct gym-software API sync** — **best-effort V1**. Attempt it; **drop
-  back to V2 if the partner-API access wall makes it too complex** for the V1
-  timeline (each vendor — Mindbody / Glofox / LegitFit / whatever JD runs —
-  needs its own developer/partner approval, which is outside our control).
+- **E2. Direct gym-software API sync** — was best-effort V1, allowed to drop to
+  V2 if the partner-API wall proved too slow. **It exited to V2 on 2026-09-04**,
+  which is exactly the outcome this bullet allowed for: LegitFit publishes no
+  developer API and its Zapier app is trigger-only, so nothing can pull a gym's
+  existing member list. **CSV (A3) is the V1 import path.** Full evidence in E2.
 
 **Still explicitly NOT in V1** (deferred to V2, do not let these expand scope):
 the #10 win-back/comeback-offer interactive page, republishing the public
@@ -343,6 +344,12 @@ Real member-export CSVs from Mindbody / Glofox / TeamUp / ABC Fitness — even o
 or two each. Ask engaged leads (e.g. JD) for a sample export as part of the
 onboarding conversation.
 
+**LegitFit is now the one that matters most (added 2026-09-04).** E2 established
+that CSV is the *only* way a LegitFit gym can get its members into casdey, and
+JD runs LegitFit — so his export is both the first real onboarding and the test
+file for A3's column mapping. Ask for it in the same message that asks whether
+export is available at any time or only on cancellation (see E2).
+
 ### B5. Confirm Vercel plan — `done 2026-09-03`
 Confirmed **Hobby** (the plan badge on the `casdey` project reads "Hobby"). The
 once-daily cron cap is real; keep `vercel.json` on `0 3 * * *`. Revert to hourly
@@ -363,13 +370,15 @@ limits (Content Templates + custom webhook config both gated behind a paid
 account). E1 can be built and tested against the sandbox, but a real prospect
 WhatsApp send needs the upgrade. Davide's to do.
 
-### B9. Confirm JD's gym software — `answered 2026-09-03: LegitFit`
-JD runs **LegitFit** (Irish gym/studio booking + membership platform). Open
-sub-question, still needs JD: can they share API credentials or a developer
-account? **Feasibility risk:** LegitFit is a smaller vendor and does not
-publish an open developer API the way Mindbody does; if there is no
-member-export API JD can grant access to, **E2 slips to V2** and CSV export
-(A3) stays the V1 import path. First step of E2 is to establish this.
+### B9. Confirm JD's gym software — `closed 2026-09-04: LegitFit, no API → E2 to V2`
+JD runs **LegitFit** (Irish gym/studio booking + membership platform). The open
+sub-question (can they share API credentials?) is **answered: there is nothing
+to share.** LegitFit publishes no developer API, and its Zapier app is
+trigger-only, so there is no way to pull an existing member list out
+programmatically. **E2 slipped to V2** and CSV export (A3) is the V1 import
+path — see E2 for the full evidence and the two things still worth asking JD
+(is export available anytime or only on cancellation, and does an unadvertised
+partner API exist).
 
 ---
 
@@ -417,18 +426,61 @@ deleted in the gym rebuild (`25af6aa`). Commit `cd0fd70`.
   (d) Prod verification: one real template send + reply loop + STOP + hand-off
   (folds into Track C).
 
-### E2. Direct LegitFit member sync — `blocked on API access` — best-effort V1, drop to V2 if walled
+### E2. Direct LegitFit member sync — `EXITS TO V2 (decided 2026-09-04)`
 Real member-list sync from **LegitFit** (B9), replacing CSV re-upload. The
-current `src/lib/ingestion/mindbody.ts` is a stub — a LegitFit adapter would
-sit next to it behind the same `ingestion` interface.
-- **First step — establish whether a LegitFit member-export API even exists
-  that JD can grant casdey access to.** LegitFit publishes no open developer
-  API; there may be an account-level export/integration, a Zapier hook, or
-  nothing. If there is no programmatic path JD can authorise → **E2 exits to
-  V2**, and CSV export (A3) is the V1 import path. Expected, acceptable outcome.
-- If reachable: one adapter behind `ingestion` (normalise to `members`, E.164
-  phones, last-visit), a Settings → Integrations connect flow, a manual +
-  scheduled resync. LegitFit only for V1.
+first step the plan called for — establish whether an authorisable export path
+exists — was done 2026-09-04. **It does not, for the load casdey needs.** This
+is the outcome the plan already called expected and acceptable.
+
+**What was found (LegitFit's own pages + their Zapier listing):**
+- **No public developer API.** Their integrations page names 14 partners
+  (GoHighLevel, ClassPass, Zapier, Stripe, Mailchimp, Google Calendar/Sheets,
+  Trainerize, …) and mentions **no API, no API keys, no webhooks**.
+- **The Zapier app is trigger-only:** 4 triggers (New Booking, New Client, New
+  Membership, New Package), **0 actions and 0 searches**. Confirmed twice — the
+  app page lists triggers only, and on a Quick Connect page LegitFit appears
+  solely as the initiating service while the other app supplies every action.
+
+**Why trigger-only kills it, which is the real point.** Zapier triggers fire
+*forward* from the moment a Zap is switched on; they cannot backfill. casdey's
+entire job is finding members who lapsed — people who joined and stopped
+attending **in the past**. On day one a Zapier connection would surface
+**zero** lapsed members, and would then report new clients and new bookings,
+i.e. precisely the **active** members, who by definition are not the target.
+It is not an incomplete integration, it is the wrong population. With no
+action or search there is no way to ask LegitFit "give me the member list",
+which is the one question casdey needs answered.
+
+**So the V1 path is CSV, which is already built (A3).** LegitFit's FAQ says a
+gym can "export client lists, booking history and payment records" in CSV —
+which is exactly the shape `src/lib/ingestion/csv.ts` consumes, and its column
+aliases (`/last.*(visit|booking|seen|attend|check|class)/i` and friends) are
+broad enough that a LegitFit export should auto-map; the gym confirms the
+mapping before anything is written, so a miss is recoverable rather than
+silent.
+
+**Two caveats, both cheap for JD to settle:**
+1. LegitFit's pages disagree on *when* export is available: `/migrate` frames
+   it as "**if you cancel** LegitFit, you can export…", while `/features`
+   says "at any time". JD can confirm in his own account in seconds. If it
+   really is cancellation-only, that is a genuine V1 problem for LegitFit gyms
+   and worth knowing now.
+2. This is all from public marketing and the public Zapier listing. A private
+   or partner API could exist that is simply not advertised. The definitive
+   answer is JD asking LegitFit support directly — worth one message, but not
+   worth blocking V1 on.
+
+**Deliberately not done:** reverse-engineering the LegitFit web app's own
+backend calls with JD's credentials. It would be fragile, near-certainly
+against their terms, and a bad foundation for something casdey charges for.
+
+**Carried to V2, if a LegitFit gym ever becomes a real customer:** the
+**New Booking** trigger is genuinely useful for *keeping last-visit dates
+fresh* after an initial CSV import (gym creates one Zap → casdey webhook). That
+is incremental sync, not the initial load, so it does not rescue E2 for V1.
+- Whenever this is revisited: one adapter behind `ingestion` (normalise to
+  `members`, E.164 phones, last-visit), a Settings → Integrations connect flow,
+  manual + scheduled resync.
 - Do **not** build a generic multi-vendor integration framework for one
   adapter — that abstraction waits until a second platform is real.
 
@@ -663,8 +715,8 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 - Track D is **last**. Davide's manual walkthrough is the acceptance gate, never
   a debugging tool mid-build.
 - **WhatsApp (E1) and LegitFit sync (E2) are now V1** (rescoped 2026-09-03).
-  E1 is firm and code-complete; E2 is best-effort and may exit back to V2 if
-  LegitFit has no authorisable export path (gate at B9).
+  E1 is firm and code-complete. **E2 exited to V2 on 2026-09-04** — B9 is
+  closed: LegitFit has no authorisable export path, so CSV (A3) is V1's.
 - **3-tier pricing (Track F) is now V1** (rescoped 2026-09-03). Entirely
   blocked on F0 (Davide's tier sheet); no F work starts before it. F must be
   green before Track C signs off Stripe (C1).
@@ -693,14 +745,14 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B1 | Google OAuth consent screen: publish | Davide | done — published to prod, no verification needed (non-sensitive scopes) |
 | B2 | Calendar env vars into Vercel | Davide | done (ahead of B1) |
 | B3 | Confirm migrations 0011/0012/0013 on live DB | Davide | done — all three verified on live DB |
-| B4 | Source real Mindbody/Glofox/TeamUp/ABC CSVs | Davide | todo |
+| B4 | Source real Mindbody/Glofox/TeamUp/ABC **+ LegitFit** CSVs | Davide | todo — LegitFit is now the priority one (JD's platform, and CSV is its only path) |
 | B5 | Confirm Vercel plan; revert cron if Pro | Davide | done — Hobby |
 | B6 | Delete stray empty Vercel project "web" | Davide | done — removed, only `casdey` remains |
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
 | B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | todo |
-| B9 | Confirm JD's gym software + API access (feeds E2) | Davide | platform = LegitFit; API-access question still open |
+| B9 | Confirm JD's gym software + API access (feeds E2) | Davide | closed 2026-09-04 — LegitFit, no developer API, Zapier is trigger-only → E2 to V2 |
 | E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
-| E2 | Direct LegitFit member sync | me | blocked — needs a LegitFit export path JD can authorise; else → V2 |
+| E2 | Direct LegitFit member sync | me | **exits to V2** 2026-09-04 — no API, and Zapier triggers cannot backfill the historical members casdey needs; CSV (A3) is the V1 path |
 | F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | done 2026-09-03 — Standard €99 / Pro €289; caps 200 / 2,000; WhatsApp + guarantee Pro-only; flat 20% early-adopter |
 | F1 | Plan model: 4-plan capabilities, caps 50/200/2000, gates wired | me | code done 2026-09-03 |
 | F2 | Stripe: tier-aware stripe.ts + 8-price setup script | me + Davide | done 2026-09-04 — live catalogue created, 9 vars set in Vercel, 6 retired ones removed, verified by `check:stripe`; test-mode set still owed (needs Davide's test key) |

@@ -181,8 +181,10 @@ needs migrations applied there.
 
 - **Real gym-software sync** (Mindbody/Glofox/TeamUp/ABC APIs, and LegitFit) —
   the Mindbody adapter is a stub; **CSV export is the real, universal import
-  path** for V1. A direct integration is Track E2: best-effort V1, allowed to
-  slip to V2 if the vendor partner-API wall is too slow.
+  path** for V1, and for LegitFit it is the *only* path — **E2 exited to V2 on
+  2026-09-04**: LegitFit publishes no developer API and its Zapier app is
+  trigger-only, so nothing can pull a gym's existing member list. See
+  `SAAS_V1_PLAN.md` E2.
 - **SMS**, invoicing, and any real PMS-diary write other than Google Calendar.
 - The **win-back / comeback-offer** interactive page (roadmap #10) — a post-V1
   idea, not started.
