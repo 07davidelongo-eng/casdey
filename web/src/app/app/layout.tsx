@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { AppNav } from "@/components/app/nav";
 import { IconSignOut } from "@/components/app/icons";
-import { Wordmark } from "@/components/wordmark";
+import { Logo } from "@/components/wordmark";
 import { getGymContext } from "@/lib/dal";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { SupportWidget } from "@/components/app/support-widget";
@@ -37,8 +37,8 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
       <aside className="app-sidebar on-deep flex shrink-0 flex-col gap-6 px-4 py-4 md:w-60 md:px-5 md:py-7">
         <div className="flex items-center justify-between md:block">
-          <Link href="/app" className="inline-block text-paper">
-            <Wordmark className="text-[1.5rem]" />
+          <Link href="/app" className="inline-block text-ink">
+            <Logo className="text-[1.5rem]" />
           </Link>
         </div>
 
@@ -48,7 +48,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
 
         {context ? (
           <div className="hidden border-t border-deep-line pt-4 md:block">
-            <p className="truncate text-[0.9375rem] text-paper">
+            <p className="truncate text-[0.9375rem] text-ink">
               {context.gym.name}
             </p>
             <p className="literal truncate text-[0.75rem] text-sea/80">

@@ -13,7 +13,7 @@ export function HeroMockup() {
           confirmation arrives on top of everything else. */}
       {/* Offsets stay small and negative: the hero clips its background wash,
           so anything further out gets its corner cut off. */}
-      <div className="absolute -right-2 top-0 z-20 w-[208px] rounded-[18px] bg-deep p-5 shadow-float sm:-right-3">
+      <div className="on-deep absolute -right-2 top-0 z-20 w-[208px] rounded-[18px] bg-deep p-5 shadow-float sm:-right-3">
         <div className="flex items-center gap-2 text-teal-bright">
           <IconCheck className="h-4 w-4" />
           <span className="label text-teal-bright">returned</span>

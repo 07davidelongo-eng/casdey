@@ -33,23 +33,23 @@ export function Offer() {
 
           <Link
             href="/login?mode=signup"
-            className="lift group flex min-h-[290px] flex-col justify-between rounded-[22px] bg-teal p-8 sm:p-10"
+            className="lift group flex min-h-[290px] flex-col justify-between rounded-[22px] bg-teal-bright p-8 sm:p-10"
           >
             <div>
-              <h3 className="display text-[1.75rem] text-white">
+              <h3 className="display text-[1.75rem] text-deep">
                 After the week
               </h3>
-              <p className="mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-paper/75">
+              <p className="mt-3 max-w-sm text-[0.9375rem] leading-relaxed text-deep/80">
                 Your account drops to a Free plan, not a bill. Upgrade
                 whenever you want, and joining now locks in a lifetime
                 discount for when you do.
               </p>
             </div>
             <div className="mt-10 flex items-end justify-between gap-4">
-              <p className="display text-[2.5rem] leading-none text-white">
+              <p className="display text-[2.5rem] leading-none text-deep">
                 Free plan
               </p>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-teal transition-transform duration-200 group-hover:-translate-y-0.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-deep text-teal-bright transition-transform duration-200 group-hover:-translate-y-0.5">
                 <ArrowUpRight />
               </span>
             </div>

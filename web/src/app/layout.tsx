@@ -1,38 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import {
-  Familjen_Grotesk,
-  Inter,
-  JetBrains_Mono,
-  Raleway,
-} from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 
-// The wordmark only. Never used for anything smaller.
-const raleway = Raleway({
-  variable: "--font-raleway",
+// Titles and the wordmark. One face for both, so the logo is not a stranger
+// to the headline sitting under it.
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
-  weight: ["300"],
+  weight: ["300", "400", "500", "600"],
   display: "swap",
 });
 
-// Headlines.
-const familjen = Familjen_Grotesk({
-  variable: "--font-familjen",
+// Everything that gets read. Chosen against Outfit, not to match it.
+const plex = IBM_Plex_Sans({
+  variable: "--font-plex",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-// Everything that gets read.
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
 // Anything literal: dates, counts, field hints.
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
   display: "swap",
@@ -73,14 +62,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#17140f",
+  themeColor: "#f7f7f4",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en-GB"
-      className={`${raleway.variable} ${familjen.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${outfit.variable} ${plex.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { AuthForm } from "@/components/app/auth-form";
-import { Wordmark } from "@/components/wordmark";
+import { Logo } from "@/components/wordmark";
 import { safeNextPath } from "@/lib/safe-redirect";
 
 import "@/styles/product.css";
@@ -25,7 +25,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
           href="/"
           className="mb-7 inline-block text-ink transition-opacity duration-200 hover:opacity-70"
         >
-          <Wordmark className="text-[1.75rem]" />
+          <Logo className="text-[1.75rem]" />
         </Link>
 
         {notice ? (

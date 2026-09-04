@@ -1,75 +1,98 @@
 @import "tailwindcss";
 
 /*
-  casdey design tokens, v3: "Iron & Brass".
+  casdey design tokens, v4: "Chalk & Struck Gold".
 
-  v2 was warm neutrals on a light ground with a calm teal primary, right for
-  a dental member's inbox. The niche pivoted to gyms and studios (see
-  CLAUDE.md, "Niche pivot under consideration"), which called for a
-  different register: dark and matte rather than light and clinical, built
-  from the weight room's own material world (cast iron, worn barbell
-  knurling, brass fittings, chalk) rather than a shiny "elite gym" gold.
+  v3 was Iron & Brass, a dark matte ground built in an afternoon as a reaction
+  to the gym pivot. This is the considered version, and it inverts the plane:
+  chalk-white ground, gold primary.
 
-  Every token below KEEPS its v2 name (--paper, --white, --ink, --teal,
-  --amber, and so on). Only the hex values moved. That is deliberate: every
-  component in the app reaches these through the same names via Tailwind's
-  `bg-paper` / `text-ink` / `bg-teal` utilities and product.css, so a value
-  swap here re-themes the whole product without touching a single component
-  file. The cost is that some names now describe what a token WAS rather
-  than what it looks like (--white is no longer literally white, it is the
-  raised dark surface; --paper is no longer paper-coloured, it is the dark
-  ground). Treat the names as role labels, not literal colour descriptions.
+  Two decisions worth defending, because both had an easier wrong answer.
 
-  This page commits to a dark appearance. Dark by design, not by system
-  preference, same as v2 committed to light by design.
+  The ground is COOL, not cream. Warm cream plus gold is the most predictable
+  pairing available and would have made the gold read as ambient warmth rather
+  than as a deliberate mark. Holding the neutrals slightly cool (a green-grey
+  cast, gym chalk rather than parchment) leaves gold as the only warm thing on
+  the page, so it always reads as intent.
+
+  The gold is STRUCK, not shiny. Not the luxury-gym gold the v3 note already
+  rejected, and not brass either. casdey's promise is recovered revenue, a
+  number a gym wins back, so the primary is the earned mark: deep enough to be
+  read as text, with a separate luminous value for the dark plane.
+
+  Every token below KEEPS its v3/v2 name (--paper, --white, --ink, --teal,
+  --amber, and so on). Only the hex values moved, same discipline as the v2->v3
+  swap: every component reaches these through the same names via Tailwind's
+  `bg-paper` / `text-ink` / `bg-teal` utilities and product.css, so this file
+  re-themes the whole product without touching a single component. Two names
+  become honest again on a light ground: --white really is white now, --paper
+  really is paper-coloured. --teal is gold, and stays named --teal so the swap
+  costs nothing.
+
+  This page commits to a light appearance, by design, not by system preference.
 */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Neutrals. Iron replaces Paper as the ground: near-black with a warm
-     brown bias rather than neutral grey, so it reads as a considered
-     material rather than a generic dark-mode default. */
-  --paper: #17140f; /* Iron: the ground */
-  --white: #221d16; /* Iron Raised: the "raised card" role, no longer literally white */
-  --mist: #2a2419; /* quiet fills, hover */
-  --ash: #3a3226; /* hairlines, dividers */
-  --stone: #a69c87; /* tertiary text, captions */
-  --graphite: #b9b2a0; /* body text */
-  --ink: #f1ecdf; /* Chalk: headlines, wordmark */
+  /* Neutrals. Chalk: an off-white pulled very slightly cool and green, so it
+     sits away from the warm-cream default and gives the gold something to be
+     warm against. Cards lift by being whiter than the ground. */
+  --paper: #f7f7f4; /* Chalk: the ground */
+  --white: #ffffff; /* the raised card, literally white again */
+  --mist: #efefea; /* quiet fills, hover */
+  --ash: #e2e2da; /* hairlines, dividers */
+  --stone: #6d6d63; /* tertiary text, captions (4.9:1 on Chalk) */
+  --graphite: #4b4b44; /* body text (8.4:1) */
+  --ink: #15150f; /* headlines, wordmark (17:1) */
 
-  /* The one inverted plane, now the deepest tone on the page rather than
-     the lightest. Used once per screen at most, same rule as before. */
-  --deep: #0b0906;
-  --deep-raised: #17140f;
-  --deep-line: #2b2216;
+  /* The one inverted plane, used once per screen at most. Warm-black rather
+     than neutral, so the luminous gold sits on it without going acid. */
+  --deep: #16160f;
+  --deep-raised: #21211a;
+  --deep-line: #34342a;
 
-  /* Brass: the primary, worked metal rather than shiny gold. Names kept as
-     --teal-* for zero-touch propagation, see note above. */
-  --teal: #a9814a; /* Brass */
-  --teal-hover: #8f6b3a;
-  --teal-bright: #cba268; /* legible on --deep */
-  --sea: #cbbfa8; /* body text on --deep */
-  --shallow: #2e2718; /* tint fill for badges/pills on the dark ground */
+  /* Gold, in two honest values, because one cannot do both jobs.
+     Physics decides this: any gold light enough to look like gold is too light
+     to be read as body text on Chalk. So the roles are split rather than
+     fudged, the way gold actually behaves — foil is a fill, not a paragraph.
 
-  /* The one moment-marker accent, a brighter brass than the routine
-     primary so it still reads as a one-off. Marks the moment a cancelled
-     member books again, and nothing else. Never a button, never a
-     background fill on its own. */
-  --amber: #d8ae72;
+     --teal        Struck Gold. The READ value: links, icons, small text,
+                   borders. 4.6:1 on Chalk, and carries white at 5.0:1.
+     --teal-bright Leaf. The GOLD value, and the one people will call the brand
+                   colour: button fills, the mark's closing arc, the accent on
+                   the dark plane. Always has near-black on it (8.7:1), never
+                   the other way round.
+     Names kept as --teal-* for zero-touch propagation, see note above. */
+  --teal: #8f6a10; /* Struck Gold */
+  --teal-hover: #74560b;
+  --teal-bright: #d4af37; /* Leaf: 8.7:1 under ink, 8.6:1 on the dark plane */
+  --sea: #d9d6c9; /* body text on --deep */
+  --shallow: #fbf6ea; /* pale gold tint for badges/pills; holds Struck Gold at 4.6:1 */
+
+  /* The one moment-marker accent, hotter and more saturated than the routine
+     primary so it still reads as a one-off. Marks the moment a lapsed member
+     books again, and nothing else. Never a button, never a background on its
+     own. */
+  --amber: #c87d16;
+
+  /* Failure. Was a hardcoded salmon tuned for the dark ground; on Chalk that
+     washed out, so it is a token now and a true red. */
+  --danger: #b3261e; /* 6.4:1 on Chalk */
+  --danger-soft: #c4564b; /* borders and tints only, never text */
 
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-xl: 28px;
 
-  /* Layered, not flat black at one opacity. Shadows read as depth
-     differences between Iron and Iron Raised more than as cast light. */
+  /* Tinted with the ink's warm black rather than pure black, and layered, so
+     depth reads as light falling on chalk instead of a grey box. */
   --shadow-raised:
-    0 1px 2px rgba(0, 0, 0, 0.32), 0 4px 14px rgba(0, 0, 0, 0.36);
+    0 1px 2px rgba(21, 21, 15, 0.05), 0 4px 14px rgba(21, 21, 15, 0.06);
   --shadow-float:
-    0 2px 4px rgba(0, 0, 0, 0.32), 0 12px 28px rgba(0, 0, 0, 0.4),
-    0 32px 64px rgba(0, 0, 0, 0.32);
+    0 2px 4px rgba(21, 21, 15, 0.04), 0 12px 28px rgba(21, 21, 15, 0.08),
+    0 32px 64px rgba(21, 21, 15, 0.07);
 }
 
 @theme inline {
@@ -91,6 +114,8 @@
   --color-sea: var(--sea);
   --color-shallow: var(--shallow);
   --color-amber: var(--amber);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -100,16 +125,21 @@
   --shadow-raised: var(--shadow-raised);
   --shadow-float: var(--shadow-float);
 
-  /* Four faces, one job each.
-     Raleway is the wordmark and nothing else, ever.
-     Familjen Grotesk carries headlines: cleaner and more present than Raleway
-     at display size, with enough character in its a/g/y that the pairing with
-     Inter reads as a decision.
-     Inter takes everything that gets read. JetBrains Mono marks the literal. */
-  --font-wordmark: var(--font-raleway);
-  --font-display: var(--font-familjen);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
+  /* Three families, four roles. v3 carried four families, one of them
+     (Raleway) used for a single word; folding the wordmark into the display
+     face costs nothing and makes the identity cohere.
+
+     Outfit carries every title and the wordmark: geometric, round, and warm
+     enough at display size to hold a page on its own.
+     IBM Plex Sans takes everything that gets read. It is picked for contrast
+     of temperament, not similarity — an engineered grotesque against Outfit's
+     round geometry — and it was drawn for dense interface data, which the
+     member and campaign tables need.
+     IBM Plex Mono, its own sibling, marks anything literal. */
+  --font-wordmark: var(--font-outfit);
+  --font-display: var(--font-outfit);
+  --font-sans: var(--font-plex);
+  --font-mono: var(--font-plex-mono);
 }
 
 @layer base {
@@ -120,15 +150,15 @@
   body {
     background-color: var(--paper);
     color: var(--ink);
-    font-family: var(--font-inter), system-ui, sans-serif;
+    font-family: var(--font-plex), system-ui, sans-serif;
     font-size: 17px;
     line-height: 1.7;
     -webkit-font-smoothing: antialiased;
   }
 
   ::selection {
-    background-color: var(--teal);
-    color: var(--white);
+    background-color: var(--shallow);
+    color: var(--ink);
   }
 
   :focus-visible {
@@ -137,7 +167,37 @@
     border-radius: 3px;
   }
 
-  /* Focus on the petrol ground needs the lighter teal to stay visible. */
+  /* The inverted plane, in one place.
+
+     v3 was a dark system, so a component written for the dark band could use
+     the same neutrals as the rest of the page. v4 flips the ground, and that
+     would have broken every one of them: --ink went from chalk to near-black,
+     so `text-ink` on `bg-deep` reads as invisible.
+
+     Rather than hunt those down component by component, the roles are
+     REDEFINED inside this scope. Tailwind's @theme inline emits
+     `color: var(--ink)` rather than a copied value, so every `text-ink`,
+     `border-ash` and `bg-white` below this class resolves to its dark-plane
+     equivalent on its own, and anything dropped in here later does too. */
+  .on-deep {
+    --paper: var(--deep);
+    --white: var(--deep-raised);
+    --mist: var(--deep-raised);
+    --ash: var(--deep-line);
+    --stone: #8e8a7c;
+    --graphite: var(--sea);
+    --ink: #f4f2ea;
+    /* Struck Gold is tuned for contrast on Chalk and goes muddy on the dark
+       plane, so the primary becomes the luminous value in here. */
+    --teal: var(--teal-bright);
+    --teal-hover: #f0cd7d;
+    --shallow: color-mix(in srgb, var(--teal-bright) 16%, var(--deep));
+    --danger: #e2836f;
+    --danger-soft: #e2836f;
+    color: var(--sea);
+  }
+
+  /* Focus on the inverted plane needs the luminous gold to stay visible. */
   .on-deep :focus-visible {
     outline-color: var(--teal-bright);
   }
@@ -159,21 +219,21 @@
 
 @layer components {
   .wordmark {
-    font-family: var(--font-raleway), system-ui, sans-serif;
-    font-weight: 300;
-    letter-spacing: -0.005em;
+    font-family: var(--font-outfit), system-ui, sans-serif;
+    font-weight: 400;
+    letter-spacing: -0.022em;
     text-transform: lowercase;
   }
 
   .display {
-    font-family: var(--font-familjen), system-ui, sans-serif;
+    font-family: var(--font-outfit), system-ui, sans-serif;
     font-weight: 500;
-    letter-spacing: -0.03em;
-    line-height: 1.08;
+    letter-spacing: -0.032em;
+    line-height: 1.06;
   }
 
   .label {
-    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
     font-weight: 400;
     font-size: 0.75rem;
     letter-spacing: 0.12em;

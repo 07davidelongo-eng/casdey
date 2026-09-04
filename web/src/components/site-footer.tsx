@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Container } from "./ui";
-import { Wordmark } from "./wordmark";
+import { Logo } from "./wordmark";
 
 /*
  * Simplified while casdey.com is unpublished down to /waitlist and /privacy
@@ -23,7 +23,7 @@ export function SiteFooter() {
       <Container>
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[2fr_1fr]">
           <div>
-            <Wordmark className="text-[1.6rem] text-ink" />
+            <Logo className="text-[1.6rem] text-ink" />
             <p className="mt-4 max-w-xs text-[0.9375rem] leading-relaxed text-graphite">
               Lapsed-member reactivation for gyms and studios in the UK and
               the EU.

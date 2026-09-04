@@ -40,12 +40,12 @@
 
   .app-nav-link:hover {
     background: var(--deep-raised);
-    color: var(--paper);
+    color: var(--ink);
   }
 
   .app-nav-link[aria-current="page"] {
     background: var(--deep-raised);
-    color: var(--paper);
+    color: var(--ink);
     font-weight: 500;
   }
 
@@ -210,8 +210,8 @@
   }
 
   .notice-error {
-    background: color-mix(in srgb, #b3261e 10%, var(--paper));
-    border-color: color-mix(in srgb, #e2836f 32%, transparent);
-    color: #e2836f;
+    background: color-mix(in srgb, var(--danger) 7%, var(--paper));
+    border-color: color-mix(in srgb, var(--danger-soft) 38%, transparent);
+    color: var(--danger);
   }
 }

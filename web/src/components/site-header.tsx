@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ButtonLink, Container } from "./ui";
-import { Wordmark } from "./wordmark";
+import { Logo } from "./wordmark";
 
 /*
  * Simplified while casdey.com is unpublished down to /waitlist and /privacy
@@ -20,7 +20,7 @@ export function SiteHeader() {
             aria-label="casdey, home"
             className="shrink-0 text-ink"
           >
-            <Wordmark className="text-[1.6rem]" />
+            <Logo className="text-[1.6rem]" />
           </Link>
 
           <ButtonLink href="/waitlist" className="px-4 py-2.5">

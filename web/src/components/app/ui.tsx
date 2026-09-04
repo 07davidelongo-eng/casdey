@@ -136,11 +136,11 @@ const BUTTON_BASE =
 
 const VARIANTS = {
   primary:
-    "bg-teal text-white hover:bg-teal-hover hover:-translate-y-px shadow-[0_1px_2px_rgba(0,0,0,0.24)]",
+    "bg-teal-bright text-deep hover:brightness-[1.06] hover:-translate-y-px shadow-[0_1px_2px_rgba(21,21,15,0.12),0_6px_16px_-6px_rgba(212,175,55,0.5)]",
   quiet: "bg-white text-ink border border-ash hover:border-stone hover:-translate-y-px",
   ghost: "text-graphite hover:text-ink hover:bg-mist",
   danger:
-    "bg-white text-[#e2836f] border border-[color-mix(in_srgb,#e2836f_45%,transparent)] hover:bg-[color-mix(in_srgb,#e2836f_10%,var(--white))]",
+    "bg-white text-danger border border-[color-mix(in_srgb,var(--danger-soft)_45%,transparent)] hover:bg-[color-mix(in_srgb,var(--danger)_8%,var(--white))]",
 } as const;
 
 type Variant = keyof typeof VARIANTS;

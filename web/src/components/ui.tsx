@@ -51,7 +51,7 @@ const BUTTON_BASE =
 
 const VARIANTS = {
   primary:
-    "bg-teal text-white hover:bg-teal-hover hover:-translate-y-px shadow-[0_1px_2px_rgba(0,0,0,0.24)]",
+    "bg-teal-bright text-deep hover:brightness-[1.06] hover:-translate-y-px shadow-[0_1px_2px_rgba(21,21,15,0.12),0_6px_16px_-6px_rgba(212,175,55,0.55)]",
   quiet:
     "bg-white text-ink border border-ash hover:border-stone hover:-translate-y-px",
   onDeep:
