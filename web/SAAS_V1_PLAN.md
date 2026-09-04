@@ -544,8 +544,12 @@ round numbers for UK, not a live conversion.
   mistakes hand-entry makes: a missing var, a test id in the live config, a
   product id pasted instead of a price id, two vars pointing at the same price,
   a wrong amount, an archived price, a fixed-amount coupon where the flat 20%
-  belongs. Read-only, safe against the live account, exits non-zero on any
-  problem. Run it against the live key before C1:
+  belongs. It also confirms the **webhook endpoint** exists, is enabled, points
+  at `/api/stripe/webhook`, and subscribes to all 6 events the route handles —
+  a missing event is silent in the expensive direction: Stripe shows a healthy
+  endpoint, the money is taken, and the gym is never marked as paying.
+  Read-only, safe against the live account, exits non-zero on any problem. Run
+  it against the live key before C1:
   `STRIPE_SECRET_KEY=sk_live_... npm run check:stripe`.
 - The price table now lives once, in `scripts/price-spec.mjs`, shared by the
   setup and check scripts; `stripe.test.ts` asserts it still agrees with
