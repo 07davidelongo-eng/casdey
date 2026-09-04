@@ -3,6 +3,7 @@ import "server-only";
 import { supabaseAdmin } from "./supabase";
 import { bookingUrl, emailProvider, unsubscribeUrl } from "./messaging";
 import { composeBody, contextFor, renderTemplate } from "./template";
+import { sendingIdentity } from "./email/identity";
 import { capabilities } from "./plan";
 import type { Gym } from "./types";
 
@@ -195,6 +196,8 @@ export async function drainQueue(
       gym.booking_enabled ? bookingUrl(member.booking_token) : null,
     );
 
+    const identity = sendingIdentity(gym);
+
     try {
       await provider.send({
         to: message.to_email,
@@ -206,7 +209,8 @@ export async function drainQueue(
           replyTo: gym.reply_to_email,
           providerCanSetReplyTo: provider.canSetReplyTo,
         }),
-        fromName: gym.sender_name ?? gym.name,
+        fromName: identity.name,
+        fromAddress: identity.address,
         replyTo: gym.reply_to_email,
       });
 

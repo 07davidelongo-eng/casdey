@@ -29,7 +29,7 @@ export async function sendWhatsAppCampaign(options: {
   templateSid: string;
 }): Promise<WhatsAppCampaignReport> {
   const client = supabaseAdmin();
-  const provider = whatsappProvider();
+  const provider = whatsappProvider(options.gym.whatsapp_from);
   const report: WhatsAppCampaignReport = { sent: 0, failed: 0 };
 
   for (const member of options.audience) {

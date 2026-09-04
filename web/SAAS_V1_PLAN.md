@@ -718,6 +718,82 @@ whenever the price lookup fails. Price id stays authoritative when configured.
 
 ---
 
+## 3.7. TRACK G — per-gym sending identity (pulled into V1, 2026-09-04)
+
+**Davide's call, and he called it non-negotiable.** casdey's entire pitch is
+that it contacts lapsed members **as the gym**. Until now that was only
+half-true, and broken differently per channel:
+
+| | What the member saw | Fixable in copy? |
+|---|---|---|
+| Email | `Iron Works Gym <no-reply@mail.casdey.com>` — right name, casdey's address, visible on expanding the header | Partly |
+| WhatsApp | A business called **casdey**, for every gym | **No** |
+
+The WhatsApp case is the severe one and the reason this became a V1 track
+rather than polish. On WhatsApp the **display name is a property of the sender
+number, not the message**, so a single shared casdey number could only ever
+introduce itself as casdey to somebody else's lapsed members. No wording
+change reaches it.
+
+**The fix, both channels: the gym brings its own identity and casdey sends
+through it rather than on top of it.** Migration `0017`.
+
+### G1. Email from the gym's own domain — `done 2026-09-04`
+- `src/lib/email/domains.ts` wraps Resend's Domains API (create / verify /
+  get / delete) plus strict input normalising. **Resend verifies the domain,
+  not casdey** — it only proves whoever set it up controls that DNS. There is
+  no business-entity requirement anywhere in this flow, which is exactly why
+  the email half could ship immediately while WhatsApp waits on Meta.
+- `src/lib/email/identity.ts` holds the one rule that decides the From address,
+  deliberately **not** `server-only` so the campaign editor previews the same
+  answer the sender will use.
+- **Only `verified` is used.** `pending` behaves exactly like "not set up",
+  which is the point of checking status rather than presence: the row has a
+  domain the moment setup starts, but DNS may be hours away, and unauthenticated
+  mail on the gym's own domain is punished harder than mail from casdey's — and
+  it burns a reputation belonging to the customer.
+- Settings → **Sending**: connect a domain, see the DNS records to add, re-check,
+  disconnect. Falls back cleanly, so a gym with no domain still sends under its
+  own name exactly as before.
+- `OutgoingEmail` gained `fromAddress`; all three member-facing send sites pass
+  it (queue drain, campaign self-test, booking confirmation). The gym-facing
+  new-booking notice still comes from casdey, correctly — that one *is* casdey
+  talking.
+
+### G2. WhatsApp from the gym's own number — `done 2026-09-04 (code)`
+- `gyms.whatsapp_from` replaces the single shared `TWILIO_WHATSAPP_FROM`.
+  `whatsappProvider(from)` now **cannot be constructed without naming a
+  sender**; null degrades to a provider that errors clearly.
+- Settings → WhatsApp gained the number field, and its copy no longer describes
+  a shared casdey number, because there isn't one.
+- **This also fixed a real routing bug**, not just branding. The inbound webhook
+  used to pick the most recently active conversation for a phone number, with a
+  documented edge case: a member of two gyms had replies attached to whichever
+  gym messaged them last. Each gym now having its own number means Twilio's
+  inbound `To` identifies the gym exactly, so routing is scoped to it. The
+  unscoped lookup remains as a fallback for pre-`0017` conversations.
+
+### G3. What is NOT solved, and the honest limit
+Onboarding a gym's WhatsApp is **manual**. The gym does Meta's "Continue with
+Facebook" step with their own Meta Business account and their own number, which
+links their WABA into casdey's Twilio account as a separate sender, and their
+opener template is approved under **their** WABA (so templates do not carry
+across gyms).
+
+The self-serve version is Meta's **Embedded Signup** via Twilio's **Tech
+Provider programme** — free, no minimum volume, up to 200 new customers per
+rolling 7 days. Two reasons it is not V1:
+1. **3-4 weeks** for Meta app approval plus Twilio linking, before any code.
+2. It requires **Meta Business Verification of casdey**, which needs a
+   registered legal entity. There is no Partita IVA, and Davide's position
+   (2026-09-04) is that there will not be one until the business earns it.
+
+Manual onboarding is the right answer while there are zero customers: scaling
+onboarding is not the problem to solve today. Revisit Tech Provider when manual
+onboarding starts hurting, which is a good problem to have.
+
+---
+
 ## 4. TRACK C — production verification (me + Davide, after A + B green)
 
 Not the same as Davide's walkthrough — this is targeted proof each integration
@@ -825,6 +901,9 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |
 | C4 | Every wizard step verified in prod | both | todo |
+| G1 | Email from the gym's own domain (Resend per-gym) | me | done 2026-09-04 — migration 0017, Settings → Sending |
+| G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
+| G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate |
 
 Update this board as items move. This doc is the pointer target from

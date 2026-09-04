@@ -27,17 +27,26 @@ export type WhatsAppSendResult = { providerMessageId: string };
 
 export async function sendWhatsAppMessage(opts: {
   to: string;
+  /** The GYM's own WhatsApp sender, E.164. Not an env var and not shared: the
+   *  WhatsApp display name belongs to the number, so one number across every
+   *  gym could only ever introduce itself as casdey. */
+  from: string;
   body?: string;
   templateSid?: string;
   templateParams?: Record<string, string>;
 }): Promise<WhatsAppSendResult> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_WHATSAPP_FROM;
+  const from = opts.from;
 
-  if (!accountSid || !authToken || !from) {
+  if (!accountSid || !authToken) {
     throw new Error(
-      "Twilio WhatsApp is not configured: set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_FROM",
+      "Twilio is not configured: set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN",
+    );
+  }
+  if (!from) {
+    throw new Error(
+      "This gym has no WhatsApp sender of its own (gyms.whatsapp_from is null)",
     );
   }
 

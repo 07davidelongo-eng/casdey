@@ -140,12 +140,44 @@ export type Gym = {
   booking_horizon_days: number;
   /** Per-weekday open windows in the gym timezone. See BookingHours. */
   booking_hours: BookingHours;
-  /** Per-gym opt-in to the shared casdey WhatsApp sender (Track E1). Off by
-   *  default: the number is shared across every gym. See src/lib/whatsapp/. */
+  /** Per-gym opt-in to WhatsApp. Off by default. See src/lib/whatsapp/. */
   whatsapp_enabled: boolean;
   /** Twilio Content SID of the Meta-approved template used for WhatsApp first
-   *  contact. Null blocks WhatsApp campaigns for this gym until it is set. */
+   *  contact. Approved per WhatsApp Business Account, so this is the gym's own
+   *  template, not a shared one. Null blocks WhatsApp campaigns for this gym. */
   whatsapp_template_name: string | null;
+  /** E.164 number of the gym's OWN WhatsApp sender. The number carries the
+   *  WhatsApp display name, so this cannot be shared: a shared number can only
+   *  ever say "casdey" to every gym's members. Null means no WhatsApp. */
+  whatsapp_from: string | null;
+
+  /** The gym's own email sending domain, e.g. ironworksgym.ie. Null keeps
+   *  email on casdey's shared domain (the gym's *name* still shows, but the
+   *  address is casdey's). See src/lib/email/domains.ts. */
+  sending_domain: string | null;
+  /** Resend's id for that domain, used to re-check verification. */
+  sending_domain_id: string | null;
+  /** Only "verified" changes the From address; everything else falls back. */
+  sending_domain_status: SendingDomainStatus;
+  /** The DNS records Resend wants, cached for the setup page. */
+  sending_domain_records: SendingDomainRecord[] | null;
+  /** Local part used on the gym's own domain, so mail is from
+   *  hello@theirgym.com rather than something casdey-looking. */
+  sending_from_local: string;
+};
+
+export type SendingDomainStatus = "none" | "pending" | "verified" | "failed";
+
+/** One DNS record the gym has to add at their registrar. Shape mirrors
+ *  Resend's own records payload, kept loose because they add record types. */
+export type SendingDomainRecord = {
+  record: string;
+  name: string;
+  type: string;
+  value: string;
+  ttl?: string;
+  priority?: number;
+  status?: string;
 };
 
 /** Weekday key -> list of [start, end] "HH:MM" open windows, gym-local. */

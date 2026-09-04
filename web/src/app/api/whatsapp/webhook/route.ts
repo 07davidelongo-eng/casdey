@@ -134,17 +134,30 @@ async function handle(params: Record<string, string>): Promise<void> {
 
   const client = supabaseAdmin();
 
-  // The shared number has no per-gym signal to route on beyond the phone
-  // number itself, so this picks the most recently active conversation for
-  // that number (see whatsapp_conversations_phone_idx in
-  // supabase/migrations/0014_whatsapp_channel_gym.sql). Accepted, documented
-  // edge case: if the same real phone number happens to belong to members of
-  // two different gyms, an inbound reply attaches to whichever gym contacted
-  // them more recently.
-  const { data: conversationRow } = await client
-    .from("whatsapp_conversations")
-    .select("*")
-    .eq("phone", from)
+  // Which gym was written TO. Each gym now sends from its own number
+  // (gyms.whatsapp_from, migration 0017), so the destination identifies the
+  // gym exactly. That closes the ambiguity the shared-number design had: a
+  // member of two gyms used to have their reply attached to whichever gym had
+  // messaged them most recently, because the phone number was the only signal.
+  const to = normalizePhone(params.To);
+
+  let gymId: string | null = null;
+  if (to) {
+    const { data: gymRow } = await client
+      .from("gyms")
+      .select("id")
+      .eq("whatsapp_from", to)
+      .maybeSingle();
+    gymId = (gymRow as { id: string } | null)?.id ?? null;
+  }
+
+  // Scoped to the gym when we know it. The unscoped branch is the fallback for
+  // a conversation started before per-gym senders existed, and keeps the old
+  // most-recently-active behaviour rather than dropping the reply.
+  let query = client.from("whatsapp_conversations").select("*").eq("phone", from);
+  if (gymId) query = query.eq("gym_id", gymId);
+
+  const { data: conversationRow } = await query
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();

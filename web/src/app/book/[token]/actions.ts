@@ -7,6 +7,7 @@ import {
 } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { emailProvider, siteUrl } from "@/lib/messaging";
+import { sendingIdentity } from "@/lib/email/identity";
 import { buildIcs } from "@/lib/calendar/ics";
 import { gymOpenSlots, CalendarUnavailableError } from "@/lib/calendar/gym-slots";
 import { calendarFor } from "@/lib/calendar/provider";
@@ -252,6 +253,7 @@ async function sendConfirmationAndNotice(opts: {
 }): Promise<void> {
   const { gym, member, startAt, endAt, serviceName, bookingBookingToken } = opts;
   const provider = emailProvider();
+  const identity = sendingIdentity(gym);
 
   const whenText = formatWhen(startAt, gym.timezone);
   const manageUrl = `${siteUrl()}/book/${bookingBookingToken}/manage`;
@@ -288,7 +290,8 @@ async function sendConfirmationAndNotice(opts: {
           "",
           gym.name,
         ].join("\n"),
-        fromName: gym.sender_name ?? gym.name,
+        fromName: identity.name,
+        fromAddress: identity.address,
         replyTo: gym.reply_to_email,
         attachment: {
           filename: "booking.ics",

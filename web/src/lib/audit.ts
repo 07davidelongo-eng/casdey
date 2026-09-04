@@ -35,6 +35,8 @@ export type AuditAction =
   | "booking.settings_updated"
   | "calendar.connected"
   | "calendar.disconnected"
+  | "sending.domain_connected"
+  | "sending.domain_disconnected"
   | "booking.booked"
   | "booking.cancelled"
   | "billing.started"

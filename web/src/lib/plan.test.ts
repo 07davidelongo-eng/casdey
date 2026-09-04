@@ -40,6 +40,12 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     booking_hours: {},
     whatsapp_enabled: false,
     whatsapp_template_name: null,
+    whatsapp_from: null,
+    sending_domain: null,
+    sending_domain_id: null,
+    sending_domain_status: "none",
+    sending_domain_records: null,
+    sending_from_local: "hello",
     ...overrides,
   };
 }

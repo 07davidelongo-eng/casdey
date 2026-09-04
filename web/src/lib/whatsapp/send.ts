@@ -31,33 +31,58 @@ export type WhatsAppProvider = {
   sendFreeform(opts: { to: string; body: string }): Promise<WhatsAppSendResult>;
 };
 
-const twilioProvider: WhatsAppProvider = {
-  id: "twilio",
-  async sendTemplate({ to, templateSid, params }) {
-    return sendWhatsAppMessage({ to, templateSid, templateParams: params });
-  },
-  async sendFreeform({ to, body }) {
-    return sendWhatsAppMessage({ to, body });
-  },
-};
+function twilioProviderFor(from: string): WhatsAppProvider {
+  return {
+    id: "twilio",
+    async sendTemplate({ to, templateSid, params }) {
+      return sendWhatsAppMessage({
+        to,
+        from,
+        templateSid,
+        templateParams: params,
+      });
+    },
+    async sendFreeform({ to, body }) {
+      return sendWhatsAppMessage({ to, from, body });
+    },
+  };
+}
 
-const NOT_CONFIGURED =
-  "WhatsApp sending is not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN or TWILIO_WHATSAPP_FROM is missing).";
+const NO_TWILIO =
+  "WhatsApp sending is not configured (TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN is missing).";
 
-const disabledProvider: WhatsAppProvider = {
-  id: "disabled",
-  async sendTemplate() {
-    throw new Error(NOT_CONFIGURED);
-  },
-  async sendFreeform() {
-    throw new Error(NOT_CONFIGURED);
-  },
-};
+const NO_SENDER =
+  "This gym has not connected its own WhatsApp sender yet, so nothing can be sent in its name.";
 
-export function whatsappProvider(): WhatsAppProvider {
-  return process.env.TWILIO_ACCOUNT_SID &&
-    process.env.TWILIO_AUTH_TOKEN &&
-    process.env.TWILIO_WHATSAPP_FROM
-    ? twilioProvider
-    : disabledProvider;
+function disabledProvider(reason: string): WhatsAppProvider {
+  return {
+    id: "disabled",
+    async sendTemplate() {
+      throw new Error(reason);
+    },
+    async sendFreeform() {
+      throw new Error(reason);
+    },
+  };
+}
+
+/**
+ * The provider for ONE gym, built around that gym's own sender number.
+ *
+ * There is deliberately no way to get a provider without naming a sender. The
+ * previous version read a single `TWILIO_WHATSAPP_FROM` for every gym, which
+ * meant every gym's members received a message from a WhatsApp business called
+ * "casdey" rather than from the gym they had actually been a member of. That
+ * is not fixable in message copy: on WhatsApp the display name is a property
+ * of the number, not of the message.
+ *
+ * `from` comes from `gyms.whatsapp_from`. Null degrades to a provider that
+ * errors clearly, exactly as an unconfigured Twilio does.
+ */
+export function whatsappProvider(from: string | null): WhatsAppProvider {
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    return disabledProvider(NO_TWILIO);
+  }
+  if (!from) return disabledProvider(NO_SENDER);
+  return twilioProviderFor(from);
 }

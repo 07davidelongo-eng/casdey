@@ -21,6 +21,13 @@ export type OutgoingEmail = {
   subject: string;
   text: string;
   fromName: string;
+  /** The gym's own verified address, e.g. hello@ironworksgym.ie. When set, the
+   *  member sees their gym in the address as well as the display name, which
+   *  is the whole point of per-gym sending domains. Omitted or null falls back
+   *  to casdey's shared domain, which still carries the gym's name. Only ever
+   *  pass an address on a domain Resend has actually verified: sending from an
+   *  unverified domain is rejected outright, or lands in spam. */
+  fromAddress?: string | null;
   replyTo: string | null;
   /** An optional .ics to attach, e.g. a booking confirmation. Resend attaches
    *  it; Zoho (the legacy fallback) sends without one rather than fail the
@@ -50,7 +57,11 @@ const resendProvider: EmailProvider = {
     const key = process.env.RESEND_API_KEY;
     if (!key) throw new Error("RESEND_API_KEY is not set");
 
-    const from = process.env.CASDEY_SENDING_ADDRESS ?? "no-reply@casdey.com";
+    // The gym's own verified domain wins. Falling back to casdey's shared
+    // domain is deliberate rather than an error: a gym that has not set one up
+    // still sends, still under its own display name, just from our address.
+    const shared = process.env.CASDEY_SENDING_ADDRESS ?? "no-reply@casdey.com";
+    const from = email.fromAddress?.trim() || shared;
 
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -59,8 +70,6 @@ const resendProvider: EmailProvider = {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // The gym's name on casdey's verified domain: the member sees who
-        // it is from, and the domain reputation is one we can actually manage.
         from: `${sanitizeDisplayName(email.fromName)} <${from}>`,
         to: [email.to],
         subject: email.subject,

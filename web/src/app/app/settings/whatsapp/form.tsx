@@ -25,14 +25,34 @@ export function WhatsAppSettingsForm({
   return (
     <form action={action} className="space-y-6">
       <Card>
-        <CardTitle>The shared casdey number</CardTitle>
+        <CardTitle>Your own WhatsApp number</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
-          casdey sends WhatsApp messages from one number shared across every
-          gym, the same way its emails go out from{" "}
-          <span className="literal">mail.casdey.com</span>. Every message is
-          signed with your gym name, and only members you have imported and who
-          have not opted out are ever contacted.
+          Messages go out from your gym&apos;s own WhatsApp Business number, not
+          from casdey. That matters more on WhatsApp than anywhere else: the
+          business name your members see is attached to the number itself, so
+          this is the only way a lapsed member sees your gym rather than a
+          company they have never heard of.
         </p>
+
+        <div className="mb-5 max-w-[24rem]">
+          <label htmlFor={`${id}-from`} className="field-label">
+            WhatsApp sender number
+          </label>
+          <input
+            id={`${id}-from`}
+            name="whatsappFrom"
+            defaultValue={gym.whatsapp_from ?? ""}
+            placeholder="+353 87 123 4567"
+            disabled={disabled}
+            className="field literal"
+            inputMode="tel"
+          />
+          <p className="field-hint">
+            The number registered to your WhatsApp Business account, in full
+            international format. It cannot be a number already used for a
+            personal WhatsApp account. Leave blank until yours is connected.
+          </p>
+        </div>
 
         <label className="flex items-start gap-3">
           <input
@@ -59,8 +79,9 @@ export function WhatsAppSettingsForm({
         <p className="mb-5 text-[0.875rem] text-stone">
           WhatsApp requires Meta to pre-approve the exact wording of any message
           that opens a conversation. That approval happens outside casdey, in
-          Twilio&apos;s Content Template Builder. Once approved, paste its
-          Content SID here.
+          Twilio&apos;s Content Template Builder, and it is granted against your
+          own WhatsApp Business account, so it is yours rather than something
+          casdey can share out. Once approved, paste its Content SID here.
         </p>
 
         <div className="max-w-[24rem]">

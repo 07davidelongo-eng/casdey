@@ -69,12 +69,14 @@ practice / patient / appointment / dormant — was renamed throughout in the
   honestly disabled rather than claiming to be enabled — see `SAAS_V1_PLAN.md`
   B8. Until then it degrades cleanly.
 - **Database:** one Supabase project (`lxnzktbnustbimhdoyyw`, EU/Ireland
-  eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0014`
+  eu-west-1) backs the waitlist and the SaaS. Migrations exist through `0017`
   (`0011` dental→gym rename, `0012` at-risk campaigns, `0013` cancellation
   reason, `0014` WhatsApp channel revival, `0015` booking overlap guard,
-  `0016` `plan_tier` for 3-tier pricing). **`0011`–`0013` confirmed applied via
+  `0016` `plan_tier` for 3-tier pricing, `0017` per-gym sending identity).
+  **`0011`–`0013` confirmed applied via
   a read-only probe (2026-09-03, plan item B3); `0014`/`0015`/`0016` applied
-  the same day in verified transactions over `SUPABASE_DB_URL`.**
+  the same day in verified transactions over `SUPABASE_DB_URL`; `0017` applied
+  2026-09-04, also in a verified transaction.**
 - **Vercel plan confirmed Hobby (2026-09-03, plan item B5 done).** The
   campaign-send cron in `vercel.json` runs once daily (`0 3 * * *`) to stay
   within the Hobby once-a-day cron cap; revert to hourly only if upgraded to Pro.
@@ -128,6 +130,26 @@ included), which needed `server-only` aliased to `test/server-only-stub.ts` in
   is the live one. Paste the test secret key into `web/.env.local` and run
   `npm run setup:stripe` (no flag) before doing any local billing work — a
   local checkout against the current config would charge a real card.
+
+## Sending identity: the gym, never casdey (Track G, 2026-09-04)
+
+A member must hear from their gym. Migration `0017` made that true on both
+channels; before it, email showed the gym's *name* on casdey's address, and
+WhatsApp showed "casdey" outright because the display name belongs to the
+sender number rather than the message.
+
+- **Email.** `gyms.sending_domain` + `sending_domain_status`. The gym verifies
+  its own domain through Resend (`src/lib/email/domains.ts`), casdey shows the
+  DNS records, and `src/lib/email/identity.ts` decides the From address. Only
+  `verified` is used — `pending` is treated as unset on purpose. No domain
+  configured still sends, under the gym's name on casdey's domain, exactly as
+  before. Settings → Sending.
+- **WhatsApp.** `gyms.whatsapp_from`, the gym's own sender.
+  `whatsappProvider(from)` cannot be constructed without one. Onboarding is
+  manual per gym and the opener template is approved under the gym's own
+  WhatsApp Business Account, so templates are per-gym, not shared.
+- **Not casdey's identity, deliberately:** the new-booking notice that goes to
+  the *gym* still comes from casdey, because there casdey really is the sender.
 
 ## What's verified
 

@@ -21,6 +21,19 @@ const Schema = z.object({
     .trim()
     .max(200)
     .transform((v) => (v === "" ? null : v)),
+  // The gym's OWN WhatsApp sender, E.164. Never casdey's: the WhatsApp display
+  // name belongs to the number, so a number shared across gyms could only ever
+  // introduce itself as casdey to somebody's lapsed members. Blank is allowed
+  // and simply means this gym cannot send WhatsApp yet.
+  whatsappFrom: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s()\-.]/g, ""))
+    .refine((v) => v === "" || /^\+[1-9][0-9]{6,14}$/.test(v), {
+      message:
+        "Enter the number in full international format, starting with + and the country code.",
+    })
+    .transform((v) => (v === "" ? null : v)),
 });
 
 export async function saveWhatsAppSettingsAction(
@@ -32,6 +45,7 @@ export async function saveWhatsAppSettingsAction(
   const parsed = Schema.safeParse({
     enabled: formData.get("enabled") === "on",
     templateName: formData.get("templateName") ?? "",
+    whatsappFrom: formData.get("whatsappFrom") ?? "",
   });
 
   if (!parsed.success) {
@@ -46,6 +60,7 @@ export async function saveWhatsAppSettingsAction(
     .update({
       whatsapp_enabled: parsed.data.enabled,
       whatsapp_template_name: parsed.data.templateName,
+      whatsapp_from: parsed.data.whatsappFrom,
     })
     .eq("id", gym.id);
 

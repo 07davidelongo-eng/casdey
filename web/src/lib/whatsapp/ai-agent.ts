@@ -192,7 +192,7 @@ export async function continueConversation(
   if (!result.reply) return;
 
   try {
-    const sendResult = await whatsappProvider().sendFreeform({
+    const sendResult = await whatsappProvider(gym.whatsapp_from).sendFreeform({
       to: conversation.phone,
       body: result.reply,
     });

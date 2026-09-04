@@ -21,6 +21,7 @@ import { normalizePhoneForCountry } from "@/lib/ingestion/csv";
 import { capabilities } from "@/lib/plan";
 import { isLanguageCode } from "@/lib/languages";
 import { bookingUrl, emailProvider, unsubscribeUrl } from "@/lib/messaging";
+import { sendingIdentity } from "@/lib/email/identity";
 import { composeBody, contextFor, renderTemplate } from "@/lib/template";
 import { ensureTestMember } from "@/lib/self-test";
 import { isCancellationReason } from "@/lib/cancellation";
@@ -286,6 +287,7 @@ export async function sendTestAction(
   }
 
   const provider = emailProvider();
+  const identity = sendingIdentity(gym);
   const context = contextFor(
     {
       first_name: member.first_name,
@@ -308,7 +310,8 @@ export async function sendTestAction(
         replyTo: gym.reply_to_email,
         providerCanSetReplyTo: provider.canSetReplyTo,
       }),
-      fromName: gym.sender_name ?? gym.name,
+      fromName: identity.name,
+      fromAddress: identity.address,
       replyTo: gym.reply_to_email,
     });
   } catch (sendError) {
@@ -409,7 +412,7 @@ export async function sendWhatsAppTestAction(
   }
 
   try {
-    const result = await whatsappProvider().sendTemplate({
+    const result = await whatsappProvider(gym.whatsapp_from).sendTemplate({
       to: phone,
       templateSid: gym.whatsapp_template_name,
       params: { "1": gym.name },
