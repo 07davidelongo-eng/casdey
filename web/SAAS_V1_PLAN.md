@@ -794,6 +794,27 @@ recurring cost the product cannot avoid, and it is small — but it must be
 spent before Track C/D can mean anything, because today a verification pass
 would hit the 100/day wall rather than testing casdey.
 
+**The cold outreach shares this quota — decided 2026-09-04.** The live gym
+outreach routine sends through the *same* Resend account (`davide@casdey.com`
+on the root `casdey.com` domain). Measured volume from Resend's own API:
+
+```
+2026-09-04  75      2026-09-02  50
+2026-09-03  75      ...50/day back through August
+```
+
+75 of 100 a day, and ~2,250 of 3,000 a month. Not throttled today, but with
+25 emails/day of headroom, and **product sends and outreach sends draw on one
+pool**. A single gym running a win-back to 200 lapsed members would consume the
+outreach's entire day: the first customer would silently stop the thing that
+finds customers.
+
+Davide's call: build the features first, subscribe later. So the trigger is
+**not** "V1 published" — it is **whichever comes first**:
+1. the first gym sends a real campaign, or
+2. outreach volume goes above ~90/day (the growth plan wants it higher, and
+   100/day is a hard ceiling on Free, so this may well arrive first).
+
 **G1b. A 403 from Resend means two different things.** The first cut of the
 error mapping treated every 401/403 as "this key may not manage domains", so
 the plan limit above surfaced to the gym as "sending from your own domain is
@@ -975,7 +996,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C3 | Calendar booking end-to-end in prod | both | todo |
 | C4 | Every wizard step verified in prod | both | todo |
 | G1 | Email from the gym's own domain (Resend per-gym) | me | code + UI done 2026-09-04, admin key live. **Verification never yet observed** — retry on a domain unrelated to casdey.com |
-| G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | **blocks everything that sends.** Free caps at 100 emails/day and 3 domains (= 1 gym). Needed before Track C means anything |
+| G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate |
