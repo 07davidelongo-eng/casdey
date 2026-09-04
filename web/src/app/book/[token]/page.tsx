@@ -104,7 +104,7 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
   return (
     <Shell wide>
       <p className="label mb-2 text-teal">{gym.name}</p>
-      <h1 className="display text-[1.75rem]">Book your booking</h1>
+      <h1 className="display text-[1.75rem]">Book your visit</h1>
       <p className="mt-2 text-[0.9375rem] text-graphite">
         Pick a time that works for you. It is confirmed the moment you choose
         it, no waiting to hear back.
