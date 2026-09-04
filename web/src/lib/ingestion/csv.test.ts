@@ -9,6 +9,27 @@ describe("parseDate", () => {
     expect(parseDate("2024-3-5", "iso")).toBe("2024-03-05");
   });
 
+  it("reads ISO dates whatever the gym picked, because they are unambiguous", () => {
+    // Found by importing a normal-looking export: ISO used to be gated behind
+    // the "Year first" choice, so a file of 2024-11-12 dates reported EVERY row
+    // as "could not read as a date" under the default Day first, with nothing
+    // on screen pointing at the setting. The day/month toggle exists to resolve
+    // 03/04/2024; a four-digit year leaves it nothing to resolve.
+    expect(parseDate("2024-11-12", "dmy")).toBe("2024-11-12");
+    expect(parseDate("2024-11-12", "mdy")).toBe("2024-11-12");
+    expect(parseDate("2024-3-5", "dmy")).toBe("2024-03-05");
+  });
+
+  it("still refuses a non-ISO value when the gym said Year first", () => {
+    expect(parseDate("05/03/2024", "iso")).toBeNull();
+  });
+
+  it("keeps the ambiguous forms answering to the setting", () => {
+    // The whole point of the toggle: these two must not collapse together.
+    expect(parseDate("03/04/2024", "dmy")).toBe("2024-04-03");
+    expect(parseDate("03/04/2024", "mdy")).toBe("2024-03-04");
+  });
+
   it("strips the time an export tacks on", () => {
     expect(parseDate("2024-03-05T14:30:00Z", "iso")).toBe("2024-03-05");
     expect(parseDate("2024-03-05 09:15:00", "iso")).toBe("2024-03-05");
@@ -85,6 +106,7 @@ describe("normalizeRow", () => {
       email: "jane.okafor@example.com",
       phone: "07700 900123",
       lastVisitAt: "2023-03-05",
+      sourceRow: 2,
       visitCount: 2,
     });
   });

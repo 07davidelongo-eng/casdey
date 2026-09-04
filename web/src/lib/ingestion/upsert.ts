@@ -21,7 +21,7 @@ const BATCH_SIZE = 500;
 const MAX_FAILURES = 50;
 
 /** One record the upsert could not write, with something the gym can act on. */
-export type UpsertFailure = { ref: string; reason: string };
+export type UpsertFailure = { ref: string; reason: string; row: number };
 
 export type UpsertResult = {
   imported: number;
@@ -179,6 +179,7 @@ async function runRowByRow(
       result.failed += 1;
       if (result.failures.length < MAX_FAILURES) {
         result.failures.push({
+          row: member.sourceRow,
           ref: member.externalRef ?? member.email ?? "(no reference)",
           reason:
             error.code === "23505"

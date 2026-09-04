@@ -18,6 +18,12 @@ export type RawMember = {
   /** ISO date, YYYY-MM-DD. Never a locale string by this point. */
   lastVisitAt: string;
   visitCount: number;
+  /**
+   * The line in the gym's file this came from, header counted as line 1.
+   * Carried this far so a write that fails deep in the upsert can still say
+   * WHICH row to fix: "Row 0" in a 500-row export points at nothing.
+   */
+  sourceRow: number;
 };
 
 /** Which column in the gym's file holds which field. */

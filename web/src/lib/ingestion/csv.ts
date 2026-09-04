@@ -54,15 +54,24 @@ export function parseDate(
   // the date part is noise for our purposes: a visit is a day, not a moment.
   const datePart = trimmed.split(/[T\s]/)[0];
 
-  if (format === "iso") {
-    const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(datePart);
-    if (!match) return null;
-    const [, y, m, d] = match;
+  // ISO is tried FIRST, whatever the gym chose, because it cannot be read any
+  // other way: the four-digit year pins the order, so there is nothing for the
+  // day/month setting to disambiguate. Gating it behind that setting made the
+  // most common export format in the world fail by default — a file of plain
+  // 2024-11-12 dates reported every row as "could not read as a date" unless
+  // the gym happened to switch to Year first, and nothing on screen said so.
+  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(datePart);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
     const year = Number(y);
     const month = Number(m);
     const day = Number(d);
     return isRealDate(year, month, day) ? iso(year, month, day) : null;
   }
+
+  // "Year first" means ISO and only ISO, so a non-ISO value under that setting
+  // is genuinely unreadable rather than something to guess at.
+  if (format === "iso") return null;
 
   const match = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})$/.exec(datePart);
   if (!match) return null;
@@ -205,6 +214,7 @@ export function normalizeRow(
     phone,
     lastVisitAt,
     visitCount,
+    sourceRow: rowNumber,
   };
 
   return { ok: true, member };

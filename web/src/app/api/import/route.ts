@@ -257,7 +257,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   for (const failure of result.failures) {
     if (issues.length >= MAX_REPORTED_ISSUES) break;
     issues.push({
-      row: 0,
+      row: failure.row,
       field: "record",
       reason: `${failure.ref}: ${failure.reason}`,
     });

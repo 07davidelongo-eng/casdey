@@ -165,7 +165,8 @@ export function ImportWizard() {
                   key={`${issue.row}-${issue.field}`}
                   className="literal text-[0.8125rem] text-stone"
                 >
-                  Row {issue.row}: {issue.reason}
+                  {issue.row > 0 ? `Row ${issue.row}: ` : ""}
+                  {issue.reason}
                 </li>
               ))}
             </ul>
@@ -347,7 +348,9 @@ export function ImportWizard() {
                     ) : (
                       <tr key={index}>
                         <td colSpan={4} className="text-[0.8125rem] text-stone">
-                          Row {result.issue.row} would be skipped:{" "}
+                          {result.issue.row > 0
+                            ? `Row ${result.issue.row} would be skipped: `
+                            : "Would be skipped: "}
                           {result.issue.reason}
                         </td>
                       </tr>

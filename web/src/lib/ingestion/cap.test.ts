@@ -12,6 +12,7 @@ function member(overrides: Partial<RawMember> = {}): RawMember {
     phone: null,
     lastVisitAt: "2024-01-01",
     visitCount: 1,
+    sourceRow: 2,
     ...overrides,
   };
 }
