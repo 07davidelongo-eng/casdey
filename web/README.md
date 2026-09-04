@@ -28,28 +28,42 @@ Then open http://localhost:3000.
 
 ## Brand
 
-Everything visual comes from `../brand assets/casdey-brand-guide.html` (v2, Aug
-2026). The tokens are mirrored in `src/app/globals.css` and should not drift
-from it:
+Everything visual comes from `../brand assets/casdey-brand-guide.html` (v4,
+"Chalk & Struck Gold", Sep 2026). The tokens are mirrored in
+`src/app/globals.css` and should not drift from it. Token *names* are inherited
+from v2 and are deliberately stale (`--teal` is a gold) because keeping them
+lets a whole palette swap land without touching component code:
 
-- Neutrals from the wordmark: Paper `#FAF9F7`, White `#FFFFFF`, Mist `#ECE9E2`,
-  Ash `#DBD7CE`, Stone `#8C887F`, Graphite `#46443E`, Ink `#0D0D0D`.
-- Deep petrol `#0C2E33` (plus `--deep-raised`, `--deep-line`) for full-bleed
-  dark sections, at most two per page.
-- Teal `#1C6B62` is the primary: buttons, links, key numbers. `--teal-bright`
-  and `--sea` are the versions that stay legible on the petrol ground.
-- Amber `#E0A44A` is the one warm accent. It marks a patient rebooking and
-  nothing else, never a button or a background.
-- Raleway Light carries the wordmark only, never smaller. Familjen Grotesk
-  carries headlines. Inter takes everything that gets read, at a 17px base and
-  1.7 line-height. JetBrains Mono marks anything literal.
+- Neutrals: Chalk `#F7F7F4` (the ground, pulled slightly cool so gold has
+  something to be warm against), White `#FFFFFF`, Mist `#EFEFEA`, Ash `#E2E2DA`,
+  Stone `#6D6D63`, Graphite `#4B4B44`, Ink `#15150F`.
+- Deep `#16160F` (plus `--deep-raised`, `--deep-line`) for the one inverted
+  plane, at most once per screen. Anything on it needs the `.on-deep` scope
+  class, which remaps the neutral and gold roles; without it `text-ink` on
+  `bg-deep` is invisible.
+- Gold is two values, not one. `--teal` Struck Gold `#8F6A10` is the READ value:
+  links, icons, small text, borders. `--teal-bright` Leaf `#D4AF37` is the FILL
+  value: button fills, panels, the mark's arc, always with near-black on it and
+  never the reverse. `--sea` and `--shallow` are the versions for the dark plane
+  and for pale gold tints.
+- Amber `#C87D16` is the one moment-marker accent. It marks a lapsed member
+  booking again and nothing else, never a button or a background.
+- `--danger` `#B3261E` / `--danger-soft` carry failure states. Never hardcode a
+  red.
+- Outfit carries every title and the wordmark. IBM Plex Sans takes everything
+  that gets read, at a 17px base and 1.7 line-height. IBM Plex Mono marks
+  anything literal.
+- The logo lives in `src/components/wordmark.tsx` (`Mark` / `Wordmark` /
+  `Logo`), drawn in code so it re-themes with the tokens. Use the `Logo` lockup
+  in chrome. `../brand assets/casdey Logo.png` is the v2/v3 wordmark-only file
+  and is superseded.
 - The page commits to a light appearance rather than following system dark
-  mode: the petrol bands only read as deliberate when they are the only dark
+  mode: the dark bands only read as deliberate when they are the only dark
   thing on the page.
 
 Copy rules, which apply to every string on the site: "casdey" is always
 lowercase, and em dashes are never used as punctuation. No invented statistics;
-illustrative diagrams (the dormant-patient chart, the hero mockup) say so on
+illustrative diagrams (the lapsed-member chart, the hero mockup) say so on
 themselves rather than imply real data.
 
 ### Design review workflow

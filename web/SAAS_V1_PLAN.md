@@ -58,12 +58,13 @@ definitions (prices per tier in GBP + EUR, monthly + annual; the capability
 split; how the lifetime early-adopter discount and existing "Premium" accounts
 map across three tiers).
 
-**Still parked (NOT V1; do not start until D passes, recorded so it isn't
-lost):**
-- **Brand identity refresh** — a new colour palette, fonts and logo, superseding
-  the v3 "Iron & Brass" system (`brand assets/casdey-brand-guide.html` +
-  `web/src/app/globals.css` tokens). A deliberate re-do of the visual identity,
-  not a tweak. Needs Davide's design direction before any work can start.
+**Was parked here, now done:**
+- **Brand identity refresh**: `done 2026-09-04`, commit `f524f86`. Unparked
+  early once Davide gave the design direction (light ground, gold primary,
+  Outfit for titles). Shipped as **v4 "Chalk & Struck Gold"**, superseding v3
+  "Iron & Brass": new palette, new type stack, and casdey's first logo mark.
+  Token names unchanged, so no component code moved. See `CLAUDE.md` →
+  "Brand v4" and `brand assets/casdey-brand-guide.html` (rewritten to v4).
 
 ---
 
@@ -250,7 +251,8 @@ imported** (not hide revenue, not keep-minimal).
 
 ### A9. Marketing landing copy — design review — `done 2026-09-03`
 Screenshot-compared all seven sections (hero → CTA band → footer) against the
-`brand assets` reference (Finpay layout) and the v3 Iron & Brass brand guide.
+`brand assets` reference (Finpay layout) and the then-current v3 Iron & Brass
+brand guide (the palette has since moved to v4, the layout verdict stands).
 **Verdict: strong and on-brand** — a faithful, non-copied adaptation of the
 reference, gym-voiced copy, distinctive subject-specific signatures (the
 member-reactivation hero card, the lapse-"tail" bar chart), consistent tokens.
@@ -313,8 +315,9 @@ app" warning.
 `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` (from the "casdey
 web" OAuth client) and `CALENDAR_TOKEN_KEY` are set in Vercel Production and
 deployed; Settings → Booking shows "Connected as info@casdey.com". Done before
-B1 cleared — it works now for the info@casdey.com test-user connection under
-Testing mode; real prospects still need B1.
+B1 cleared, so at the time it worked only for the info@casdey.com test-user
+connection under Testing mode. B1 has since cleared (same day), so real
+prospects can connect too.
 - **`CALENDAR_TOKEN_KEY` is NOT a fresh key — it must equal the local one.**
   Local dev and prod share the same Supabase DB, and this key encrypts calendar
   tokens at rest, so Vercel's value must be byte-identical to
@@ -624,8 +627,9 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 - **3-tier pricing (Track F) is now V1** (rescoped 2026-09-03). Entirely
   blocked on F0 (Davide's tier sheet); no F work starts before it. F must be
   green before Track C signs off Stripe (C1).
-- **Brand identity refresh stays parked** (post-D). Needs Davide's design
-  direction; not a V1 blocker.
+- **Brand identity refresh is done** (`f524f86`, 2026-09-04), unparked ahead of
+  D once Davide gave the direction. It was never a V1 blocker; it just stopped
+  being a reason to hold back.
 - Remaining true-V2 items (#10 offer page, homepage republish) do not enter any
   track until D passes.
 

@@ -39,9 +39,10 @@ practice / patient / appointment / dormant — was renamed throughout in the
   `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` and
   `CALENDAR_TOKEN_KEY` are set in Vercel Production and deployed; Settings →
   Booking shows "Connected as info@casdey.com" and booking can read/write Google
-  Calendar in prod (the info@casdey.com test-user connection, which works while
-  the consent screen is still in Testing). Real-prospect Google use is still
-  gated on B1 verification. **Standing rule:** `CALENDAR_TOKEN_KEY` must be
+  Calendar in prod (currently the info@casdey.com connection). **The consent
+  screen is published to production (B1 done, 2026-09-03), with no verification
+  review required**, so real gym owners can connect and refresh tokens no longer
+  die after 7 days. **Standing rule:** `CALENDAR_TOKEN_KEY` must be
   byte-identical in Vercel and local `web/.env.local` — local dev and prod share
   the same Supabase DB, and that key encrypts calendar tokens at rest, so a
   mismatched key shows "Connected" but silently fails to decrypt.
@@ -69,8 +70,22 @@ practice / patient / appointment / dormant — was renamed throughout in the
 **3 tiers as of 2026-09-03 (Track F): trial → Free → Standard/Pro.** The
 *access state* is **derived from the gym row, never stored** (`effectivePlan`);
 the *paid tier* is stored on `gyms.plan_tier` (migration `0016`), written by the
-Stripe webhook from the subscription price. `capabilities(gym)` is the single
-source of truth for what a gym can do — a per-plan table.
+Stripe webhook. `capabilities(gym)` is the single source of truth for what a gym
+can do — a per-plan table.
+
+**The webhook resolves the tier from two sources, deliberately (fix 2026-09-04,
+commit `223b821`).** Primary is the subscription's price id, reverse-matched
+against the `STRIPE_PRICE_*` env vars; fallback is `plan_tier` stamped into
+`subscription_data.metadata` by `/api/stripe/checkout`. The single-source version
+failed open in the expensive direction: those 9 env vars are entered by hand
+(F2), and one missing or mistyped Standard var resolved to nothing, left
+`plan_tier` null, and `plan.ts` reads a null tier on an active subscription as
+**`pro`**, a €99 Standard gym silently getting WhatsApp and the refundable
+guarantee. The price id still wins whenever it resolves; the metadata only
+catches the misconfiguration. Covered by `src/lib/stripe.test.ts` (11 tests over
+the mapping, the 8-price table and `couponIdFor`, half-configured cases
+included), which needed `server-only` aliased to `test/server-only-stub.ts` in
+`vitest.config.mts` to make `stripe.ts` importable under vitest.
 
 - **Free week (trial):** 7 days of the **full Pro feature set**, **no card**.
   Set at onboarding (`trial_ends_at`), casdey-managed, not a Stripe trial.
@@ -96,10 +111,11 @@ source of truth for what a gym can do — a per-plan table.
 
 ## What's verified
 
-- `tsc` / `lint` / `next build` clean; **`npm run test` 135/135** as of
-  2026-09-03 (dormancy/lapse, CSV parsing + platform headers, phone
+- `tsc` / `lint` / `next build` clean; **`npm run test` 164/164** as of
+  2026-09-04 (dormancy/lapse, CSV parsing + platform headers, phone
   normalisation, the plan model, the Free import cap, the setup checklist,
-  calendar availability, and more — the number is a floor, it moves per session).
+  calendar availability, the Stripe price→tier mapping, and more — the number is
+  a floor, it moves per session).
 - The **full customer path was walked end-to-end pre-pivot** (2026-08-16):
   signup → import → lapsed detection → campaign → Stripe checkout → guarantee
   claim → refund → Google Calendar booking. **It has NOT been re-walked in
