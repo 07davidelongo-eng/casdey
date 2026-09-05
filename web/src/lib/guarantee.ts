@@ -1,4 +1,4 @@
-import type { GuaranteeClaim } from "./types";
+import type { GuaranteeClaim, PlanTier } from "./types";
 
 /**
  * The profit-or-nothing guarantee, as a rule rather than a promise on a page.
@@ -28,6 +28,29 @@ import type { GuaranteeClaim } from "./types";
  */
 
 export const GUARANTEE_WINDOW_DAYS = 30;
+
+/**
+ * Whether a settled payment should start the gym's one lifetime guarantee
+ * clock.
+ *
+ * Two conditions, and the second is the one that was missing. It must be the
+ * first time, so that cancelling and resubscribing cannot re-arm the window,
+ * AND it must be a payment on a tier that actually carries the guarantee.
+ *
+ * Stamping it on a Standard payment spent the window on a plan with no
+ * guarantee at all: the clock opens at the first campaign on or after that
+ * date, running campaigns is exactly what Standard is for, and 30 days later
+ * it is gone. A gym upgrading to Pro afterwards would find the guarantee it
+ * had just paid for already expired, with nothing on screen explaining why.
+ */
+export function armsGuaranteeClock(
+  premiumStartedAt: string | null,
+  paidTier: PlanTier | null,
+): boolean {
+  if (premiumStartedAt) return false;
+  return paidTier === "pro";
+}
+
 
 export type GuaranteeWindow = { start: Date; end: Date };
 

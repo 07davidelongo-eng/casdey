@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 
+import { armsGuaranteeClock } from "@/lib/guarantee";
 import { planTierForPriceId, stripeClient } from "@/lib/stripe";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import type { PlanTier, SubscriptionStatus } from "@/lib/types";
@@ -194,7 +195,7 @@ async function recordInvoicePayment(invoice: Stripe.Invoice): Promise<void> {
 
   const { data: gym, error: lookupError } = await supabaseAdmin()
     .from("gyms")
-    .select("id, premium_started_at")
+    .select("id, premium_started_at, plan_tier")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
@@ -222,9 +223,24 @@ async function recordInvoicePayment(invoice: Stripe.Invoice): Promise<void> {
     throw new Error(`subscription_payments insert failed: ${insertError.message}`);
   }
 
-  // Set once, never overwritten: the guarantee clock's earliest possible
-  // start is the first real payment, full stop.
-  if (!gym.premium_started_at) {
+  // Set once, never overwritten: a gym gets exactly one guarantee window ever,
+  // and cancelling and resubscribing must not re-arm it.
+  //
+  // But "once" has to mean once on a plan that HAS the guarantee. Stamping this
+  // on a Standard payment burned the window on a plan with no guarantee at all:
+  // the clock opens at the first campaign on or after this date, Standard's
+  // whole purpose is to run campaigns, and 30 days later the window is spent.
+  // A gym that then upgraded to Pro — the upgrade the billing page sells with
+  // "stand behind the results" — would have had no guarantee, ever, and no way
+  // to tell. So the clock only starts on a tier that actually carries it.
+  const invoicePrice = invoice.lines?.data[0]?.pricing?.price_details?.price;
+  const paidTier =
+    planTierForPriceId(
+      typeof invoicePrice === "string" ? invoicePrice : invoicePrice?.id,
+    ) ??
+    (gym.plan_tier as PlanTier | null);
+
+  if (armsGuaranteeClock(gym.premium_started_at, paidTier)) {
     await supabaseAdmin()
       .from("gyms")
       .update({ premium_started_at: paidAt ?? new Date().toISOString() })

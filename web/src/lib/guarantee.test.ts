@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   GUARANTEE_WINDOW_DAYS,
+  armsGuaranteeClock,
   guaranteeStatus,
   guaranteeWindow,
   paymentsFundingWindow,
@@ -195,5 +196,26 @@ describe("paymentsFundingWindow", () => {
   it("keeps everything when no payment precedes the window", () => {
     const rows = [{ paid_at: "2026-09-05T00:00:00Z", amount_minor: 25000 }];
     expect(paymentsFundingWindow(rows, windowStart)).toHaveLength(1);
+  });
+});
+
+describe("armsGuaranteeClock", () => {
+  it("starts the clock on a first Pro payment", () => {
+    expect(armsGuaranteeClock(null, "pro")).toBe(true);
+  });
+
+  it("does NOT start it on Standard, which carries no guarantee", () => {
+    // The bug this replaced: a Standard payment armed the window, the first
+    // Standard campaign opened it, and 30 days later it was spent. A gym
+    // upgrading to Pro then had no guarantee it could ever claim.
+    expect(armsGuaranteeClock(null, "standard")).toBe(false);
+  });
+
+  it("does not re-arm once a window has been given", () => {
+    expect(armsGuaranteeClock("2026-01-01T00:00:00Z", "pro")).toBe(false);
+  });
+
+  it("ignores a payment whose tier could not be resolved", () => {
+    expect(armsGuaranteeClock(null, null)).toBe(false);
   });
 });
