@@ -45,9 +45,24 @@ export function SectionHeading({
 }
 
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] px-5 py-3 text-[0.9375rem] font-semibold " +
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] font-semibold " +
   "transition-[transform,background-color,border-color,color] duration-200 ease-out " +
   "active:translate-y-0 active:scale-[0.98]";
+
+/*
+ * Padding is a variant, not something a caller passes in className.
+ *
+ * Tailwind settles a clash like py-3 against py-2 by stylesheet order, not by
+ * the order the classes appear in the attribute, so an override passed in
+ * from outside was silently losing: the header's button rendered 49px tall
+ * inside a 58px bar and looked welded to its edges.
+ */
+const SIZES = {
+  md: "px-5 py-3 text-[0.9375rem]",
+  sm: "px-3.5 py-2 text-[0.875rem]",
+} as const;
+
+type Size = keyof typeof SIZES;
 
 const VARIANTS = {
   primary:
@@ -64,13 +79,14 @@ type Variant = keyof typeof VARIANTS;
 
 export function ButtonLink({
   variant = "primary",
+  size = "md",
   className = "",
   children,
   ...props
-}: ComponentProps<typeof Link> & { variant?: Variant }) {
+}: ComponentProps<typeof Link> & { variant?: Variant; size?: Size }) {
   return (
     <Link
-      className={`${BUTTON_BASE} ${VARIANTS[variant]} ${className}`}
+      className={`${BUTTON_BASE} ${SIZES[size]} ${VARIANTS[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -80,13 +96,14 @@ export function ButtonLink({
 
 export function Button({
   variant = "primary",
+  size = "md",
   className = "",
   children,
   ...props
-}: ComponentProps<"button"> & { variant?: Variant }) {
+}: ComponentProps<"button"> & { variant?: Variant; size?: Size }) {
   return (
     <button
-      className={`${BUTTON_BASE} ${VARIANTS[variant]} disabled:opacity-60 disabled:hover:translate-y-0 ${className}`}
+      className={`${BUTTON_BASE} ${SIZES[size]} ${VARIANTS[variant]} disabled:opacity-60 disabled:hover:translate-y-0 ${className}`}
       {...props}
     >
       {children}

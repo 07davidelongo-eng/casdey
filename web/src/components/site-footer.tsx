@@ -13,7 +13,7 @@ const COLUMNS = [
     links: [
       { href: "/#what-it-does", label: "What it does" },
       { href: "/#why-casdey", label: "Why casdey" },
-      { href: "/#pricing", label: "Pricing" },
+      { href: "/pricing", label: "Pricing" },
     ],
   },
   {
@@ -40,8 +40,8 @@ export function SiteFooter() {
           <div>
             <Logo className="text-[1.6rem] text-ink" />
             <p className="mt-4 max-w-xs text-[0.9375rem] leading-relaxed text-graphite">
-              Lapsed-member reactivation for gyms and studios in the UK and
-              the EU.
+              Lapsed-member reactivation for gyms and studios in the UK and the
+              EU.
             </p>
             <a
               href="mailto:info@casdey.com"

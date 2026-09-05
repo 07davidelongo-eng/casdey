@@ -49,17 +49,10 @@ export function Hero() {
 
         <Reveal delay={210}>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <ButtonLink
-              href="/login?mode=signup"
-              className="px-4 py-2.5 text-[0.875rem]"
-            >
+            <ButtonLink href="/login?mode=signup" size="sm">
               Start your free week
             </ButtonLink>
-            <ButtonLink
-              href="/#what-it-does"
-              variant="quiet"
-              className="px-4 py-2.5 text-[0.875rem]"
-            >
+            <ButtonLink href="/#what-it-does" variant="quiet" size="sm">
               See how it works
             </ButtonLink>
           </div>

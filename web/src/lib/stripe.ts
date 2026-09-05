@@ -4,6 +4,7 @@ import Stripe from "stripe";
 
 import type { Currency } from "./countries";
 import type { PlanTier } from "./types";
+import { PRICE_PLANS, type PricePlan } from "./pricing";
 
 /**
  * Stripe wiring for the two paid tiers (Track F).
@@ -20,8 +21,9 @@ import type { PlanTier } from "./types";
  * touches Stripe (see src/lib/plan.ts). A gym flagged early_adopter carries a
  * lifetime 20% discount coupon on its subscription, on either tier.
  *
- * None of these numbers appear in public marketing copy. They are shown in the
- * app, at the point somebody is actually deciding to pay.
+ * These figures are public as of the V1 landing page: /pricing renders them
+ * from the same catalogue this module charges against, so the two cannot
+ * drift.
  */
 
 let client: Stripe | null = null;
@@ -43,104 +45,21 @@ export function stripeClient(): Stripe {
   return client;
 }
 
-export type PlanInterval = "month" | "year";
-
-export type PricePlan = {
-  tier: PlanTier;
-  currency: Currency;
-  interval: PlanInterval;
-  /** Effective per-month figure, which is the number a gym compares. */
-  monthlyDisplay: string;
-  /** What actually leaves the account, and how often. */
-  chargeDisplay: string;
-  /** STRIPE_PRICE_<TIER>_<CURRENCY>_<INTERVAL> — the id lives in the env, not
-   *  here, because test-mode and live-mode ids differ. */
-  envVar: string;
-};
-
-export const PRICE_PLANS: PricePlan[] = [
-  // Standard
-  {
-    tier: "standard",
-    currency: "eur",
-    interval: "month",
-    monthlyDisplay: "€99",
-    chargeDisplay: "€99 a month",
-    envVar: "STRIPE_PRICE_STANDARD_EUR_MONTH",
-  },
-  {
-    tier: "standard",
-    currency: "eur",
-    interval: "year",
-    monthlyDisplay: "€83",
-    chargeDisplay: "€990 a year",
-    envVar: "STRIPE_PRICE_STANDARD_EUR_YEAR",
-  },
-  {
-    tier: "standard",
-    currency: "gbp",
-    interval: "month",
-    monthlyDisplay: "£89",
-    chargeDisplay: "£89 a month",
-    envVar: "STRIPE_PRICE_STANDARD_GBP_MONTH",
-  },
-  {
-    tier: "standard",
-    currency: "gbp",
-    interval: "year",
-    monthlyDisplay: "£74",
-    chargeDisplay: "£890 a year",
-    envVar: "STRIPE_PRICE_STANDARD_GBP_YEAR",
-  },
-  // Pro
-  {
-    tier: "pro",
-    currency: "eur",
-    interval: "month",
-    monthlyDisplay: "€289",
-    chargeDisplay: "€289 a month",
-    envVar: "STRIPE_PRICE_PRO_EUR_MONTH",
-  },
-  {
-    tier: "pro",
-    currency: "eur",
-    interval: "year",
-    monthlyDisplay: "€241",
-    chargeDisplay: "€2,890 a year",
-    envVar: "STRIPE_PRICE_PRO_EUR_YEAR",
-  },
-  {
-    tier: "pro",
-    currency: "gbp",
-    interval: "month",
-    monthlyDisplay: "£249",
-    chargeDisplay: "£249 a month",
-    envVar: "STRIPE_PRICE_PRO_GBP_MONTH",
-  },
-  {
-    tier: "pro",
-    currency: "gbp",
-    interval: "year",
-    monthlyDisplay: "£207",
-    chargeDisplay: "£2,490 a year",
-    envVar: "STRIPE_PRICE_PRO_GBP_YEAR",
-  },
-];
-
-/** The month + year options for one tier in one currency. */
-export function pricePlansFor(tier: PlanTier, currency: Currency): PricePlan[] {
-  return PRICE_PLANS.filter((p) => p.tier === tier && p.currency === currency);
-}
-
-export function findPricePlan(
-  tier: PlanTier,
-  currency: Currency,
-  interval: PlanInterval,
-): PricePlan | undefined {
-  return PRICE_PLANS.find(
-    (p) => p.tier === tier && p.currency === currency && p.interval === interval,
-  );
-}
+/**
+ * The catalogue itself now lives in ./pricing, which carries no server-only
+ * marker, because the public pricing page has to render the same figures the
+ * checkout charges, and two copies of a price list is how a site ends up
+ * advertising a number the card is never charged. Re-exported here so the
+ * checkout and billing paths already importing from this module keep working
+ * unchanged.
+ */
+export {
+  PRICE_PLANS,
+  pricePlansFor,
+  findPricePlan,
+  type PricePlan,
+  type PlanInterval,
+} from "./pricing";
 
 /**
  * Price ids live in the environment, not in code: the test-mode and live-mode

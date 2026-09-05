@@ -315,9 +315,15 @@
   perspective: 1600px;
 }
 
+/* No scale and no will-change, both deliberate.
+
+   will-change: transform promotes this to its own compositor layer, which is
+   rasterised once at its pre-transform size and then stretched for every
+   frame after, so the whole window went soft the moment it was tilted and
+   only sharpened at rest. Dropping the promotion makes the browser re-raster
+   as the angle changes, and dropping the scale removes the other half of the
+   resampling. Rotation alone carries the effect. */
 .tilt-plane {
   transform-origin: 50% 0%;
-  transform: rotateX(calc(var(--tilt) * 9deg))
-    scale(calc(1 - var(--tilt) * 0.04));
-  will-change: transform;
+  transform: rotateX(calc(var(--tilt) * 9deg));
 }

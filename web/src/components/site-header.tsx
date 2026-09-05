@@ -21,7 +21,7 @@ import { Logo } from "./wordmark";
 const LINKS = [
   { href: "/#what-it-does", label: "What it does" },
   { href: "/#why-casdey", label: "Why casdey" },
-  { href: "/#pricing", label: "Pricing" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export function SiteHeader() {
@@ -73,10 +73,7 @@ export function SiteHeader() {
               >
                 Sign in
               </Link>
-              <ButtonLink
-                href="/login?mode=signup"
-                className="px-4 py-2 text-[0.875rem]"
-              >
+              <ButtonLink href="/login?mode=signup" size="sm">
                 Start free
               </ButtonLink>
             </div>

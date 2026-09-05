@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { IconShield } from "../marks/icons";
 import { Reveal } from "../motion";
 import { ButtonLink, Container } from "../ui";
@@ -71,13 +73,16 @@ export function Offer() {
             </div>
           </div>
 
-          <div className="mt-8">
-            <ButtonLink
-              href="/login?mode=signup"
-              className="px-4 py-2.5 text-[0.875rem]"
-            >
+          <div className="mt-8 flex flex-wrap items-center gap-5">
+            <ButtonLink href="/login?mode=signup" size="sm">
               Start your free week
             </ButtonLink>
+            <Link
+              href="/pricing"
+              className="text-[0.9375rem] text-teal transition-colors duration-200 hover:text-teal-hover"
+            >
+              Compare the plans &rarr;
+            </Link>
           </div>
         </Reveal>
       </Container>
