@@ -90,8 +90,9 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
           You are on the list.
         </p>
         <p className="mt-4 text-[0.9375rem] leading-relaxed text-graphite">
-          We will email you when casdey is ready for your gym, with the free
-          first week attached. Nothing else in the meantime.
+          Your membership system goes into the order we connect to them in, and
+          your lifetime discount is held against this address. Start the free
+          first week whenever you are ready, no card and no commitment.
         </p>
         <p className="label mt-6 text-stone">
           questions before then? info@casdey.com
@@ -188,8 +189,8 @@ export function WaitlistForm({ defaultEmail = "" }: { defaultEmail?: string }) {
       ) : null}
 
       <p className="mt-7 border-t border-mist pt-6 text-[0.8125rem] leading-relaxed text-stone">
-        Joining the list means we can email you about casdey&apos;s launch and
-        nothing else. No newsletter, no sharing your details with anyone, and
+        Joining the list means we can email you about casdey and nothing else.
+        No newsletter, no sharing your details with anyone, and
         one click to come off the list at any time. See the{" "}
         <Link
           href="/privacy"

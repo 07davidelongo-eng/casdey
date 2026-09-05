@@ -91,7 +91,7 @@ export default function PrivacyPage() {
 
             <H2>Why we collect it</H2>
             <P>
-              To email you when casdey is ready for your gym, and to decide
+              To email you about casdey and your free first week, and to decide
               which gym software to support first. Our lawful basis is your
               consent, given by submitting the form for that stated purpose. You
               can withdraw it at any time and we will delete your entry.

@@ -88,7 +88,9 @@ export async function confirmToGym(input: WaitlistInput): Promise<void> {
     text: [
       `Thanks for joining, ${input.gym}.`,
       "",
-      "casdey is being built now. When it is ready for gyms and studios like yours, you will get an email from me with the free first week attached. No card and no commitment, and nothing else from us in the meantime.",
+      "You are on the list, which means the software you run goes into the order we connect to systems in, and your lifetime discount is held against this address.",
+      "",
+      "The free first week is a full week of the top plan, no card and no commitment, and it only starts when you open your account. Say the word and I will set you up myself.",
       "",
       "If you have a question before then, just reply to this message. It comes straight to me.",
       "",

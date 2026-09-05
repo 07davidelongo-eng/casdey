@@ -11,7 +11,7 @@ import { Container, Eyebrow } from "@/components/ui";
 // emails point at, so the preview needs to be waitlist-specific.
 const waitlistTitle = "Join the casdey waitlist";
 const waitlistDescription =
-  "Gyms and studios on the casdey waitlist get first access and a free first week, with no card and no commitment.";
+  "Gyms and studios joining casdey get a free first week, with no card and no commitment, and a lifetime discount on any paid plan.";
 
 export const metadata: Metadata = {
   title: "Join the waitlist",
@@ -46,7 +46,7 @@ const NEXT = [
   {
     n: "3",
     title: "You get the free week",
-    body: "One email when casdey is ready for you, in the order gyms joined.",
+    body: "A full week of the top plan, no card. It starts when you open your account, not the day you join.",
   },
 ];
 
@@ -76,8 +76,8 @@ const QUESTIONS = [
     a: "Your account drops to a Free plan, not a bill: you keep importing your list and seeing who has cancelled at no cost. If you want casdey writing to them and booking them into a class, pick a paid plan whenever you're ready, and joining the waitlist locks in a lifetime 20% discount for as long as you stay subscribed. Either way it is the only spend, no ad budget needed, and on the top plan, if it does not recover more than it costs, you do not pay.",
   },
   {
-    q: "When does it launch?",
-    a: "In the coming weeks. Waitlist gyms hear first, and the free week is attached to that email.",
+    q: "Is it live yet?",
+    a: "The software is built, and you can open an account and start the free week whenever you like. Joining the list is what puts your membership system next in the order we connect to them in, and it is what locks in the lifetime discount.",
   },
 ];
 
@@ -106,10 +106,10 @@ export default async function WaitlistPage({
                   Get the free first week.
                 </h1>
                 <p className="mt-6 max-w-md text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-                  casdey is being built now, and the gyms and studios on the
-                  waitlist are the ones it gets built around. Join and you get
-                  first access, a free week with no card and no commitment, and
-                  a direct say in what it does next.
+                  casdey is built, and the gyms and studios joining now are the
+                  ones it gets shaped around. Join and you get a free week with
+                  no card and no commitment, a lifetime 20% off if you stay,
+                  and a direct say in what it does next.
                 </p>
 
                 <div className="mt-10 rounded-[20px] bg-white p-6 shadow-raised">
