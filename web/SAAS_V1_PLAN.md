@@ -845,7 +845,42 @@ not switched on for this deployment" — wrong cause, wrong remedy. Now split by
 Resend's `name` field: `restricted_api_key` (or any 401) is the key error,
 `403` + "domain limit" is `ResendDomainLimitError` with its own message.
 
-**Still unproven:** verification has never returned `verified` for a gym
+**PROVEN 2026-09-05.** `gymtest.casdey.com` went from connected, to DNS
+added at GoDaddy, to `verified`, to a real send that left as
+`casdey Sending Test <hello@gymtest.casdey.com>` and was `delivered`, with
+the gym's reply-to intact. The whole per-gym email identity promise is now
+demonstrated in production rather than asserted.
+
+It took **two** findings to get there, and only the first was the one being
+looked for.
+
+**Finding one: it just needed time.** Verification cleared about twenty
+minutes after the records went in. The subdomain theory below was wrong, and
+so was the suspicion of a deeper problem.
+
+**Finding two, and this is the one that mattered: the "Check again" button
+un-verified the domain.** Resend was reporting `verified` while the app still
+showed `AWAITING DNS`. Asking Resend to verify a domain that is *already*
+verified knocks it back to `pending` and leaves it there. The action asked for
+a re-verify and then read the status back, so the read always landed on the
+pending its own request had just caused:
+
+```
+before        : verified
+POST /verify  : 200
+GET immediate : pending
+GET +5s       : pending
+```
+
+**No gym could ever have completed this setup.** The only way to see the
+status was a button that destroyed it, and the symptom is indistinguishable
+from DNS that has not propagated, which is exactly what it was blamed on for
+two sessions. Fixed by reading first and only re-checking a domain that is not
+already verified.
+
+The historical note below is kept because the wrong theory is instructive.
+
+**Previously unproven:** verification had never returned `verified` for a gym
 domain. `testgym.casdey.com` sat `pending` for ~50 minutes with all three DNS
 records provably correct in public DNS.
 
@@ -1227,7 +1262,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C2 | Real Resend campaign send in prod | me | **done 2026-09-05** — self-test from prod, `delivered` in Resend's event log, gym display name, gym reply-to, live booking + unsubscribe links |
 | C3 | Calendar booking end-to-end in prod | me | **done 2026-09-05** — two prod-only breaks found and fixed: `redirect_uri_mismatch` (apex vs www), then booking never writing to Google at all under A6's narrowed scope (migration `0020`). Connect → book → event confirmed in Google → cancel → event cancelled, all verified in prod |
 | C4 | Every wizard step verified in prod | me | **done 2026-09-05** — all 13 `/app` routes 200, matching local; C3 was the only prod-only break |
-| G1 | Email from the gym's own domain (Resend per-gym) | me | code + UI done 2026-09-04, admin key live; onboarding step added 2026-09-05. **Verification never yet observed**; the subdomain theory was checked and is wrong (both casdey domains are verified subdomain-and-apex); needs a retry left overnight, which needs a GoDaddy DNS change → Davide |
+| G1 | Email from the gym's own domain (Resend per-gym) | me | **done and proven in prod 2026-09-05** — connect → DNS at GoDaddy → `verified` → a real send delivered from `hello@gymtest.casdey.com` with the gym's reply-to. Two findings on the way: it only needed time, and the "Check again" button was itself un-verifying the domain, which no gym could ever have got past |
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
