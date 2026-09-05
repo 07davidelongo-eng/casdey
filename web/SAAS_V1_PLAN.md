@@ -862,10 +862,30 @@ asked. `testgym.casdey.com` was disconnected at the end of that session, so
 there is nothing left to inspect, and there is one free domain slot (Free
 allows 3, two are casdey's own).
 
-**To actually settle it:** add one throwaway subdomain, put its records in at
-GoDaddy, and leave it for a day before pressing verify again. That needs a
-real DNS change on casdey.com, so it is Davide's call, not something to do in
-passing.
+**The retry is now running (2026-09-05).** `gymtest.casdey.com` was connected
+through the production UI, and its three records were added at GoDaddy and
+confirmed at the authoritative nameserver, not just in the console:
+
+```
+TXT  resend._domainkey.gymtest  p=MIGfMA0GCSqG…3wIDAQAB
+TXT  send.gymtest               v=spf1 include:amazonses.com ~all
+MX   send.gymtest               feedback-smtp.eu-west-1.amazonses.com  (10)
+```
+
+Resend answered `pending` on the first check, minutes after the change, which
+is expected and is exactly the state the previous attempt was read as a
+failure. **The thing being tested is whether it clears with time**, so it
+should be left overnight before anything is concluded.
+
+`npm run check:resend` now prints the per-record status for any pending
+domain, so the answer is one command rather than a session's work: a record
+reading `pending` while public DNS clearly holds the right value means wait,
+and one Resend never sees means the DNS is wrong.
+
+**This uses the last free domain slot.** Three of three on Resend Free
+(casdey.com, mail.casdey.com, gymtest.casdey.com), so a real gym cannot be
+added until this one is disconnected or the account moves to Pro. `check:resend`
+warns about that now too.
 
 **Fixed 2026-09-05:** per-gym sending appeared nowhere in onboarding, so the
 feature was invisible unless a gym dug into Settings. It is now step five of

@@ -155,8 +155,40 @@ if (!adminKey) {
     for (const domain of domains) {
       const status = domain.status ?? "unknown";
       const line = `${domain.name} — ${status}`;
-      if (status === "verified") ok(`  ${line}`);
-      else warn(`  ${line}`, "Not verified, so nothing sends from it.");
+      if (status === "verified") {
+        ok(`  ${line}`);
+        continue;
+      }
+      warn(`  ${line}`, "Not verified, so nothing sends from it.");
+
+      // Which record is holding it up. Without this, "pending" is a dead end:
+      // it looks the same whether the DNS is missing, wrong, or simply has not
+      // reached Resend's resolver yet, and that ambiguity is what made the
+      // first attempt at a gym domain unreadable for a whole session.
+      const detail = await probe(adminKey, `/domains/${domain.id}`);
+      for (const record of detail.parsed?.records ?? []) {
+        // Printed exactly as Resend gives it, which is what the gym pastes
+        // into their registrar. Do not build an FQDN from it: Resend names
+        // records relative to the registrable domain, not to the one being
+        // verified, so mail.casdey.com reports "resend._domainkey.mail".
+        console.log(
+          `          ${String(record.record ?? "?").padEnd(5)} ${record.name} — ${record.status ?? "?"}`,
+        );
+      }
+      console.log(
+        "          Records right but still pending? Resend verifies through SES,",
+      );
+      console.log(
+        "          which can take hours. Check the values in public DNS, then wait.",
+      );
+    }
+
+    if (domains.length >= 3) {
+      warn(
+        `${domains.length} domains registered, and Resend Free allows 3`,
+        "Adding another gym's sending domain will fail until one is removed, " +
+          "or the account moves to Pro (see SAAS_V1_PLAN.md G1a).",
+      );
     }
   } else if (probed.parsed?.name === "restricted_api_key") {
     bad(
