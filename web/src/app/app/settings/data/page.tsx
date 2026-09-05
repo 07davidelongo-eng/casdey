@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireGym } from "@/lib/dal";
+import type { AuditAction } from "@/lib/audit";
 import { Card, CardTitle, formatDate } from "@/components/app/ui";
 import { PurgeForm } from "./purge-form";
 
@@ -14,12 +15,25 @@ type AuditRow = {
   meta: Record<string, unknown>;
 };
 
-const ACTION_LABEL: Record<string, string> = {
+/**
+ * Plain English for every audited action.
+ *
+ * Typed against AuditAction rather than string on purpose: this page is what
+ * a gym, or a regulator, reads to see who did what, and an unlabelled action
+ * shows up there as a raw database key. Eleven of them were doing exactly that
+ * — booking.booked, gym.services_updated, both of the sending.* ones — because
+ * a Record<string, string> lets a new action ship with no label and say
+ * nothing about it. Now the compiler refuses.
+ */
+const ACTION_LABEL: Record<AuditAction, string> = {
   "gym.created": "Gym set up",
   "gym.updated": "Settings changed",
+  "gym.services_updated": "Service prices changed",
   "processing.agreed": "Data protection terms accepted",
   "members.imported": "Members imported",
   "member.deleted": "A member was erased",
+  "member.return_undone": "A member's return was undone",
+  "member.cancelled": "A member was marked cancelled",
   "members.purged": "All member data deleted",
   "members.exported": "Member data exported",
   "campaign.created": "Campaign created",
@@ -28,6 +42,14 @@ const ACTION_LABEL: Record<string, string> = {
   "campaign.paused": "Campaign paused",
   "campaign.cancelled": "Campaign cancelled",
   "member.unsubscribed": "A member unsubscribed",
+  "whatsapp.settings_updated": "WhatsApp settings changed",
+  "booking.settings_updated": "Booking settings changed",
+  "calendar.connected": "Google Calendar connected",
+  "calendar.disconnected": "Google Calendar disconnected",
+  "sending.domain_connected": "Sending domain connected",
+  "sending.domain_disconnected": "Sending domain disconnected",
+  "booking.booked": "A member booked a time",
+  "booking.cancelled": "A booking was cancelled",
   "billing.started": "Billing set up",
   "billing.updated": "Billing changed",
   "guarantee.claimed": "Guarantee refund claimed",
@@ -158,7 +180,7 @@ export default async function DataSettingsPage() {
                     <td className="literal text-[0.8125rem] whitespace-nowrap">
                       {formatDate(entry.created_at)}
                     </td>
-                    <td>{ACTION_LABEL[entry.action] ?? entry.action}</td>
+                    <td>{ACTION_LABEL[entry.action as AuditAction] ?? entry.action}</td>
                     <td className="literal text-[0.8125rem]">
                       {entry.actor_email ?? "the member"}
                     </td>
