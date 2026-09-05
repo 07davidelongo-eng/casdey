@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button, Card, CardTitle } from "./ui";
-import { guessMapping, normalizeRow } from "@/lib/ingestion/csv";
+import { guessMapping, headerOffset, normalizeRow } from "@/lib/ingestion/csv";
 import type {
   ColumnMapping,
   DateFormat,
@@ -75,6 +75,13 @@ export function ImportWizard() {
     Papa.parse<Record<string, string>>(chosen, {
       header: true,
       skipEmptyLines: "greedy",
+      // Mirrors the server: a report title above the table would otherwise
+      // become the header here too, and the gym would be asked to map a
+      // single column called "Client Attendance Report".
+      beforeFirstChunk: (chunk) => {
+        const skip = headerOffset(chunk);
+        return skip ? chunk.split(/\r?\n/).slice(skip).join("\n") : chunk;
+      },
       // Only enough rows to show them what we read. The rest stays on disk.
       preview: 6,
       transformHeader: (header) => header.trim(),

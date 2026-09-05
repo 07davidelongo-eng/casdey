@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
-import { normalizeRow } from "@/lib/ingestion/csv";
+import { decodeCsv, headerOffset, normalizeRow } from "@/lib/ingestion/csv";
 import { applyImportCap } from "@/lib/ingestion/cap";
 import { recordImportEvents, upsertMembers } from "@/lib/ingestion/upsert";
 import { capabilities, planLabel } from "@/lib/plan";
@@ -98,20 +98,17 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (!dateFormat) return fail("Choose the date format used in your file.", 400);
 
   // Decode explicitly rather than via file.text(), which assumes UTF-8 and
-  // silently turns invalid bytes into replacement characters. An older PMS or an
-  // Excel "CSV (MS-DOS)" export is Windows-1252, so a name like "François" would
-  // otherwise import as "FranÃ§ois" and go out verbatim in a live campaign. Try
-  // strict UTF-8 first (the common, correct case) and fall back to Windows-1252
-  // only when the bytes are not valid UTF-8.
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let text: string;
-  try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    text = new TextDecoder("windows-1252").decode(bytes);
-  }
-  // Drop a UTF-8 BOM so it can't contaminate the first header name.
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  // silently turns invalid bytes into replacement characters. See decodeCsv
+  // for what each encoding costs a gym when it is guessed wrong.
+  const full = decodeCsv(new Uint8Array(await file.arrayBuffer()));
+
+  // Skip any report title and date-range lines above the table. Kept as an
+  // offset rather than thrown away, so a row number still points at the line
+  // the gym will find when they open their own file.
+  const skippedLines = headerOffset(full);
+  const text = skippedLines
+    ? full.split(/\r?\n/).slice(skippedLines).join("\n")
+    : full;
 
   const parsed = Papa.parse<Record<string, string>>(text, {
     header: true,
@@ -146,7 +143,14 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   rows.forEach((row, index) => {
     // +2: one for the header line, one because people count from 1.
-    const result = normalizeRow(row, mapping, dateFormat, index + 2, gym.country);
+    const result = normalizeRow(
+      row,
+      mapping,
+      dateFormat,
+      // Header is line 1 of the table, plus whatever preamble was skipped.
+      index + 2 + skippedLines,
+      gym.country,
+    );
     if (result.ok) {
       members.push(result.member);
     } else {

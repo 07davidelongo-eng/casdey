@@ -260,6 +260,76 @@ const HINTS: { field: keyof ColumnMapping; patterns: RegExp[] }[] = [
   },
 ];
 
+/**
+ * Turns the uploaded bytes into text, whatever the gym's software wrote.
+ *
+ * A byte-order mark is the only reliable signal of a UTF-16 file, and Excel's
+ * "Unicode Text" export writes exactly that. Without this the strict-UTF-8
+ * attempt below throws, the Windows-1252 fallback catches it, and every header
+ * comes back interleaved with NUL bytes, so the gym is shown a column list of
+ * mojibake and no way forward.
+ *
+ * After that: strict UTF-8 first, because it is the common and correct case,
+ * and Windows-1252 only when the bytes are not valid UTF-8. An older platform
+ * or an Excel "CSV (MS-DOS)" export is Windows-1252, and a name like
+ * "François" read as UTF-8 would import as "FranÃ§ois" and go out verbatim in
+ * a live campaign.
+ */
+export function decodeCsv(bytes: Uint8Array): string {
+  if (bytes.length >= 2) {
+    const [a, b] = bytes;
+    if (a === 0xff && b === 0xfe) {
+      return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+    }
+    if (a === 0xfe && b === 0xff) {
+      return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+    }
+  }
+
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    text = new TextDecoder("windows-1252").decode(bytes);
+  }
+  // A UTF-8 BOM would otherwise contaminate the first header name.
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+/**
+ * How many lines to drop before the header row.
+ *
+ * Exported reports often open with a title and a date range before the table
+ * starts, which is what a person wants and what a parser cannot survive:
+ * the first line becomes the header, so the whole file collapses into one
+ * column called "Client Attendance Report" and every real column is lost.
+ * The gym sees a single nonsense column and no way to continue.
+ *
+ * The header is taken to be the first line carrying at least two separated
+ * values. A title line is one long cell; a date-range line usually is too.
+ * Returns 0 for the ordinary case, so a normal file is untouched.
+ *
+ * Line counting stays honest: the caller adds this offset back when reporting
+ * row numbers, because a gym looking for "row 7" opens their own file.
+ */
+export function headerOffset(text: string, delimiter = ","): number {
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length && i < 20; i += 1) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    // Count separators outside quotes, so a title containing a comma does not
+    // masquerade as a header row.
+    let quoted = false;
+    let fields = 1;
+    for (const char of line) {
+      if (char === '"') quoted = !quoted;
+      else if (char === delimiter && !quoted) fields += 1;
+    }
+    if (fields >= 2) return i;
+  }
+  return 0;
+}
+
 export function guessMapping(headers: string[]): Partial<ColumnMapping> {
   const guess: Partial<ColumnMapping> = {};
   const taken = new Set<string>();

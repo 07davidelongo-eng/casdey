@@ -1,7 +1,12 @@
 import Papa from "papaparse";
 import { describe, expect, it } from "vitest";
 
-import { guessMapping, normalizeRow } from "./csv";
+import {
+  decodeCsv,
+  guessMapping,
+  headerOffset,
+  normalizeRow,
+} from "./csv";
 import type { ColumnMapping, DateFormat, RawMember } from "./types";
 
 /**
@@ -232,5 +237,132 @@ describe.each(FIXTURES)("$platform export", (fixture) => {
     // able to find the line a rejected or failing record came from.
     for (const member of rows) expect(member.sourceRow).toBeGreaterThan(1);
     expect(new Set(rows.map((m) => m.sourceRow)).size).toBe(rows.length);
+  });
+});
+
+/**
+ * The file-level quirks that only appear in exports people actually produce.
+ * Every case here was probed against the real parser first; the two that
+ * failed are the two that were then fixed.
+ */
+describe("real-export quirks", () => {
+  const table =
+    "Client Name,Client Email,Last Class,Classes Attended\n" +
+    "Niamh Kelleher,niamh@example.ie,2025-03-02,9\n";
+
+  function parse(text: string) {
+    const skip = headerOffset(text);
+    const body = skip ? text.split(/\r?\n/).slice(skip).join("\n") : text;
+    const out = Papa.parse<Record<string, string>>(body, {
+      header: true,
+      skipEmptyLines: "greedy",
+      transformHeader: (h) => h.trim(),
+    });
+    return { skip, fields: out.meta.fields ?? [], rows: out.data };
+  }
+
+  it("survives a report title and date range above the table", () => {
+    // This broke outright: Papa took the title as the header, the file
+    // collapsed into one column called "Client Attendance Report", and the gym
+    // was asked to map columns that no longer existed.
+    const withPreamble =
+      "Client Attendance Report\n" +
+      "Generated 05/09/2026 by Iron Works Gym\n" +
+      "\n" +
+      table;
+    const { skip, fields, rows } = parse(withPreamble);
+    expect(skip).toBe(3);
+    expect(fields).toContain("Classes Attended");
+    expect(rows).toHaveLength(1);
+  });
+
+  it("counts rows from the gym's own file, not from the table", () => {
+    // A gym told "row 5" opens their file and looks at line 5. Skipping a
+    // preamble must not quietly renumber what they are shown.
+    const withPreamble = "Report\nGenerated today\n\n" + table;
+    expect(0 + 2 + headerOffset(withPreamble)).toBe(5);
+  });
+
+  it("leaves an ordinary file alone", () => {
+    expect(headerOffset(table)).toBe(0);
+  });
+
+  it("is not fooled by a title that happens to contain a comma", () => {
+    expect(headerOffset('"Attendance, all clients"\n' + table)).toBe(1);
+  });
+
+  it("reads a semicolon-separated European Excel export", () => {
+    const semi =
+      "Client Name;Client Email;Last Class;Classes Attended\r\n" +
+      "Niamh Kelleher;niamh@example.ie;2025-03-02;9\r\n";
+    const { fields, rows } = parse(semi);
+    expect(fields).toEqual([
+      "Client Name",
+      "Client Email",
+      "Last Class",
+      "Classes Attended",
+    ]);
+    expect(rows[0]["Classes Attended"]).toBe("9");
+  });
+
+  it("reads a tab-separated export", () => {
+    const tsv =
+      "Client Name\tClient Email\tLast Class\tClasses Attended\n" +
+      "Niamh Kelleher\tniamh@example.ie\t2025-03-02\t9\n";
+    expect(parse(tsv).fields).toContain("Classes Attended");
+  });
+
+  it("keeps a count written with a thousands separator", () => {
+    const big =
+      "Client Name,Client Email,Last Class,Classes Attended\n" +
+      'Niamh Kelleher,niamh@example.ie,2025-03-02,"1,204"\n';
+    const { rows } = parse(big);
+    const result = normalizeRow(
+      rows[0],
+      {
+        lastVisitAt: "Last Class",
+        email: "Client Email",
+        fullName: "Client Name",
+        visitCount: "Classes Attended",
+      },
+      "iso",
+      2,
+      "IE",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.member.visitCount).toBe(1204);
+  });
+});
+
+describe("decodeCsv", () => {
+  const line = "Client Name,Client Email\nNiamh,niamh@example.ie\n";
+
+  it("reads plain UTF-8", () => {
+    expect(decodeCsv(new TextEncoder().encode(line))).toBe(line);
+  });
+
+  it("strips a UTF-8 byte-order mark off the first header", () => {
+    expect(
+      decodeCsv(new TextEncoder().encode("\uFEFF" + line)).startsWith("Client Name"),
+    ).toBe(true);
+  });
+
+  it("reads UTF-16, which Excel's Unicode Text export writes", () => {
+    // This produced headers interleaved with NUL bytes: strict UTF-8 rejected
+    // the file and the Windows-1252 fallback decoded it into mojibake, so the
+    // gym was shown a column list of nonsense.
+    const utf16 = new Uint8Array(Buffer.from("\uFEFF" + line, "utf16le"));
+    const decoded = decodeCsv(utf16);
+    expect(decoded.startsWith("Client Name")).toBe(true);
+    expect(decoded).not.toContain("\u0000");
+  });
+
+  it("falls back to Windows-1252 so accented names survive", () => {
+    // "Fran\u00e7ois" written in Windows-1252 is not valid UTF-8.
+    const bytes = new Uint8Array([
+      0x4e, 0x61, 0x6d, 0x65, 0x0a, 0x46, 0x72, 0x61, 0x6e, 0xe7, 0x6f, 0x69,
+      0x73, 0x0a,
+    ]);
+    expect(decodeCsv(bytes)).toContain("Fran\u00e7ois");
   });
 });
