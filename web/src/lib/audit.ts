@@ -41,7 +41,9 @@ export type AuditAction =
   | "booking.cancelled"
   | "billing.started"
   | "billing.updated"
-  | "guarantee.claimed";
+  | "guarantee.claimed"
+  | "offer.chosen"
+  | "offer.cleared";
 
 export async function recordAudit(entry: {
   gymId: string;

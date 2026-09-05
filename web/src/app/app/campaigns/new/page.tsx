@@ -108,7 +108,8 @@ export default async function NewCampaignPage() {
                 ? bookingUrl(atRiskAudience[0].booking_token)
                 : null
             }
-            defaultLanguage={languageForCountry(gym.country)}
+            offerText={gym.offer_text}
+      defaultLanguage={languageForCountry(gym.country)}
           />
         </>
       )}

@@ -54,6 +54,7 @@ export function CampaignForm({
   defaultLanguage,
   whatsAppEnabled,
   whatsAppTemplateSet,
+  offerText,
 }: {
   gymName: string;
   replyTo: string;
@@ -73,6 +74,9 @@ export function CampaignForm({
   /** ...and pasted an approved template Content SID. Both are required before
    *  a WhatsApp campaign can be created. */
   whatsAppTemplateSet: boolean;
+  /** The gym's chosen win-back offer, already dated. Powers {{offer}} in the
+   *  preview so the gym sees exactly what a member will read. */
+  offerText: string | null;
 }) {
   const id = useId();
   const [state, action, pending] = useActionState(createCampaignAction, INITIAL);
@@ -116,8 +120,9 @@ export function CampaignForm({
         ? (REASON_OPTIONS.find((o) => o.value === sample.cancellation_reason)
             ?.label ?? null)
         : null,
+      offer: offerText,
     }),
-    [sample, gymName, sampleBookingUrl],
+    [sample, gymName, sampleBookingUrl, offerText],
   );
 
   const audienceCount = isWhatsApp

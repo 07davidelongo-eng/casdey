@@ -24,6 +24,8 @@ export const DEFAULT_BODY = `Hi {{first_name}},
 
 It has been a while since we last saw you at {{gym}}, and we wanted to check you are getting on well.
 
+{{offer}}
+
 If you would like to come back in, reply to this email and we will find you a time that works.
 
 If now is not the right time, that is completely fine.
@@ -57,6 +59,15 @@ export type TemplateContext = {
   /** A natural-language phrase for why they left (see REASON_LABELS), or
    *  null when no reason is on file. Powers {{reason}}. */
   reason: string | null;
+  /**
+   * The gym's chosen win-back offer, already rendered with a real date, or null
+   * when it has not built one. Powers {{offer}}.
+   *
+   * Read from the gym row rather than composed here: the wording a member was
+   * promised is fixed when the campaign is created, so editing the offer later
+   * never rewrites what someone was already sent.
+   */
+  offer: string | null;
 };
 
 type Placeholder =
@@ -64,7 +75,8 @@ type Placeholder =
   | "gym"
   | "months_away"
   | "booking_link"
-  | "reason";
+  | "reason"
+  | "offer";
 
 export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
   {
@@ -82,14 +94,18 @@ export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
     means:
       "why they left, in a short natural phrase (only when you recorded one)",
   },
+  {
+    token: "{{offer}}",
+    means: "the win-back offer you built, with its deadline as a real date",
+  },
 ];
 
 export function renderTemplate(
   template: string,
   context: TemplateContext,
 ): string {
-  return template.replace(
-    /\{\{\s*(first_name|gym|months_away|booking_link|reason)\s*\}\}/g,
+  const rendered = template.replace(
+    /\{\{\s*(first_name|gym|months_away|booking_link|reason|offer)\s*\}\}/g,
     (_match, token: Placeholder) => {
       if (token === "first_name") {
         // "Hi ," is worse than a slightly generic greeting.
@@ -98,11 +114,20 @@ export function renderTemplate(
       if (token === "gym") return context.gymName;
       if (token === "booking_link") return context.bookingUrl ?? "";
       if (token === "reason") return context.reason ?? "it being a while";
+      // Empty rather than a placeholder apology: a gym that has not built an
+      // offer should send a clean message, not one with a hole where an offer
+      // was meant to be.
+      if (token === "offer") return context.offer ?? "";
       return context.monthsAway === null
         ? "some time"
         : String(context.monthsAway);
     },
   );
+
+  // A token that renders empty (no offer built, no booking link) would leave a
+  // gap where a paragraph was meant to be, and a member reads that as a broken
+  // mail-merge rather than as nothing. Close the gap instead.
+  return rendered.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export function contextFor(
@@ -110,7 +135,7 @@ export function contextFor(
     Member,
     "first_name" | "last_visit_at" | "cancellation_reason"
   >,
-  gym: Pick<Gym, "name">,
+  gym: Pick<Gym, "name" | "offer_text">,
   now: Date = new Date(),
   bookingUrl: string | null = null,
 ): TemplateContext {
@@ -119,6 +144,7 @@ export function contextFor(
     gymName: gym.name,
     monthsAway: monthsSince(member.last_visit_at, now),
     bookingUrl,
+    offer: gym.offer_text ?? null,
     reason: member.cancellation_reason
       ? REASON_LABELS[member.cancellation_reason]
       : null,

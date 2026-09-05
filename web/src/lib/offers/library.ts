@@ -39,6 +39,21 @@ export const OFFERS: Offer[] = [
     },
   },
   {
+    id: "comeback_rate",
+    name: "A comeback rate for the first months",
+    memberFacing:
+      "Come back at half price for your first two months, then the normal rate. No joining fee, and you can stop whenever you like. Open until {{deadline}}.",
+    dated: true,
+    rationale:
+      "The pattern every subscription business converges on, and the one your members already recognise from Spotify and Netflix. It works because the obstacle is rarely the monthly price itself, it is restarting a payment they once decided to stop. A discounted run-in makes restarting feel reversible, and by the time it ends the habit is doing the work instead of the discount. Make it deep enough to be worth acting on: a token ten percent reads as an insult to someone who already left.",
+    cost: "Real margin, for a fixed and known number of months, on a member currently worth nothing at all.",
+    fits: {
+      gymTypes: ["general_gym", "crossfit_box", "boutique_studio", "pt_studio"],
+      reasons: ["price", "time", "motivation", "unknown"],
+      budgets: ["real_discount"],
+    },
+  },
+  {
     id: "one_session_with_coach",
     name: "One session, one coach, no class",
     memberFacing:

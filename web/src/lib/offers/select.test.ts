@@ -91,6 +91,19 @@ describe("ranking", () => {
     expect(top.offer.id).toBe("return_after_injury");
   });
 
+  it("always offers a straight discounted return when the gym can afford one", () => {
+    // The Spotify/Netflix pattern: come back cheap for a run-in, then normal
+    // price. It is the win-back a lapsed member already recognises without
+    // explanation, so a gym willing to spend margin must always be shown it.
+    for (const reason of ["price", "time", "motivation", "unknown"] as const) {
+      const ranked = rankOffers(inputs({ reason, budget: "real_discount" }));
+      expect(
+        ranked.some((r) => r.offer.id === "comeback_rate"),
+        `no comeback rate offered for reason=${reason}`,
+      ).toBe(true);
+    }
+  });
+
   it("offers the price answer to a price objection", () => {
     const ranked = rankOffers(inputs({ reason: "price", budget: "real_discount" }));
     expect(ranked.map((r) => r.offer.fits.reasons.includes("price"))).toContain(true);

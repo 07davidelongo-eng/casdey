@@ -54,6 +54,11 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     sending_domain_status: "none",
     sending_domain_records: null,
     sending_from_local: "hello",
+    offer_id: null,
+    offer_text: null,
+    offer_expires_at: null,
+    offer_inputs: null,
+    offer_chosen_at: null,
     ...overrides,
   };
 }

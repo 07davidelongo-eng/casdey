@@ -35,6 +35,16 @@ export function IconOverview(props: IconProps) {
   );
 }
 
+/** The offer: something held out, with a tag on it. */
+export function IconOffer(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20 12.5 12.5 20a2 2 0 0 1-2.8 0l-5.7-5.7a2 2 0 0 1-.6-1.4V5.5A1.5 1.5 0 0 1 4.9 4h7.4a2 2 0 0 1 1.4.6l6.3 6.3a1.1 1.1 0 0 1 0 1.6Z" />
+      <path d="M8 8h.01" />
+    </Svg>
+  );
+}
+
 /** Bringing a list in. */
 export function IconUpload(props: IconProps) {
   return (

@@ -1,3 +1,5 @@
+import type { OfferInputs } from "./offers/types";
+
 import type { CancellationReason } from "./cancellation";
 
 /**
@@ -164,6 +166,17 @@ export type Gym = {
   /** Local part used on the gym's own domain, so mail is from
    *  hello@theirgym.com rather than something casdey-looking. */
   sending_from_local: string;
+
+  /** The chosen win-back offer. See migration 0018 and src/lib/offers. */
+  offer_id: string | null;
+  /** Member-facing wording with the deadline already a real date. A campaign
+   *  copies this when created, so editing the offer later never changes what
+   *  members were already promised. */
+  offer_text: string | null;
+  /** Null for the honest check-in, which makes no promise to expire. */
+  offer_expires_at: string | null;
+  offer_inputs: OfferInputs | null;
+  offer_chosen_at: string | null;
 };
 
 export type SendingDomainStatus = "none" | "pending" | "verified" | "failed";

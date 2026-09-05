@@ -53,6 +53,8 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   "billing.started": "Billing set up",
   "billing.updated": "Billing changed",
   "guarantee.claimed": "Guarantee refund claimed",
+  "offer.chosen": "Win-back offer chosen",
+  "offer.cleared": "Win-back offer removed",
 };
 
 export default async function DataSettingsPage() {
