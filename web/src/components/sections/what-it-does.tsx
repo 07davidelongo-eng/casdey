@@ -85,7 +85,9 @@ export function WhatItDoes() {
           </ol>
 
           <div className="lg:pt-1">
-            <AppShot view={STEPS[active].view} />
+            <div key={active} className="view-fade">
+              <AppShot view={STEPS[active].view} />
+            </div>
           </div>
         </div>
       </Container>

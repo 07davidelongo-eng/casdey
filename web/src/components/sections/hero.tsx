@@ -17,7 +17,7 @@ export function Hero() {
     <section className="relative overflow-hidden pt-14 sm:pt-20">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[640px] bg-[radial-gradient(ellipse_70%_55%_at_50%_-10%,color-mix(in_srgb,var(--teal-bright)_16%,transparent),transparent_72%),radial-gradient(ellipse_50%_40%_at_85%_10%,color-mix(in_srgb,var(--amber)_8%,transparent),transparent_70%)]"
+        className="grain pointer-events-none absolute inset-x-0 top-0 h-[640px] bg-[radial-gradient(ellipse_70%_55%_at_50%_-10%,color-mix(in_srgb,var(--teal-bright)_16%,transparent),transparent_72%),radial-gradient(ellipse_50%_40%_at_85%_10%,color-mix(in_srgb,var(--amber)_8%,transparent),transparent_70%)]"
       />
 
       <Container className="relative text-center">
@@ -58,8 +58,27 @@ export function Hero() {
       </Container>
 
       <Container className="relative mt-14 sm:mt-16">
-        <AppShot view="members" />
-        <p className="mt-3 text-center text-[12px] text-stone">
+        <div className="relative">
+          <AppShot view="members" />
+
+          {/* The moment the product is sold on, floated over the list the
+              way the good software sites layer one panel over another.
+              Hidden below md, where it would cover the table it is meant to
+              be commenting on. */}
+          <div className="absolute -bottom-7 left-6 hidden w-[268px] rounded-[14px] border border-ash bg-white p-4 shadow-float md:block lg:left-10">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber" />
+              <span className="text-[12px] font-medium text-amber">Returned</span>
+            </div>
+            <p className="display mt-2 text-[1.375rem] leading-none text-ink tabular-nums">
+              Tue 14:30
+            </p>
+            <p className="mt-1.5 text-[12px] text-stone">
+              J. Okafor · PT session, 45 min
+            </p>
+          </div>
+        </div>
+        <p className="mt-12 text-center text-[12px] text-stone md:mt-14">
           Illustrative. casdey holds no member data of its own.
         </p>
       </Container>

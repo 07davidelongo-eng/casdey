@@ -3,17 +3,32 @@ import { Container } from "./ui";
 import { Logo } from "./wordmark";
 
 /*
- * Simplified while casdey.com is unpublished down to /waitlist and /privacy
- * (see next.config.ts redirects and CLAUDE.md, "Niche pivot under
- * consideration"). Product and Get started both pointed at the homepage
- * and /login, currently redirected back to /waitlist, so those columns were
- * all dead ends. info@casdey.com is already shown above, so it isn't
- * repeated here. Restore the full columns once the site republishes.
+ * Restored for V1. The Product and Get started columns were removed while
+ * casdey.com redirected everything to /waitlist, which made them dead ends.
+ * They are live routes again, so they are back.
  */
 const COLUMNS = [
   {
+    heading: "Product",
+    links: [
+      { href: "/#what-it-does", label: "What it does" },
+      { href: "/#why-casdey", label: "Why casdey" },
+      { href: "/#pricing", label: "Pricing" },
+    ],
+  },
+  {
+    heading: "Get started",
+    links: [
+      { href: "/login?mode=signup", label: "Start your free week" },
+      { href: "/login", label: "Sign in" },
+    ],
+  },
+  {
     heading: "Legal",
-    links: [{ href: "/privacy", label: "Privacy notice" }],
+    links: [
+      { href: "/privacy", label: "Privacy notice" },
+      { href: "/terms/processing", label: "Data processing" },
+    ],
   },
 ];
 
@@ -21,7 +36,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-ash/70 py-14">
       <Container>
-        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[2fr_1fr]">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.6fr_repeat(3,1fr)]">
           <div>
             <Logo className="text-[1.6rem] text-ink" />
             <p className="mt-4 max-w-xs text-[0.9375rem] leading-relaxed text-graphite">
