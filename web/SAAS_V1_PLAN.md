@@ -893,7 +893,7 @@ onboarding starts hurting, which is a good problem to have.
 Two features Davide asked for. Both exist to close the same gap: casdey
 currently sends a gym's message and then leaves the gym alone with the outcome.
 
-### H1. Somewhere a gym can give feedback, easily
+### H1. Somewhere a gym can give feedback, easily — BUILT 2026-09-05
 
 The go-to-market plan is built on feedback ("get feedback at every level, from
 the very first cold outreach conversation up through 100+ customers", "treat
@@ -915,10 +915,36 @@ Shape:
   are the first import and the first campaign approval, because that is when a
   gym has just formed an opinion and has not yet forgotten it.
 
-Open: whether to prompt proactively at all in V1, or ship the always-available
-box first and add prompts once there is anyone to prompt.
+**Open question answered: no proactive prompts in V1.** The always-available
+box shipped on its own. Prompting after the first import and the first campaign
+approval is still the right instinct, but there is nobody to prompt yet, and a
+prompt built against zero real sessions is a guess about a moment nobody has
+had. Add them when the first gyms are actually moving through those steps and
+it is visible where they hesitate.
 
-### H2. Help the gym build an offer worth coming back for
+**What shipped.** Migration `0019_feedback.sql` (applied to the live DB
+2026-09-05, verified in a transaction) adds a `feedback` table: gym, author,
+the page they were on, the message. RLS lets a gym read back only its own; the
+insert goes through the service role.
+
+`src/app/app/feedback-actions.ts` writes the row and then emails
+`davide@casdey.com`. Three decisions inside it worth keeping:
+- **The write wins, the email is best effort.** A gym that took the trouble to
+  type something must never be told it failed because a mail API was down. By
+  then the row, which is the copy that matters, is already saved.
+- **It sends over Zoho, not Resend.** Resend is capped at 100 emails a day and
+  the live cold outreach already takes 75 of them (see G1a). casdey's own
+  internal notifications must not compete with a gym's actual campaign for that
+  allowance.
+- **The page path is recorded automatically.** The same words mean different
+  things typed on the import page and on the billing page, and asking the gym
+  to tell us would be asking them to do our work.
+
+In the widget the feedback route is a **button, not a mailto**. The old mailto
+stays underneath for anything that needs a thread, but it is no longer the only
+door: that is what made it a dead end.
+
+### H2. Help the gym build an offer worth coming back for — BUILT 2026-09-05
 
 **This is the one that decides whether casdey works.** casdey's whole promise is
 recovered revenue, and the guarantee stakes real money on it — but a win-back
@@ -1073,8 +1099,8 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
-| H1 | In-app feedback box (extend the support widget) | me | requested 2026-09-05 — small; nowhere in the product to give feedback today |
-| H2 | Interactive win-back offer builder | me | requested 2026-09-05 — **the results feature**; a weak offer is what makes a gym churn and what the Pro guarantee refunds. Build shape open: curated library vs LLM |
+| H1 | In-app feedback box (extend the support widget) | me | **done 2026-09-05** — migration `0019`, `feedback` table + email to Davide, in the support widget. No proactive prompts in V1, by decision |
+| H2 | Interactive win-back offer builder | me | **done 2026-09-05** — curated library of 11 offers (no LLM), 5-question flow at `/app/offer`, merged into campaigns via `{{offer}}`, migration `0018`. Wording in `src/lib/offers/library.ts` still unreviewed by Davide |
 | D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate |
 
 Update this board as items move. This doc is the pointer target from
