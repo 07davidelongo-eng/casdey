@@ -824,14 +824,34 @@ Resend's `name` field: `restricted_api_key` (or any 401) is the key error,
 
 **Still unproven:** verification has never returned `verified` for a gym
 domain. `testgym.casdey.com` sat `pending` for ~50 minutes with all three DNS
-records provably correct in public DNS. It is a subdomain of `casdey.com`,
-which is already verified on the same account, and that overlap is the likely
-cause — so this needs retrying on an unrelated domain before anything is read
-into it.
+records provably correct in public DNS.
 
-**Also noted:** per-gym sending appears nowhere in onboarding. The "Finish
-setting up" checklist has five items and Sending is not one of them, so the
-feature is invisible unless a gym digs into Settings.
+**The subdomain theory is wrong, checked 2026-09-05 against the live account.**
+The suspicion was that `testgym.casdey.com` failed because it sits under
+`casdey.com`, which is verified on the same account. But the account holds
+exactly two domains and they are `casdey.com` and `mail.casdey.com`, **both
+`verified`, right now, with every record verified**. A subdomain co-existing
+with its verified apex is the normal case here, not the broken one.
+
+So the likely answer is duller: ~50 minutes was not long enough. Resend
+verifies through SES, which quotes up to 72 hours and re-checks only when
+asked. `testgym.casdey.com` was disconnected at the end of that session, so
+there is nothing left to inspect, and there is one free domain slot (Free
+allows 3, two are casdey's own).
+
+**To actually settle it:** add one throwaway subdomain, put its records in at
+GoDaddy, and leave it for a day before pressing verify again. That needs a
+real DNS change on casdey.com, so it is Davide's call, not something to do in
+passing.
+
+**Fixed 2026-09-05:** per-gym sending appeared nowhere in onboarding, so the
+feature was invisible unless a gym dug into Settings. It is now step five of
+the "Finish setting up" checklist, optional (mail already carries the gym's
+name without it) and marked unavailable when the deployment has no Resend key
+at all. Only `verified` ticks it: a pending domain sends nothing from the
+gym's own address, so calling the step done would be a lie the gym only finds
+out about by reading their own headers. The same pass added the **offer** step
+(H2 had the same invisibility problem, and worse consequences).
 
 - `src/lib/email/domains.ts` wraps Resend's Domains API (create / verify /
   get / delete) plus strict input normalising. **Resend verifies the domain,
@@ -1095,7 +1115,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C2 | Real Resend campaign send in prod | both | todo |
 | C3 | Calendar booking end-to-end in prod | both | todo |
 | C4 | Every wizard step verified in prod | both | todo |
-| G1 | Email from the gym's own domain (Resend per-gym) | me | code + UI done 2026-09-04, admin key live. **Verification never yet observed** — retry on a domain unrelated to casdey.com |
+| G1 | Email from the gym's own domain (Resend per-gym) | me | code + UI done 2026-09-04, admin key live; onboarding step added 2026-09-05. **Verification never yet observed**; the subdomain theory was checked and is wrong (both casdey domains are verified subdomain-and-apex); needs a retry left overnight, which needs a GoDaddy DNS change → Davide |
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |

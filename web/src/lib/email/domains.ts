@@ -99,6 +99,20 @@ function key(): string {
   return value;
 }
 
+/**
+ * Whether this deployment can manage sending domains at all.
+ *
+ * Presence only. It cannot tell whether the key is allowed to touch /domains,
+ * because a key's scope is invisible until something calls what it cannot do,
+ * which is exactly how G1 shipped broken. Use it to decide whether to offer
+ * the step, never as proof that it will work.
+ */
+export function isSendingConfigured(): boolean {
+  return Boolean(
+    process.env.RESEND_ADMIN_API_KEY || process.env.RESEND_API_KEY,
+  );
+}
+
 async function call(
   path: string,
   init?: { method?: string; body?: unknown },

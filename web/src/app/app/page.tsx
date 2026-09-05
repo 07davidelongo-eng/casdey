@@ -10,6 +10,7 @@ import { buildSetupState } from "@/lib/setup";
 import { calendarConnectionView } from "@/lib/calendar/provider";
 import { isGoogleCalendarConfigured } from "@/lib/calendar/google";
 import { isCalendarKeyConfigured } from "@/lib/calendar/tokens";
+import { isSendingConfigured } from "@/lib/email/domains";
 import { MemberTimeline } from "@/components/app/member-timeline";
 import { SetupChecklist } from "@/components/app/setup-checklist";
 import {
@@ -49,6 +50,12 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     bookingValueSet: gym.booking_value_minor !== null,
     lapsedAfterMonths: gym.lapsed_after_months,
     maxVisits: gym.max_visits,
+    offerChosen: Boolean(gym.offer_text),
+    sendingConfigured: isSendingConfigured(),
+    // Only verified counts. A domain sitting pending sends nothing from the
+    // gym's own address, so calling the step done would be a lie the gym only
+    // finds out about by reading their own headers.
+    sendingVerified: gym.sending_domain_status === "verified",
     calendarConfigured:
       isGoogleCalendarConfigured() && isCalendarKeyConfigured(),
     calendarConnected: calendar.connected,

@@ -2,10 +2,11 @@
  * The first-run setup checklist.
  *
  * Self-serve onboarding lives or dies on a gym owner knowing what to do next.
- * The product has all the pieces (import, lapse window, booking value, calendar,
- * first campaign) but before this they were scattered across the dashboard and
- * Settings with no single "you are not done yet" spine, and two of the five
- * steps (booking value, calendar) had nothing pointing at them at all.
+ * The product has all the pieces but before this they were scattered across the
+ * dashboard and Settings with no single "you are not done yet" spine, and
+ * several of them (booking value, calendar, the offer, per-gym sending) had
+ * nothing pointing at them at all: a feature nobody is told about may as well
+ * not be built.
  *
  * This derives the checklist purely from state the gym already has, so there is
  * no flag to keep in sync and no migration: a step is done because the thing it
@@ -17,6 +18,8 @@ export type SetupStepKey =
   | "import"
   | "lapse"
   | "value"
+  | "offer"
+  | "sending"
   | "calendar"
   | "campaign";
 
@@ -48,6 +51,13 @@ export type SetupInput = {
   bookingValueSet: boolean;
   lapsedAfterMonths: number;
   maxVisits: number;
+  /** The gym has chosen a win-back offer. */
+  offerChosen: boolean;
+  /** The server can manage sending domains at all (a Resend key that is
+   *  allowed to touch /domains). */
+  sendingConfigured: boolean;
+  /** The gym's own domain is verified, not merely started. */
+  sendingVerified: boolean;
   /** The server has Google Calendar wired up (client + token key). */
   calendarConfigured: boolean;
   calendarConnected: boolean;
@@ -92,6 +102,34 @@ export function buildSetupState(input: SetupInput): SetupState {
       done: input.bookingValueSet,
       optional: false,
       unavailable: false,
+    },
+    {
+      key: "offer",
+      title: "Decide what they are coming back for",
+      body: "casdey writes the message, but the offer inside it is yours. A few questions and you have a dated one your members can act on.",
+      href: "/app/offer",
+      cta: "Build your offer",
+      done: input.offerChosen,
+      // Not optional, and deliberately ahead of the campaign step. A win-back
+      // message with nothing to come back for recovers nobody, the gym
+      // concludes casdey does not work, and on Pro that failure is casdey's to
+      // refund. Choosing to make no promise is a fine answer, but it should be
+      // a choice rather than an omission.
+      optional: false,
+      unavailable: false,
+    },
+    {
+      key: "sending",
+      title: "Send from your own address",
+      body: "Verify your gym's domain and win-back messages leave from your address rather than ours. Members recognise the sender, and more of it reaches the inbox.",
+      href: "/app/settings/sending",
+      cta: "Set up sending",
+      done: input.sendingVerified,
+      // Mail already carries the gym's name without this, so it never blocks
+      // a gym from getting started. It is on the list because it was
+      // invisible: nothing outside Settings pointed at it.
+      optional: true,
+      unavailable: !input.sendingConfigured,
     },
     {
       key: "calendar",
