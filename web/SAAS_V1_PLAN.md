@@ -888,6 +888,80 @@ onboarding starts hurting, which is a good problem to have.
 
 ---
 
+## 3.8. TRACK H — feedback in, and offers that actually work (requested 2026-09-05)
+
+Two features Davide asked for. Both exist to close the same gap: casdey
+currently sends a gym's message and then leaves the gym alone with the outcome.
+
+### H1. Somewhere a gym can give feedback, easily
+
+The go-to-market plan is built on feedback ("get feedback at every level, from
+the very first cold outreach conversation up through 100+ customers", "treat
+every feedback conversation like the person is a business partner"). Right now
+there is nowhere in the product to give any. The only route is the support
+widget's `mailto:info@casdey.com` fallback, which is a dead end dressed as a
+door: it opens an empty mail client and asks a gym owner to compose a letter.
+
+Shape:
+- Extend the **existing support widget** rather than adding a surface. It is
+  already bottom-right on every `/app` page and already the place people look
+  when they have something to say.
+- One box, one button, no rating scale to begin with. Attributed, not anonymous:
+  this is B2B and the whole point is to start a conversation, not to collect
+  sentiment.
+- Lands in two places: a `feedback` table (so it is not lost in an inbox) and an
+  email to davide@casdey.com (so it is actually read the same day).
+- **Ask at the right moments, not constantly.** The two worth prompting after
+  are the first import and the first campaign approval, because that is when a
+  gym has just formed an opinion and has not yet forgotten it.
+
+Open: whether to prompt proactively at all in V1, or ship the always-available
+box first and add prompts once there is anyone to prompt.
+
+### H2. Help the gym build an offer worth coming back for
+
+**This is the one that decides whether casdey works.** casdey's whole promise is
+recovered revenue, and the guarantee stakes real money on it — but a win-back
+message only works if there is something worth coming back FOR. Today casdey
+drafts the wording and leaves the offer itself entirely to the gym. A gym that
+writes "we miss you, come back" gets nothing, concludes casdey does not work,
+and on Pro that failure is casdey's to refund.
+
+So this is not a nice-to-have bolted onto the side. It is the difference between
+selling a sending tool and selling a result, and it directly protects the
+guarantee's economics.
+
+Shape: an interactive, one-question-at-a-time flow (Typeform-style, Davide's own
+reference) that asks a gym a short series of questions and produces a concrete,
+dated offer, which is then merged into the campaign template rather than left in
+a document nobody opens.
+
+Questions worth asking, roughly:
+- What kind of gym is this (CrossFit/community box, general gym, boutique
+  studio)? The outreach data already says these behave differently.
+- Why do members usually leave? `members.cancellation_reason` already exists
+  (migration 0013) and may answer this from the gym's own data.
+- What can you give away without losing money? Free classes cost a gym almost
+  nothing at off-peak capacity; a discounted membership costs real margin.
+- Do you have off-peak capacity to fill? An offer that fills a dead Tuesday is
+  free money; one that crowds a full Saturday is not.
+- What is the deadline? A win-back offer with no expiry is not an offer.
+
+Output: a specific offer ("two weeks free plus a free intro session, ends 30
+September"), the wording for it, and a merge into the campaign message.
+
+**The build decision, and it matters (see Open questions):** a deterministic
+library of proven win-back offers keyed on those answers, versus an LLM that
+composes one. Davide has twice dropped AI features on standing-cost grounds (the
+AI campaign drafting in 2026-08-15, and the support widget the same day, both
+deliberately curated instead). The same reasoning applies here, and a curated
+library has a second advantage: casdey can learn which offers actually recover
+members across every gym, which an LLM improvising per gym cannot.
+
+Sequencing: H2 is worth more than most of what is left on this board, because
+it attacks the failure mode that makes a gym churn. But it needs the same thing
+everything else does — a real gym to test it against.
+
 ## 4. TRACK C — production verification (me + Davide, after A + B green)
 
 Not the same as Davide's walkthrough — this is targeted proof each integration
@@ -999,6 +1073,8 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
+| H1 | In-app feedback box (extend the support widget) | me | requested 2026-09-05 — small; nowhere in the product to give feedback today |
+| H2 | Interactive win-back offer builder | me | requested 2026-09-05 — **the results feature**; a weak offer is what makes a gym churn and what the Pro guarantee refunds. Build shape open: curated library vs LLM |
 | D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate |
 
 Update this board as items move. This doc is the pointer target from
