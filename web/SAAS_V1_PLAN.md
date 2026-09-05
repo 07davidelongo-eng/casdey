@@ -1143,6 +1143,43 @@ Sequencing: H2 is worth more than most of what is left on this board, because
 it attacks the failure mode that makes a gym churn. But it needs the same thing
 everything else does — a real gym to test it against.
 
+## 3.9. Send throughput — found and fixed 2026-09-05
+
+**The product promised twice what it could deliver.** Each gym's
+`daily_send_cap` is 50, and the campaign screen tells the gym "writes to N
+members over about X days" using it. The queue drained one page of 25 and then
+stopped, whatever time was left, and Vercel Hobby fires the cron once a day.
+So the whole deployment sent 25 messages a day: every campaign ran at half its
+advertised pace, and a 200-member list was shown as four days and would have
+taken eight.
+
+**Fixed in code.** A run now keeps pulling until the queue is empty or it is
+nearly out of time (50s against the route's 60s ceiling), so one daily run
+delivers what the caps allow. Two things that only mattered once it looped were
+fixed with it: a gym at its ceiling is excluded from the read rather than
+skipped row by row (its rows stay unclaimed and due, so they would have filled
+every page and burnt the whole budget), and a 429 or quota error now holds the
+row instead of burning one of its three retry attempts, which with one drain a
+day would have retired a campaign's worth of good addresses in three days.
+
+**Two ceilings remain, and neither is code.**
+
+| ceiling | today | lifted by |
+|---|---|---|
+| Cron runs per day | 1 (Vercel Hobby) | Vercel Pro → hourly, ×24 |
+| Emails per day | 100 on Resend Free, ~75 already used by the cold outreach | Resend Pro (G1a) |
+
+So **~25 a day is the real ceiling until Resend moves to Pro**, whatever the
+code does. That is already the agreed trigger for G1a: the first gym campaign.
+The two line up, and they need to stay lined up, because a gym on the current
+account would have its campaign throttled from the first day.
+
+Vercel Pro is **not** needed for V1. One daily run can now deliver a single
+gym's full 50, and the honest constraint above it is Resend, not the cron.
+Hourly matters at several gyms, not at one.
+
+---
+
 ## 4. TRACK C — production verification (me + Davide, after A + B green)
 
 Not the same as Davide's walkthrough — this is targeted proof each integration
@@ -1320,7 +1357,8 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C3 | Calendar booking end-to-end in prod | me | **done 2026-09-05** — two prod-only breaks found and fixed: `redirect_uri_mismatch` (apex vs www), then booking never writing to Google at all under A6's narrowed scope (migration `0020`). Connect → book → event confirmed in Google → cancel → event cancelled, all verified in prod |
 | C4 | Every wizard step verified in prod | me | **done 2026-09-05** — all 13 `/app` routes 200, matching local; C3 was the only prod-only break |
 | G1 | Email from the gym's own domain (Resend per-gym) | me | **done and proven in prod 2026-09-05** — connect → DNS at GoDaddy → `verified` → a real send delivered from `hello@gymtest.casdey.com` with the gym's reply-to. Two findings on the way: it only needed time, and the "Check again" button was itself un-verifying the domain, which no gym could ever have got past |
-| G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
+| G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day. **Now also the binding limit on send throughput** (§3.9): until this happens a gym's campaign is throttled to ~25/day whatever the code does |
+| §3.9 | Send throughput: drain a full day's work per run | me | **done 2026-09-05** — the queue drained 25/day against a promise of 50/gym/day. Also fixed a loop that would have re-read capped gyms' rows, and a rate-limit error that burned retry attempts |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | H1 | In-app feedback box (extend the support widget) | me | **done 2026-09-05** — migration `0019`, `feedback` table + email to Davide, in the support widget. No proactive prompts in V1, by decision |
