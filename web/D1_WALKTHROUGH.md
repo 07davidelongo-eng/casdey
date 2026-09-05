@@ -61,24 +61,24 @@ page. Verbatim below.
 
 | # | One line | Area | Size | Status |
 |---|----------|------|------|--------|
-| 1 | Google sign in reuses the last account, no account chooser | auth | S | open |
-| 2 | "Four screens, and your team touches one of them" is not understandable | landing | S | open |
-| 3 | Stray vertical scrollbar on the Settings tab strip | app chrome | XS | open |
+| 1 | Google sign in reuses the last account, no account chooser | auth | S | done |
+| 2 | "Four screens, and your team touches one of them" is not understandable | landing | S | done |
+| 3 | Stray vertical scrollbar on the Settings tab strip | app chrome | XS | done |
 | 4 | Light/dark mode switch in the app | app | M | open |
-| 5 | Profit or nothing guarantee needs far more weight | billing + pricing | S | open |
-| 6 | Pricing Q&A needs per question dropdowns, moved below its heading | pricing | S | open |
-| 7 | Site copy must lead with the value proposition | landing | M | open |
-| 8 | How it works must show contact, follow up, personalisation, booking. Build the missing ones | landing + product | L | open |
-| 9 | Side by side title and description reads badly in two sections | landing | S | open |
-| 10 | Contact page with @casdey.co and the email addresses | site | S | open |
-| 11 | Lapsed rules: days as well as months, "came at most" optional | settings | M | open |
+| 5 | Profit or nothing guarantee needs far more weight | billing + pricing | S | done |
+| 6 | Pricing Q&A needs per question dropdowns, moved below its heading | pricing | S | done |
+| 7 | Site copy must lead with the value proposition | landing | M | done |
+| 8 | How it works must show contact, follow up, personalisation, booking. Build the missing ones | landing + product | L | part done |
+| 9 | Side by side title and description reads badly in two sections | landing | S | done |
+| 10 | Contact page with @casdey.co and the email addresses | site | S | done |
+| 11 | Lapsed rules: days as well as months, "came at most" optional | settings | M | done |
 | 12 | Guard against gyms overstating their numbers, guarantee exposure | product | L | needs decision |
 | 13 | "What a returning member is worth" duplicates Service prices | settings | M | needs decision |
 | 14 | Services: one off vs recurring, and recurring split in the overview | settings + overview | M | open |
 | 15 | Slot shape belongs per service, plus capacity. Rebuild the page | settings + booking | L | open |
-| 16 | Unsaved changes warning on navigation | app wide | M | open |
-| 17 | Import button collides with the text in the campaigns empty state | app | XS | open |
-| 18 | Offer page: manual offer, clearer scope, per member reasons and tailored offers, broken save button | offer | L | open |
+| 16 | Unsaved changes warning on navigation | app wide | M | done |
+| 17 | Import button collides with the text in the campaigns empty state | app | XS | done |
+| 18 | Offer page: manual offer, clearer scope, per member reasons and tailored offers, broken save button | offer | L | part done |
 
 Sizes are rough: XS is minutes, S under an hour, M a session's slice, L its own
 piece of work with decisions inside it.

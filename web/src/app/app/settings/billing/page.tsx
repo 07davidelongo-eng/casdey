@@ -20,6 +20,7 @@ import {
   Pill,
   formatDate,
 } from "@/components/app/ui";
+import { IconShield } from "@/components/marks/icons";
 import { GuaranteeClaimForm } from "./guarantee-claim-form";
 
 export const metadata = { title: "Billing" };
@@ -135,29 +136,31 @@ export default async function BillingPage(
         ) : null}
       </Card>
 
-      {/* The guarantee is a Pro feature. A Standard gym sees a short pointer to
-          it; a gym that has never paid sees nothing (nothing to guarantee). */}
+      {/* The guarantee is a Pro feature, and everyone on this page sees it.
+          It used to be hidden from anyone who had never paid, on the reasoning
+          that there was nothing yet to guarantee. That hid it from precisely
+          the gym deciding whether to pay at all, which is the only audience
+          the promise is for. */}
       {!caps.hasGuarantee ? (
-        isPaidPlan(plan) ? (
-          <Card>
-            <CardTitle>The profit-or-nothing guarantee</CardTitle>
-            <p className="text-[0.9375rem] text-graphite">
-              The guarantee is on the Pro plan: if casdey does not recover more
-              than it costs in your first month, you claim a full refund of that
-              month. Upgrade to Pro to have casdey stand behind the results.
-            </p>
-          </Card>
-        ) : null
-      ) : !(
-          guarantee.state === "not_started" && guarantee.reason === "not_premium"
-        ) ? (
         <Card>
-          <CardTitle>The profit-or-nothing guarantee</CardTitle>
+          <GuaranteeHeading />
+          <p className="text-[0.9375rem] leading-relaxed text-graphite">
+            It is on the Pro plan. If casdey does not recover more than it costs
+            you over your first 30 days on it, you claim a full refund of what
+            you paid in them, from this page, on one click. No form, no review,
+            no conversation. It is the one thing here that puts casdey&apos;s
+            money where its mouth is.
+          </p>
+        </Card>
+      ) : (
+        <Card>
+          <GuaranteeHeading />
 
           {guarantee.state === "not_started" ? (
-            <p className="text-[0.9375rem] text-graphite">
-              Your 30-day guarantee starts the moment you launch your first
-              campaign. Nothing to do until then.
+            <p className="text-[0.9375rem] leading-relaxed text-graphite">
+              {guarantee.reason === "not_premium"
+                ? "Your 30-day window opens with the first campaign you run after your first Pro payment. Everything is unlocked during the free week, but the guarantee is something casdey owes you once you are paying for it."
+                : "Your 30-day guarantee starts the moment you launch your first campaign. Nothing to do until then."}
             </p>
           ) : guarantee.state === "running" ? (
             <>
@@ -269,7 +272,7 @@ export default async function BillingPage(
             </details>
           ) : null}
         </Card>
-      ) : null}
+      )}
 
       {/* Upgrade path. Trial / Free see Standard + Pro; a Standard gym sees
           Pro only. A paid Pro gym sees nothing here. */}
@@ -390,4 +393,29 @@ function PlanPill({ plan }: { plan: string }) {
     return <Pill tone="teal">{plan}</Pill>;
   }
   return <Pill>Free</Pill>;
+}
+
+/**
+ * The guarantee's own heading, rather than another card title in a column of
+ * them.
+ *
+ * It is the only thing on this page a competitor cannot copy without taking
+ * the same risk, and it was set in the same type as "Payment method". Weight
+ * comes from the mark and the scale, not from a colour the rest of the app
+ * does not use.
+ */
+function GuaranteeHeading() {
+  return (
+    <div className="mb-4 flex items-start gap-4">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-shallow text-teal">
+        <IconShield className="h-5 w-5" />
+      </span>
+      <div>
+        <p className="label text-teal">Profit or nothing</p>
+        <p className="display mt-1 text-[1.375rem] leading-tight text-ink">
+          If it does not make you more than it costs, you do not pay.
+        </p>
+      </div>
+    </div>
+  );
 }
