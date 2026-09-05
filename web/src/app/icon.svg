@@ -1,10 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="casdey">
   <!--
     Favicon only. The wordmark is illegible below about 100px, so the mark
-    carries the identity alone here: the open ring and the gold arc closing it.
-    Ink on Chalk, no shadow, no gradient, per the identity rules.
+    carries the identity alone here: four bars pinwheeled around an open
+    centre, one of them gold. Ink on Chalk, no shadow, no gradient, per the
+    identity rules. Geometry is the component's 100-unit grid scaled by 0.64.
   -->
   <rect width="64" height="64" rx="14" fill="#f7f7f4"/>
-  <path d="M45.50 15.91A21 21 0 1 0 45.50 48.09" fill="none" stroke="#15150f" stroke-width="7.2" stroke-linecap="round"/>
-  <path d="M48.55 44.93A21 21 0 0 0 48.55 19.07" fill="none" stroke="#8f6a10" stroke-width="7.2" stroke-linecap="round"/>
+  <rect x="7.68" y="7.68" width="28.16" height="14.08" rx="7.04" fill="#d4af37"/>
+  <rect x="7.68" y="7.68" width="28.16" height="14.08" rx="7.04" fill="#15150f" transform="rotate(90 32 32)"/>
+  <rect x="7.68" y="7.68" width="28.16" height="14.08" rx="7.04" fill="#15150f" transform="rotate(180 32 32)"/>
+  <rect x="7.68" y="7.68" width="28.16" height="14.08" rx="7.04" fill="#15150f" transform="rotate(270 32 32)"/>
 </svg>

@@ -30,8 +30,8 @@
             letter-spacing:-.022em;text-transform:lowercase}
   .label{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.75rem;
          letter-spacing:.12em;text-transform:uppercase;color:var(--teal)}
-  .lockup{display:inline-flex;align-items:center;gap:.42em}
-  .lockup svg{height:.95em;width:.95em}
+  .lockup{display:inline-flex;align-items:center;gap:.38em}
+  .lockup svg{height:.92em;width:.92em}
   section{border-top:1px solid var(--ash);padding:5rem 0}
   section:first-of-type{border-top:0}
   h2{margin:.75rem 0 0}
@@ -68,7 +68,7 @@
 <div class="wrap">
 
 <section>
-  <span class="lockup" style="font-size:3rem;color:var(--ink)"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M23.07 7.57A11 11 0 1 0 23.07 24.43" stroke="currentColor" stroke-width="3.8" stroke-linecap="round"/><path d="M24.67 22.77A11 11 0 0 0 24.67 9.23" stroke="var(--teal)" stroke-width="3.8" stroke-linecap="round"/></svg><span class="wordmark">casdey</span></span>
+  <span class="lockup" style="font-size:3rem;color:var(--ink)"><svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="44" height="22" rx="11" fill="var(--teal-bright)"/><rect x="12" y="12" width="44" height="22" rx="11" transform="rotate(90 50 50)"/><rect x="12" y="12" width="44" height="22" rx="11" transform="rotate(180 50 50)"/><rect x="12" y="12" width="44" height="22" rx="11" transform="rotate(270 50 50)"/></svg><span class="wordmark">casdey</span></span>
   <p class="label" style="margin-top:2rem">brand guide · v4 · chalk &amp; struck gold · september 2026</p>
   <h2 class="display" style="font-size:clamp(2rem,4vw,2.75rem);max-width:26ch;color:var(--ink)">
     Earned, not flashy. Gold as a result, not a finish.
@@ -95,7 +95,7 @@
 </section>
 
 <section>
-  <p class="label">01 · wordmark</p>
+  <p class="label">01 · logo</p>
   <h2 class="display" style="font-size:2rem">Lowercase, always. Even mid-sentence.</h2>
   <p class="lede">
     "casdey" is never capitalised. Not at the start of a sentence, not in a headline, not in a
@@ -106,23 +106,25 @@
   </p>
   <p class="lede" style="margin-top:1rem">
     v4 also adds a mark, because the wordmark alone is illegible below about 100px and a favicon
-    had to fake one. The mark is a ring with a piece missing and a gold arc putting it back: the
-    ring is the membership, the gap is the member who lapsed, the gold is the only thing casdey
-    claims to do. Read as a letterform it is the "c" of casdey, which is why the mark and the
-    wordmark sit together without one explaining the other.
+    had to fake one. The mark is four bars pinwheeled around an open centre, one of them gold.
+    It is abstract on purpose. It does not spell the name and it does not illustrate what casdey
+    does, because the first version that tried to do both (a ring with a gap, closed by a gold arc)
+    only held together in two colours and fell back to a plain ring in one. Four bars of real
+    weight, with an equal gap at all four corners, still read as a square at 16px, which is the
+    size that decides whether a mark works.
   </p>
   <div class="grid two">
     <div class="card" style="display:flex;flex-direction:column;gap:.75rem;align-items:center;justify-content:center;min-height:180px;background:#FAF9F7">
-      <span class="lockup" style="font-size:2.5rem;color:var(--ink)"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M23.07 7.57A11 11 0 1 0 23.07 24.43" stroke="currentColor" stroke-width="3.8" stroke-linecap="round"/><path d="M24.67 22.77A11 11 0 0 0 24.67 9.23" stroke="var(--teal)" stroke-width="3.8" stroke-linecap="round"/></svg><span class="wordmark">casdey</span></span>
-      <p style="margin:0;font-size:.75rem;color:var(--stone)">the lockup: mark plus wordmark, gap of 0.42em. <code>casdey Logo.png</code> is the v2/v3 wordmark-only file and is superseded.</p>
+      <span class="lockup" style="font-size:2.5rem;color:var(--ink)"><svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><rect x="12" y="12" width="44" height="22" rx="11" fill="var(--teal-bright)"/><rect x="12" y="12" width="44" height="22" rx="11" transform="rotate(90 50 50)"/><rect x="12" y="12" width="44" height="22" rx="11" transform="rotate(180 50 50)"/><rect x="12" y="12" width="44" height="22" rx="11" transform="rotate(270 50 50)"/></svg><span class="wordmark">casdey</span></span>
+      <p style="margin:0;font-size:.75rem;color:var(--stone)">the lockup: mark plus wordmark, gap of 0.38em. <code>casdey Logo.png</code> is the v2/v3 wordmark-only file and is superseded.</p>
     </div>
     <div>
       <p class="label" style="color:var(--stone)">rules</p>
       <p class="do">Ink <code>#15150F</code> on Chalk or White, or Chalk reversed out of Deep</p>
       <p class="do">Clearspace of one lowercase "c" height on every side</p>
-      <p class="do">The closing arc is always gold, and is the only colour in the mark</p>
+      <p class="do">Exactly one bar is gold, it is Leaf <code>#D4AF37</code>, and it is the only colour in the mark</p>
       <p class="dont">Never capitalise any letter</p>
-      <p class="dont">Never recolour the arc, and never let the wordmark take the gold</p>
+      <p class="dont">Never recolour the gold bar, never rotate the mark off gold-at-the-top, and never let the wordmark take the gold</p>
       <p class="dont">Never add a shadow, outline or gradient</p>
       <p class="dont">Never stretch, condense or re-kern the letterforms</p>
     </div>
@@ -209,9 +211,9 @@
   <h2 class="display" style="font-size:2rem">One member's history as a line.</h2>
   <p class="lede">
     Two visits close together, a long dashed nothing, then a booking. The shape has survived every
-    version because it does the job: it is the same idea as the mark, drawn along a line instead of
-    around a ring. Use it in a hero, on the waitlist page, or anywhere the gap needs explaining
-    without a paragraph.
+    version because it does the job. It matters more in v4 than it did before: now that the mark is
+    abstract, this is the only place in the identity that draws the gap at all. Use it in a hero, on
+    the waitlist page, or anywhere the gap needs explaining without a paragraph.
   </p>
   <div class="card" style="margin-top:2.5rem;max-width:34rem">
     <svg viewBox="0 0 340 78" style="width:100%">
