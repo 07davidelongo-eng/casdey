@@ -43,7 +43,8 @@ export function Hero() {
         <Reveal delay={140}>
           <p className="mx-auto mt-5 max-w-[52ch] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
             casdey finds them in your own records, writes to each one in your
-            gym&apos;s name, and books the ones who answer.
+            gym&apos;s name, follows up when they go quiet, and books the ones
+            who answer. You import a list. That is your part.
           </p>
         </Reveal>
 

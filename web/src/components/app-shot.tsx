@@ -14,7 +14,7 @@ import { Logo } from "./wordmark";
  * app. The numbers are invented and the caption under it says so.
  */
 
-export type View = "members" | "offer" | "campaign" | "booking";
+export type View = "members" | "offer" | "campaign" | "sequence" | "booking";
 
 const NAV = [
   "Overview",
@@ -29,6 +29,7 @@ const ACTIVE_NAV: Record<View, string> = {
   members: "Members",
   offer: "Offer",
   campaign: "Campaigns",
+  sequence: "Members",
   booking: "Overview",
 };
 
@@ -239,6 +240,71 @@ function Campaign() {
   );
 }
 
+/**
+ * The one screen that shows casdey doing something while nobody is watching.
+ *
+ * Every other view is a thing the gym owner looks at. This is the week after
+ * they stopped looking: the first message, the nudge, the walk-away, and then
+ * the booking. Without it the site describes a tool, and the product is a
+ * member of staff.
+ */
+function Sequence() {
+  const thread = [
+    ["Day 0", "First message", "Hi Joseph, it has been a while since your last visit."],
+    ["Day 4", "No reply, so casdey nudges", "I know how easily these get buried, so just a nudge."],
+    ["Day 11", "Still nothing, so it lets go", "This is the last time I will write about this."],
+  ] as const;
+
+  return (
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h3 className="display text-[1.15rem] text-ink">J. Okafor</h3>
+        <span className="text-[12px] text-stone">
+          Away 17 months · lapsed
+        </span>
+      </div>
+
+      <ol className="mt-4 list-none">
+        {thread.map(([day, what, line], i) => (
+          <li key={day} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-ash" />
+              <span className="w-px flex-1 bg-ash" />
+            </div>
+            <div className={"pb-4 " + (i === 0 ? "" : "")}>
+              <p className="text-[12px] text-stone">
+                {day} · <span className="text-ink">{what}</span>
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-graphite sm:text-[13px]">
+                {line}
+              </p>
+            </div>
+          </li>
+        ))}
+
+        <li className="flex gap-3">
+          <div className="flex flex-col items-center">
+            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber" />
+          </div>
+          <div>
+            <p className="text-[12px] text-stone">
+              Day 12 · <span className="text-amber">He replies</span>
+            </p>
+            <p className="mt-1 text-[12px] leading-relaxed text-graphite sm:text-[13px]">
+              casdey answers in the gym&apos;s name, offers three times that are
+              free, and puts Tuesday 14:30 in the calendar.
+            </p>
+          </div>
+        </li>
+      </ol>
+
+      <p className="mt-2 rounded-lg bg-mist px-3 py-2 text-[12px] text-graphite">
+        Nobody at the gym touched any of this.
+      </p>
+    </div>
+  );
+}
+
 function Booking() {
   const slots = [
     ["09:00", "", false],
@@ -291,6 +357,7 @@ const VIEWS: Record<View, () => React.ReactElement> = {
   members: Members,
   offer: Offer,
   campaign: Campaign,
+  sequence: Sequence,
   booking: Booking,
 };
 

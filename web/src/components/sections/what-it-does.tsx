@@ -19,23 +19,28 @@ import { Container } from "../ui";
 const STEPS: { view: View; title: string; body: string }[] = [
   {
     view: "members",
-    title: "See who stopped coming",
-    body: "Bring in a file from your gym software, or a CSV. casdey sorts your list by time since last visit and separates the members who drifted off from the ones still turning up.",
+    title: "You import your list",
+    body: "A file from your gym software, or a CSV. casdey sorts it by time since the last visit and separates the members who drifted off from the ones still turning up. This is the only step that needs you.",
   },
   {
     view: "offer",
-    title: "Know what they are worth",
+    title: "It works out what they are worth",
     body: "Enter your own membership and class prices once. casdey values the quiet half of your list against them, so you know the number before a single message goes out.",
   },
   {
     view: "campaign",
-    title: "Write in your gym's name",
-    body: "One member, one reason to be contacted, one short message. It leaves from your gym's address, not ours, and you approve the first send before anything goes anywhere.",
+    title: "It writes to each one, as you",
+    body: "Not one message to a mailing list. Each member gets their own: their name, how long they have been away, why they left if you recorded it, and the offer you chose. It leaves from your gym's address, and you approve the first send.",
+  },
+  {
+    view: "sequence",
+    title: "It follows up, then it lets go",
+    body: "Most people who come back do it on the second message, not the first. casdey nudges once, then writes a last one that says it is the last, and stops. The moment somebody books, the rest of their sequence is cancelled.",
   },
   {
     view: "booking",
-    title: "Book them back in",
-    body: "The reply lands with your front desk. casdey answers in your name and puts the session straight into your Google Calendar, so the only thing your team touches is the door.",
+    title: "It books them in",
+    body: "The reply is answered in your gym's name, a free slot is found in your own calendar, and the session is put in it. Nobody at the gym has to open anything for this to happen.",
   },
 ];
 
@@ -46,9 +51,14 @@ export function WhatItDoes() {
     <section id="what-it-does" className="scroll-mt-24 py-24 sm:py-32">
       <Container>
         <Reveal>
-          <h2 className="display max-w-[24ch] text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink">
-            Four screens, and your team touches one of them.
+          <h2 className="display max-w-[24ch] text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
+            You import your list. casdey does the rest.
           </h2>
+          <p className="mt-5 max-w-[52ch] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
+            Not a dashboard telling you who to chase. It writes to every one of
+            them itself, follows up when they go quiet, answers the replies in
+            your name, and books them in.
+          </p>
 
           <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-14">
             <ol className="list-none">
