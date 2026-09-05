@@ -134,10 +134,25 @@ export async function checkDomainAction(): Promise<SendingState> {
   }
 
   try {
-    // Ask Resend to look at DNS now, then read back what it concluded.
-    await verifySendingDomain(gym.sending_domain_id);
-    const domain = await getSendingDomain(gym.sending_domain_id);
-    const status = toStatus(domain.status);
+    // Read first, and only ask Resend to re-check if it is not already
+    // happy. Asking it to verify a domain that is ALREADY verified knocks it
+    // back to pending and leaves it there, so the old order (verify, then
+    // read) could never report success: the read always landed on the pending
+    // that the verify had just caused. Pressing the button destroyed the very
+    // state it existed to show, and per-gym sending could never be completed
+    // by anyone. Confirmed against the live API: verified → POST verify →
+    // pending, still pending five seconds later.
+    let domain = await getSendingDomain(gym.sending_domain_id);
+    let status = toStatus(domain.status);
+
+    if (status !== "verified") {
+      await verifySendingDomain(gym.sending_domain_id);
+      // Verification is asynchronous, so this read usually still says pending
+      // even when the DNS is right. That is what the "check again shortly"
+      // message below is for; it is not a failure.
+      domain = await getSendingDomain(gym.sending_domain_id);
+      status = toStatus(domain.status);
+    }
 
     await supabaseAdmin()
       .from("gyms")
