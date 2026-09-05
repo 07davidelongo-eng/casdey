@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
-import { exchangeCode } from "@/lib/calendar/google";
+import { calendarRedirectUri, exchangeCode } from "@/lib/calendar/google";
 import { encryptToken } from "@/lib/calendar/tokens";
 
 export const runtime = "nodejs";
@@ -55,7 +55,9 @@ export async function GET(request: NextRequest): Promise<Response> {
   try {
     const tokens = await exchangeCode({
       code,
-      redirectUri: `${origin}/api/calendar/google/callback`,
+      // Must be byte-identical to the one sent to the consent screen, or
+      // Google rejects the exchange.
+      redirectUri: calendarRedirectUri(),
     });
 
     if (!tokens.refreshToken) {

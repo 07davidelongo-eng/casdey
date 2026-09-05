@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { buildConsentUrl, parseFreeBusy, GOOGLE_CALENDAR_SCOPES } from "./google";
+import {
+  buildConsentUrl,
+  calendarRedirectUri,
+  calendarStateCookieDomain,
+  parseFreeBusy,
+  GOOGLE_CALENDAR_SCOPES,
+} from "./google";
 
 describe("buildConsentUrl", () => {
   const url = buildConsentUrl({
@@ -63,5 +69,51 @@ describe("parseFreeBusy", () => {
     expect(parseFreeBusy({ calendars: { primary: {} } }, "primary")).toEqual([]);
     expect(parseFreeBusy({}, "primary")).toEqual([]);
     expect(parseFreeBusy(null, "primary")).toEqual([]);
+  });
+});
+
+describe("calendarRedirectUri", () => {
+  const original = process.env.NEXT_PUBLIC_SITE_URL;
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_SITE_URL = original;
+  });
+
+  it("comes from the configured site URL, not from whoever is asking", () => {
+    // The bug this exists to prevent: production serves on www.casdey.com
+    // while NEXT_PUBLIC_SITE_URL and the Google whitelist both say the apex,
+    // so a request-derived URI produced redirect_uri_mismatch every time.
+    process.env.NEXT_PUBLIC_SITE_URL = "https://casdey.com";
+    expect(calendarRedirectUri()).toBe(
+      "https://casdey.com/api/calendar/google/callback",
+    );
+  });
+
+  it("ignores a trailing slash on the configured URL", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://casdey.com/";
+    expect(calendarRedirectUri()).toBe(
+      "https://casdey.com/api/calendar/google/callback",
+    );
+  });
+});
+
+describe("calendarStateCookieDomain", () => {
+  const original = process.env.NEXT_PUBLIC_SITE_URL;
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_SITE_URL = original;
+  });
+
+  it("covers the apex and www with one cookie", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://casdey.com";
+    expect(calendarStateCookieDomain()).toBe("casdey.com");
+  });
+
+  it("drops a www prefix, so consent on either host comes back to the same cookie", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.casdey.com";
+    expect(calendarStateCookieDomain()).toBe("casdey.com");
+  });
+
+  it("stays host-only on localhost", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
+    expect(calendarStateCookieDomain()).toBeUndefined();
   });
 });

@@ -2,7 +2,13 @@ import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requireOwner } from "@/lib/dal";
-import { buildConsentUrl, googleOAuthConfig, isGoogleCalendarConfigured } from "@/lib/calendar/google";
+import {
+  buildConsentUrl,
+  calendarRedirectUri,
+  calendarStateCookieDomain,
+  googleOAuthConfig,
+  isGoogleCalendarConfigured,
+} from "@/lib/calendar/google";
 import { isCalendarKeyConfigured } from "@/lib/calendar/tokens";
 
 export const runtime = "nodejs";
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const state = randomBytes(16).toString("hex");
   const url = buildConsentUrl({
     clientId: googleOAuthConfig().clientId,
-    redirectUri: `${origin}/api/calendar/google/callback`,
+    redirectUri: calendarRedirectUri(),
     state,
   });
 
@@ -45,6 +51,9 @@ export async function GET(request: NextRequest): Promise<Response> {
     secure: origin.startsWith("https://"),
     sameSite: "lax",
     path: "/",
+    // Set on the registrable domain, because consent starts on whichever host
+    // the gym is browsing and Google returns to the canonical one.
+    domain: calendarStateCookieDomain(),
     maxAge: 600, // ten minutes to complete consent
   });
   return response;

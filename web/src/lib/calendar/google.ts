@@ -1,4 +1,40 @@
+import { siteUrl } from "../messaging";
 import type { Interval } from "./availability";
+
+/**
+ * The redirect URI Google is told about, and the only one it will accept.
+ *
+ * Built from the canonical site URL rather than from the incoming request's
+ * origin. Those are not the same thing: casdey.com answers on both the apex
+ * and `www`, and in production the apex 308s to `www`, so a visitor is
+ * always on the host that is *not* in NEXT_PUBLIC_SITE_URL and was never
+ * whitelisted in Google Cloud. Deriving the URI from the request meant every
+ * production attempt to connect a calendar died on Google's
+ * `Error 400: redirect_uri_mismatch` before the gym saw a consent screen.
+ *
+ * A redirect URI has to match a fixed string on Google's side exactly, so it
+ * must come from fixed configuration, never from whatever hostname the
+ * browser happened to use.
+ */
+export function calendarRedirectUri(): string {
+  return `${siteUrl()}/api/calendar/google/callback`;
+}
+
+/**
+ * The domain to pin the OAuth state cookie to, or undefined to leave it
+ * host-only.
+ *
+ * Consent starts on whichever host the gym is browsing and comes back on the
+ * canonical one, so a host-only cookie would not be sent back and every
+ * connection would fail the state check instead. Pinning it to the
+ * registrable domain covers both. Undefined on localhost, where a domain
+ * attribute buys nothing and browsers treat it inconsistently.
+ */
+export function calendarStateCookieDomain(): string | undefined {
+  const host = new URL(siteUrl()).hostname;
+  if (host === "localhost" || /^[\d.]+$/.test(host)) return undefined;
+  return host.replace(/^www\./, "");
+}
 
 /**
  * The one place that talks to Google Calendar.
