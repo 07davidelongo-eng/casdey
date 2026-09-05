@@ -32,9 +32,7 @@ export const metadata: Metadata = {
 const LAST_UPDATED = "1 September 2026";
 
 function H2({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="display mt-14 text-[1.5rem] text-ink">{children}</h2>
-  );
+  return <h2 className="display mt-14 text-[1.5rem] text-ink">{children}</h2>;
 }
 
 function P({ children }: { children: React.ReactNode }) {
@@ -46,7 +44,7 @@ function P({ children }: { children: React.ReactNode }) {
 export default function PrivacyPage() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader sections={false} />
       <main className="py-20 sm:py-24">
         <Container>
           <div className="max-w-2xl">
@@ -56,9 +54,9 @@ export default function PrivacyPage() {
             </h1>
             <P>
               This notice covers the details you give us when you join the
-              casdey waitlist, before your gym has an account. It does not
-              cover member records: once a gym signs up and imports its list,
-              that processing is covered by{" "}
+              casdey waitlist, before your gym has an account. It does not cover
+              member records: once a gym signs up and imports its list, that
+              processing is covered by{" "}
               <Link
                 href="/terms/processing"
                 className="text-teal underline decoration-ash underline-offset-4 hover:decoration-teal"
@@ -84,11 +82,11 @@ export default function PrivacyPage() {
 
             <H2>What we collect</H2>
             <P>
-              Only what the waitlist form asks for: your gym name, your
-              work email address, and optionally the gym software you use.
-              We also record the date you joined. There is nothing else, no
-              tracking pixels, no advertising cookies, and no analytics that
-              profiles you.
+              Only what the waitlist form asks for: your gym name, your work
+              email address, and optionally the gym software you use. We also
+              record the date you joined. There is nothing else, no tracking
+              pixels, no advertising cookies, and no analytics that profiles
+              you.
             </P>
 
             <H2>Why we collect it</H2>

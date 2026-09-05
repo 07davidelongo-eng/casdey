@@ -48,7 +48,10 @@ function List({ items }: { items: React.ReactNode[] }) {
   return (
     <ul className="mt-4 space-y-2.5">
       {items.map((item, index) => (
-        <li key={index} className="flex gap-3 text-[1rem] leading-relaxed text-graphite">
+        <li
+          key={index}
+          className="flex gap-3 text-[1rem] leading-relaxed text-graphite"
+        >
           <span
             aria-hidden="true"
             className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-teal"
@@ -63,7 +66,7 @@ function List({ items }: { items: React.ReactNode[] }) {
 export default function ProcessingTermsPage() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader sections={false} />
       <main className="py-20 sm:py-24">
         <Container>
           <div className="max-w-2xl">
@@ -72,8 +75,8 @@ export default function ProcessingTermsPage() {
               Data processing terms
             </h1>
             <P>
-              These terms cover member data. They apply from the moment a
-              gym uploads its first member list and sit alongside the{" "}
+              These terms cover member data. They apply from the moment a gym
+              uploads its first member list and sit alongside the{" "}
               <Link
                 href="/privacy"
                 className="text-teal underline underline-offset-4"
@@ -92,9 +95,9 @@ export default function ProcessingTermsPage() {
               data that the gym has not asked for.
             </P>
             <P>
-              A gym confirms this, and confirms it has a lawful basis to
-              contact these members about their membership, before casdey will
-              accept a single record. The product refuses the upload otherwise.
+              A gym confirms this, and confirms it has a lawful basis to contact
+              these members about their membership, before casdey will accept a
+              single record. The product refuses the upload otherwise.
             </P>
 
             <H2>What casdey holds</H2>
@@ -114,10 +117,9 @@ export default function ProcessingTermsPage() {
             <H2>What it is used for</H2>
             <P>
               One purpose: identifying members who have not been seen for a
-              while and contacting them on the gym&apos;s behalf to invite
-              them back. Member data is never sold, never shared with another
-              gym, never used for advertising, and never used to train any
-              model.
+              while and contacting them on the gym&apos;s behalf to invite them
+              back. Member data is never sold, never shared with another gym,
+              never used for advertising, and never used to train any model.
             </P>
 
             <H2>Where it is held</H2>
@@ -143,15 +145,15 @@ export default function ProcessingTermsPage() {
                 </>,
                 <>
                   <strong className="font-semibold text-ink">Stripe</strong>,
-                  for the gym&apos;s own subscription payments. Stripe
-                  never receives member data.
+                  for the gym&apos;s own subscription payments. Stripe never
+                  receives member data.
                 </>,
                 <>
                   <strong className="font-semibold text-ink">
                     Zoho Mail, or Resend where configured
                   </strong>
-                  , for delivering messages. These receive a member&apos;s
-                  email address and the message text, and nothing else.
+                  , for delivering messages. These receive a member&apos;s email
+                  address and the message text, and nothing else.
                 </>,
                 <>
                   <strong className="font-semibold text-ink">
@@ -175,9 +177,9 @@ export default function ProcessingTermsPage() {
                   <strong className="font-semibold text-ink">Anthropic</strong>,
                   only for the WhatsApp channel, to write the replies in a
                   conversation once a member has answered. It receives the text
-                  of that conversation and the gym&apos;s name, processes them in
-                  the United States, and is contractually barred from training
-                  on them. Not used for email.
+                  of that conversation and the gym&apos;s name, processes them
+                  in the United States, and is contractually barred from
+                  training on them. Not used for email.
                 </>,
               ]}
             />
@@ -194,30 +196,28 @@ export default function ProcessingTermsPage() {
 
             <H2>Member rights</H2>
             <P>
-              A member&apos;s rights are exercised against the gym, which
-              is their controller. casdey will help a gym answer any
-              request, at no charge and without delay. Every message casdey
-              sends carries a working unsubscribe link, and using it stops all
-              contact from that gym through casdey immediately, including
-              anything already queued.
+              A member&apos;s rights are exercised against the gym, which is
+              their controller. casdey will help a gym answer any request, at no
+              charge and without delay. Every message casdey sends carries a
+              working unsubscribe link, and using it stops all contact from that
+              gym through casdey immediately, including anything already queued.
             </P>
 
             <H2>If something goes wrong</H2>
             <P>
-              casdey will tell the affected gym about any personal data
-              breach without undue delay and in any case within 24 hours of
-              becoming aware of it, with what is known at the time, and will
-              keep the gym updated. Reporting to a supervisory authority is
-              the gym&apos;s decision to make as controller, and casdey
-              will provide whatever it needs to make it.
+              casdey will tell the affected gym about any personal data breach
+              without undue delay and in any case within 24 hours of becoming
+              aware of it, with what is known at the time, and will keep the gym
+              updated. Reporting to a supervisory authority is the gym&apos;s
+              decision to make as controller, and casdey will provide whatever
+              it needs to make it.
             </P>
 
             <H2>Ending the arrangement</H2>
             <P>
-              A gym can export everything at any time and delete everything
-              at any time, both from within the product. On account closure,
-              member data is deleted within 30 days without needing to be
-              asked.
+              A gym can export everything at any time and delete everything at
+              any time, both from within the product. On account closure, member
+              data is deleted within 30 days without needing to be asked.
             </P>
 
             <H2>Getting in touch</H2>

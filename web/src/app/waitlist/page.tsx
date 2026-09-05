@@ -81,7 +81,9 @@ const QUESTIONS = [
   },
 ];
 
-export default async function WaitlistPage({ searchParams }: PageProps<"/waitlist">) {
+export default async function WaitlistPage({
+  searchParams,
+}: PageProps<"/waitlist">) {
   // Carried over from the single field in the landing page hero.
   const params = await searchParams;
   const raw = params?.email;
@@ -89,7 +91,7 @@ export default async function WaitlistPage({ searchParams }: PageProps<"/waitlis
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader sections={false} />
       <main>
         <section className="relative overflow-hidden py-14 sm:py-20">
           <div
@@ -106,8 +108,8 @@ export default async function WaitlistPage({ searchParams }: PageProps<"/waitlis
                 <p className="mt-6 max-w-md text-[1.0625rem] leading-relaxed text-graphite text-pretty">
                   casdey is being built now, and the gyms and studios on the
                   waitlist are the ones it gets built around. Join and you get
-                  first access, a free week with no card and no commitment,
-                  and a direct say in what it does next.
+                  first access, a free week with no card and no commitment, and
+                  a direct say in what it does next.
                 </p>
 
                 <div className="mt-10 rounded-[20px] bg-white p-6 shadow-raised">

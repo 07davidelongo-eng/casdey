@@ -24,7 +24,15 @@ const LINKS = [
   { href: "/pricing", label: "Pricing" },
 ];
 
-export function SiteHeader() {
+/**
+ * `sections` is off on any page that is reachable while the homepage is
+ * still redirected to /waitlist in production (see next.config.ts). Those
+ * links all point at anchors on /, so with the redirect in place they would
+ * bounce a visitor straight back to the page they are already on, and
+ * /waitlist is where the live cold outreach sends people. Turn it back on
+ * everywhere once the homepage is published.
+ */
+export function SiteHeader({ sections = true }: { sections?: boolean } = {}) {
   const [lifted, setLifted] = useState(false);
 
   useEffect(() => {
@@ -54,17 +62,19 @@ export function SiteHeader() {
               <Logo className="text-[1.4rem]" />
             </Link>
 
-            <nav className="hidden gap-7 md:flex" aria-label="Sections">
-              {LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-[0.9375rem] text-graphite transition-colors duration-200 hover:text-ink"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
+            {sections && (
+              <nav className="hidden gap-7 md:flex" aria-label="Sections">
+                {LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-[0.9375rem] text-graphite transition-colors duration-200 hover:text-ink"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
 
             <div className="ml-auto flex items-center gap-3 sm:gap-4">
               <Link
