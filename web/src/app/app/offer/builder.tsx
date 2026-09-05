@@ -133,6 +133,9 @@ export function OfferBuilder({
     return (
       <div className="space-y-5">
         {state.error ? <Notice tone="warn">{state.error}</Notice> : null}
+        {/* The save lands here, not on the suggestions step, so without this
+            the offer saved and the screen said nothing at all. */}
+        {state.message ? <Notice>{state.message}</Notice> : null}
         <EditStep
           offer={chosen}
           suggested={suggested}

@@ -16,10 +16,14 @@ const TABS = [
 export function SettingsNav() {
   const pathname = usePathname();
 
+  // overflow-y-hidden below is load-bearing, not tidying. CSS promotes the
+  // other axis to `auto` as soon as one axis is not `visible`, and the active
+  // tab's -mb-px makes the content a pixel taller than the box, so Chrome
+  // painted a real vertical scrollbar beside the tabs for that one pixel.
   return (
     <nav
       aria-label="Settings sections"
-      className="mt-5 mb-8 flex gap-1 overflow-x-auto border-b border-ash"
+      className="mt-5 mb-8 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-ash"
     >
       {TABS.map(({ href, label }) => {
         const active = pathname === href;

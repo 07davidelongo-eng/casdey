@@ -50,13 +50,17 @@ export default async function NewCampaignPage() {
 
       {nothingToShow ? (
         <Notice tone="warn">
-          <span>
-            Nobody matches yet, so there is nothing to send. Import your member
-            list, or widen the windows in settings.
-          </span>
-          <ButtonLink href="/app/import" variant="quiet">
-            Import
-          </ButtonLink>
+          {/* A notice is a plain block, so a bare button after a bare span
+              flows inline and lands welded to the full stop. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            <span>
+              Nobody matches yet, so there is nothing to send. Import your
+              member list, or widen the windows in settings.
+            </span>
+            <ButtonLink href="/app/import" variant="quiet">
+              Import
+            </ButtonLink>
+          </div>
         </Notice>
       ) : (
         <>
