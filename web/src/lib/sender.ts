@@ -6,6 +6,7 @@ import { composeBody, contextFor, renderTemplate } from "./template";
 import { sendingIdentity } from "./email/identity";
 import { capabilities } from "./plan";
 import { isProviderThrottled } from "./send-throttle";
+import { nextStep, parseFollowUps, type FollowUp } from "./follow-ups";
 import type { Gym } from "./types";
 
 /**
@@ -74,6 +75,15 @@ type QueuedMessage = {
   to_email: string;
   unsubscribe_token: string;
   attempts: number;
+  step: number;
+};
+
+type CampaignRow = {
+  status: string;
+  subject: string;
+  body: string;
+  approved_at: string | null;
+  follow_ups: FollowUp[] | null;
 };
 
 export async function drainQueue(
@@ -98,15 +108,7 @@ export async function drainQueue(
 
   // Cached per run: a batch is usually one or two gyms and one campaign.
   const gyms = new Map<string, Gym | null>();
-  const campaigns = new Map<
-    string,
-    {
-      status: string;
-      subject: string;
-      body: string;
-      approved_at: string | null;
-    } | null
-  >();
+  const campaigns = new Map<string, CampaignRow | null>();
   const sentToday = new Map<string, number>();
   // Gyms that have hit their daily ceiling. Kept so their remaining rows are
   // not claimed and re-leased over and over: claiming a row costs a round trip
@@ -124,7 +126,7 @@ export async function drainQueue(
     let query = client
       .from("campaign_messages")
       .select(
-        "id, gym_id, campaign_id, member_id, to_email, unsubscribe_token, attempts",
+        "id, gym_id, campaign_id, member_id, to_email, unsubscribe_token, attempts, step",
       )
       .eq("status", "queued")
       .lte("send_after", nowIso);
@@ -208,15 +210,10 @@ export async function drainQueue(
         async () => {
           const { data: row } = await client
             .from("campaigns")
-            .select("status, subject, body, approved_at")
+            .select("status, subject, body, approved_at, follow_ups")
             .eq("id", message.campaign_id)
             .maybeSingle();
-          return row as {
-            status: string;
-            subject: string;
-            body: string;
-            approved_at: string | null;
-          } | null;
+          return row as CampaignRow | null;
         },
       );
 
@@ -280,6 +277,22 @@ export async function drainQueue(
         continue;
       }
 
+      // The whole point of a follow-up is that the first one did not land.
+      // Somebody who booked in between must not be chased about it, and this
+      // is the last possible moment to ask, which is why follow-ups are
+      // scheduled one step at a time rather than queued up front.
+      //
+      // Cancelled, not suppressed: suppressed means "never write to this
+      // address again", and this is the opposite. It worked.
+      if (message.step > 1 && member.status === "returned") {
+        await client
+          .from("campaign_messages")
+          .update({ status: "cancelled", error: "Member already came back" })
+          .eq("id", message.id);
+        report.skipped += 1;
+        continue;
+      }
+
       const context = contextFor(
         {
           first_name: member.first_name,
@@ -293,12 +306,23 @@ export async function drainQueue(
 
       const identity = sendingIdentity(gym);
 
+      const followUps = parseFollowUps(campaign.follow_ups);
+      // Step 1 is the campaign's own subject and body; every later step is the
+      // follow-up that precedes it in the sequence.
+      const written =
+        message.step === 1
+          ? { subject: campaign.subject, body: campaign.body }
+          : (followUps[message.step - 2] ?? {
+              subject: campaign.subject,
+              body: campaign.body,
+            });
+
       try {
         await provider.send({
           to: message.to_email,
-          subject: renderTemplate(campaign.subject, context),
+          subject: renderTemplate(written.subject, context),
           text: composeBody({
-            body: campaign.body,
+            body: written.body,
             context,
             unsubscribeUrl: unsubscribeUrl(message.unsubscribe_token),
             replyTo: gym.reply_to_email,
@@ -332,8 +356,39 @@ export async function drainQueue(
           gym_id: message.gym_id,
           member_id: member.id,
           type: "message_sent",
-          meta: { campaign_id: message.campaign_id },
+          meta: { campaign_id: message.campaign_id, step: message.step },
         });
+
+        // Schedule the next step now that this one has actually left. The
+        // unique constraint on (campaign_id, member_id, step) makes a repeat
+        // impossible even if this runs twice, so a duplicate is ignored rather
+        // than treated as a failure of a message that has already been sent.
+        const next = nextStep(followUps, message.step);
+        if (next) {
+          const dueAt = new Date(
+            Date.now() + next.follow.afterDays * 86_400_000,
+          ).toISOString();
+
+          const { error: queueError } = await client
+            .from("campaign_messages")
+            .insert({
+              gym_id: message.gym_id,
+              campaign_id: message.campaign_id,
+              member_id: member.id,
+              to_email: message.to_email,
+              step: next.step,
+              send_after: dueAt,
+            });
+
+          // 23505 is the unique violation: the follow-up is already queued.
+          if (queueError && queueError.code !== "23505") {
+            console.error(
+              "[send] follow-up not queued",
+              message.id,
+              queueError.message,
+            );
+          }
+        }
 
         sentToday.set(message.gym_id, used + 1);
         report.sent += 1;

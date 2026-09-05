@@ -13,6 +13,13 @@ import {
   renderTemplate,
 } from "@/lib/template";
 import { monthsSince } from "@/lib/lapse";
+import {
+  defaultFollowUps,
+  MAX_FOLLOW_UPS,
+  MAX_FOLLOW_UP_DAYS,
+  MIN_FOLLOW_UP_DAYS,
+  type FollowUp,
+} from "@/lib/follow-ups";
 import { REASON_OPTIONS } from "@/lib/cancellation";
 import { LANGUAGES } from "@/lib/languages";
 import { createCampaignAction, type CampaignState } from "../actions";
@@ -89,11 +96,18 @@ export function CampaignForm({
   const [subjectTouched, setSubjectTouched] = useState(false);
   const [bodyTouched, setBodyTouched] = useState(false);
   const [language, setLanguage] = useState(defaultLanguage);
+  const [followUps, setFollowUps] = useState<FollowUp[]>(() =>
+    defaultFollowUps("win_back"),
+  );
+  const [followUpsTouched, setFollowUpsTouched] = useState(false);
 
   const isWhatsApp = channel === "whatsapp";
 
   function selectKind(next: CampaignKind) {
     setKind(next);
+    // Same rule the subject and body follow: casdey's suggestion moves with
+    // the kind of campaign until the gym edits it, and then it is theirs.
+    if (!followUpsTouched) setFollowUps(defaultFollowUps(next));
     if (next === "at_risk") {
       setReasonFilter("");
       if (!subjectTouched) setSubject(DEFAULT_AT_RISK_SUBJECT);
@@ -102,6 +116,33 @@ export function CampaignForm({
       if (!subjectTouched) setSubject(DEFAULT_SUBJECT);
       if (!bodyTouched) setBody(DEFAULT_BODY);
     }
+  }
+
+  function updateFollowUp(index: number, patch: Partial<FollowUp>) {
+    setFollowUpsTouched(true);
+    setFollowUps((steps) =>
+      steps.map((step, i) => (i === index ? { ...step, ...patch } : step)),
+    );
+  }
+
+  function removeFollowUp(index: number) {
+    setFollowUpsTouched(true);
+    setFollowUps((steps) => steps.filter((_, i) => i !== index));
+  }
+
+  function addFollowUp() {
+    setFollowUpsTouched(true);
+    setFollowUps((steps) => {
+      const suggested = defaultFollowUps(kind)[steps.length];
+      return [
+        ...steps,
+        suggested ?? {
+          afterDays: 7,
+          subject: "Following up",
+          body: `Hi {{first_name}},\n\nJust following up on my last message.\n\n{{gym}}`,
+        },
+      ];
+    });
   }
 
   // WhatsApp is win-back only for V1.
@@ -392,6 +433,110 @@ export function CampaignForm({
                 </ul>
               </div>
             </div>
+          </Card>
+
+          <Card>
+            <CardTitle>If nobody answers</CardTitle>
+            <p className="mt-1 mb-5 text-[0.875rem] text-stone">
+              One message and then silence is not how a person would do this.
+              Each of these goes out only if the member has not booked by then,
+              and the sequence stops the moment they do.
+            </p>
+
+            {/* Carried as JSON in one hidden field rather than as
+                followUps[0][body]-style names: the server parses and
+                revalidates it anyway, and flat form fields for a variable
+                number of steps is a lot of machinery for two of them. */}
+            <input
+              type="hidden"
+              name="followUps"
+              value={JSON.stringify(followUps)}
+            />
+
+            {followUps.length === 0 ? (
+              <p className="text-[0.9375rem] text-graphite">
+                No follow-ups. This campaign sends once.
+              </p>
+            ) : null}
+
+            {followUps.map((step, index) => (
+              <div
+                key={index}
+                className={
+                  "pb-5 " + (index ? "mt-5 border-t border-ash pt-5" : "")
+                }
+              >
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <span className="field-label mb-0">
+                    Follow-up {index + 1}, after
+                  </span>
+                  <input
+                    type="number"
+                    min={MIN_FOLLOW_UP_DAYS}
+                    max={MAX_FOLLOW_UP_DAYS}
+                    step={1}
+                    disabled={pending}
+                    className="field literal w-20"
+                    value={step.afterDays}
+                    onChange={(event) =>
+                      updateFollowUp(index, {
+                        afterDays: Number(event.target.value),
+                      })
+                    }
+                  />
+                  <span className="text-[0.9375rem] text-graphite">
+                    days with no booking
+                  </span>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => removeFollowUp(index)}
+                    className="ml-auto text-[0.875rem] text-stone underline decoration-ash underline-offset-4 transition-colors duration-200 hover:text-ink"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <input
+                  aria-label={`Follow-up ${index + 1} subject`}
+                  maxLength={200}
+                  disabled={pending}
+                  className="field mb-3"
+                  value={step.subject}
+                  onChange={(event) =>
+                    updateFollowUp(index, { subject: event.target.value })
+                  }
+                />
+                <textarea
+                  aria-label={`Follow-up ${index + 1} message`}
+                  rows={7}
+                  maxLength={5000}
+                  disabled={pending}
+                  className="field font-[family-name:var(--font-inter)] leading-relaxed"
+                  value={step.body}
+                  onChange={(event) =>
+                    updateFollowUp(index, { body: event.target.value })
+                  }
+                />
+              </div>
+            ))}
+
+            {followUps.length < MAX_FOLLOW_UPS ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={addFollowUp}
+                className="text-[0.9375rem] text-teal underline decoration-ash underline-offset-4 transition-colors duration-200 hover:decoration-teal"
+              >
+                Add a follow-up
+              </button>
+            ) : (
+              <p className="text-[0.8125rem] text-stone">
+                Two is the most casdey will send. Past that a win-back stops
+                reading as attentive and starts reading as pestering, and it is
+                your gym&apos;s name on it.
+              </p>
+            )}
           </Card>
 
           <Card>

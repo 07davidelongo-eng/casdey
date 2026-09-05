@@ -25,6 +25,7 @@ import { sendingIdentity } from "@/lib/email/identity";
 import { composeBody, contextFor, renderTemplate } from "@/lib/template";
 import { ensureTestMember } from "@/lib/self-test";
 import { isCancellationReason } from "@/lib/cancellation";
+import { parseFollowUps, type FollowUp } from "@/lib/follow-ups";
 import type { CampaignKind, Channel } from "@/lib/types";
 
 export type CampaignState = { error: string | null };
@@ -49,6 +50,20 @@ const CreateSchema = z.object({
     .string()
     .refine(isLanguageCode, "Pick a language casdey supports.")
     .default("en"),
+  // Arrives as a JSON string from the form. Parsed rather than trusted:
+  // parseFollowUps drops anything malformed instead of queueing a message
+  // with an empty body against a member's name.
+  followUps: z
+    .string()
+    .optional()
+    .transform((raw) => {
+      if (!raw) return [] as FollowUp[];
+      try {
+        return parseFollowUps(JSON.parse(raw));
+      } catch {
+        return [] as FollowUp[];
+      }
+    }),
 });
 
 const CreateWhatsAppSchema = z.object({
@@ -70,6 +85,7 @@ export async function createCampaignAction(
     subject: formData.get("subject"),
     body: formData.get("body"),
     language: formData.get("language") ?? "en",
+    followUps: formData.get("followUps") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -108,6 +124,7 @@ export async function createCampaignAction(
       subject: parsed.data.subject,
       body: parsed.data.body,
       language: parsed.data.language,
+      follow_ups: parsed.data.followUps,
       status: "draft",
       audience: audienceSnapshot(gym, audience.length, { kind, reasonFilter }),
     })
