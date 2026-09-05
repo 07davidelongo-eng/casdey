@@ -32,7 +32,7 @@ export function BookingSettingsForm({
   const disabled = readOnly || pending;
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={action} data-unsaved-guard className="space-y-6">
       <Card>
         <CardTitle>Self-serve booking</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">

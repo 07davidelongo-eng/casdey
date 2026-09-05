@@ -6,6 +6,7 @@ import { Logo } from "@/components/wordmark";
 import { getGymContext } from "@/lib/dal";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { SupportWidget } from "@/components/app/support-widget";
+import { UnsavedChangesGuard } from "@/components/app/unsaved-changes";
 
 import "@/styles/product.css";
 
@@ -78,6 +79,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
       </div>
 
       <SupportWidget />
+      <UnsavedChangesGuard />
     </div>
   );
 }

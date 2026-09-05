@@ -23,7 +23,7 @@ export function WhatsAppSettingsForm({
   const disabled = readOnly || pending;
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={action} data-unsaved-guard className="space-y-6">
       <Card>
         <CardTitle>Your own WhatsApp number</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">

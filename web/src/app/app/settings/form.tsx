@@ -37,7 +37,7 @@ export function SettingsForm({
       : "";
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={action} data-unsaved-guard className="space-y-6">
       <Card>
         <CardTitle>How members see you</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
