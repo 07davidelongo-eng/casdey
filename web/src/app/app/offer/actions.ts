@@ -40,9 +40,23 @@ export async function chooseOfferAction(
 
   const days = inputs?.deadlineDays ?? 14;
   const expiresAt = offer.dated ? deadlineFrom(new Date(), days) : null;
-  const text = offer.dated
+
+  // What the gym wrote wins, always. casdey's wording is a suggestion, and a
+  // gym that wants a quarter off one month rather than half off two knows its
+  // own margin better than a library does. Falling back to ours only when the
+  // box came back empty.
+  const edited = String(formData.get("text") ?? "").trim();
+  const suggested = offer.dated
     ? renderOffer(offer, expiresAt as Date)
     : offer.memberFacing;
+  const text = edited || suggested;
+
+  if (text.length > 600) {
+    return {
+      error: "That is longer than an offer should be. Keep it under 600 characters.",
+      message: null,
+    };
+  }
 
   const { error } = await supabaseAdmin()
     .from("gyms")

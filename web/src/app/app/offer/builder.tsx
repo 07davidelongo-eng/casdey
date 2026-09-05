@@ -10,9 +10,11 @@ import {
   OFF_PEAK_CHOICES,
   REASONS,
 } from "@/lib/offers/questions";
+import { OFFERS } from "@/lib/offers/library";
 import { deadlineFrom, formatDeadline, rankOffers, renderOffer } from "@/lib/offers/select";
 import type { GymType, LapseReason, OfferBudget } from "@/lib/offers/types";
 import { chooseOfferAction, type OfferState } from "./actions";
+import { EditStep } from "./edit-step";
 
 /**
  * One question per screen, then the offers casdey would suggest.
@@ -49,6 +51,8 @@ const STEPS = [
 
 export function OfferBuilder({ current }: { current: { id: string | null; text: string | null; expiresAt: string | null } }) {
   const [step, setStep] = useState(0);
+  /** The offer the gym picked, held while they edit its wording. */
+  const [chosenId, setChosenId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [state, formAction, pending] = useActionState<OfferState, FormData>(
     chooseOfferAction,
@@ -84,6 +88,32 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
     setStep((s) => Math.min(s + 1, STEPS.length));
   }
 
+  const chosen = chosenId ? OFFERS.find((o) => o.id === chosenId) : null;
+  if (chosen) {
+    // Coming from the questions, offer the fresh suggestion. Coming from the
+    // saved offer, show what the gym actually has: their own edits, with the
+    // deadline already a real date. Falling back to the library template here
+    // would both discard their wording and show them a raw {{deadline}}.
+    const suggested = inputs
+      ? chosen.dated && deadline
+        ? renderOffer(chosen, deadline)
+        : chosen.memberFacing
+      : (current.text ?? chosen.memberFacing);
+    return (
+      <div className="space-y-5">
+        {state.error ? <Notice tone="warn">{state.error}</Notice> : null}
+        <EditStep
+          offer={chosen}
+          suggested={suggested}
+          inputs={inputs}
+          formAction={formAction}
+          pending={pending}
+          onBack={() => setChosenId(null)}
+        />
+      </div>
+    );
+  }
+
   if (current.text && step === 0 && answers.gymType === null) {
     return (
       <CurrentOffer
@@ -92,9 +122,11 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
           setAnswers(EMPTY);
           setStep(0);
         }}
+        onEdit={() => current.id && setChosenId(current.id)}
       />
     );
   }
+
 
   if (step >= STEPS.length && inputs) {
     return (
@@ -133,13 +165,9 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
               <strong className="text-ink">What it costs you.</strong>{" "}
               {offer.cost}
             </p>
-            <form action={formAction}>
-              <input type="hidden" name="offerId" value={offer.id} />
-              <input type="hidden" name="inputs" value={JSON.stringify(inputs)} />
-              <Button type="submit" disabled={pending}>
-                Use this offer
-              </Button>
-            </form>
+            <Button type="button" onClick={() => setChosenId(offer.id)}>
+              Use this offer
+            </Button>
           </Card>
         ))}
 
@@ -227,9 +255,11 @@ function ChoiceButton({
 function CurrentOffer({
   current,
   onRebuild,
+  onEdit,
 }: {
   current: { id: string | null; text: string | null; expiresAt: string | null };
   onRebuild: () => void;
+  onEdit: () => void;
 }) {
   return (
     <Card>
@@ -242,9 +272,14 @@ function CurrentOffer({
         change offers already sent: a member who was promised something keeps
         being promised it.
       </p>
-      <Button type="button" variant="quiet" onClick={onRebuild}>
-        Build a different offer
-      </Button>
+      <div className="flex gap-2">
+        <Button type="button" onClick={onEdit}>
+          Edit the wording
+        </Button>
+        <Button type="button" variant="quiet" onClick={onRebuild}>
+          Build a different offer
+        </Button>
+      </div>
     </Card>
   );
 }
