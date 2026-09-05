@@ -241,7 +241,23 @@ const HINTS: { field: keyof ColumnMapping; patterns: RegExp[] }[] = [
   { field: "email", patterns: [/e-?mail/i] },
   { field: "phone", patterns: [/phone|mobile|tel|cell/i] },
   { field: "lastVisitAt", patterns: [/last.*(visit|booking|seen|attend|check|class)/i, /(visit|booking|attend|check|class).*date/i, /^date$/i] },
-  { field: "visitCount", patterns: [/visit.*(count|s\b)/i, /(number|no|total).*(visit|attend|check|class)/i, /(attend|check).*(count|s\b)/i, /^(visits|attendances|check-?ins|classes)$/i] },
+  // "Bookings" belongs here as well as in lastVisitAt: Glofox counts in
+  // bookings, and an export headed "Total Bookings" used to match nothing at
+  // all. That is not a cosmetic miss. A member whose count is lost falls back
+  // to a single visit, and the lapse rule is "no visit for N months AND at
+  // most X visits", so a nine-class regular is filed next to someone who came
+  // once and never came back, and casdey writes to the wrong people.
+  // The second gap was word order: "Classes Attended" reads noun then verb,
+  // where every pattern here expected "Total Classes".
+  {
+    field: "visitCount",
+    patterns: [
+      /^(visits?|bookings?|attendances?|check-?ins?|classes|sessions?)$/i,
+      /(number|total|count|\bno\b)[\s_-]*(of[\s_-]*)?(visit|booking|attend|check|class|session)/i,
+      /(visit|booking|attend|check|class|session)s?[\s_-]*(count|total|attended|completed|taken)/i,
+      /(visit|booking|attend|check|class|session).*(count|s\b)/i,
+    ],
+  },
 ];
 
 export function guessMapping(headers: string[]): Partial<ColumnMapping> {
