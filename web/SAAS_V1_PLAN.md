@@ -1064,16 +1064,48 @@ already signed in on this machine, so no password is involved) and walked it.
   working booking link and unsubscribe link on the production domain. The same
   API listing shows the cold outreach's sends sitting directly beneath it,
   which is G1a's shared quota in one screen.
-- **C3 — was broken in production, now fixed in code, still unverified.**
-  Connecting a Google Calendar had **never** been possible in production: every
-  attempt died on Google's `Error 400: redirect_uri_mismatch` before any
-  consent screen. casdey.com answers on both the apex and `www` and the apex
-  308s to `www`, so every visitor is on `www`, while `NEXT_PUBLIC_SITE_URL`,
-  the Supabase site URL, every link in already-sent member email and the one
-  URI whitelisted in Google Cloud all say the apex. Both calendar routes built
-  their redirect URI from the request's origin. They now build it from
-  `siteUrl()`, and the OAuth state cookie is pinned to the registrable domain
-  so it survives the hop. Needs a deploy, then the connect → book → cancel walk.
+- **C3 — done, after fixing two separate production-only breaks.**
+
+  **First: nobody could connect a calendar at all.** Every attempt died on
+  Google's `Error 400: redirect_uri_mismatch` before a consent screen.
+  casdey.com answers on both the apex and `www` and the apex 308s to `www`,
+  so every visitor is on `www`, while `NEXT_PUBLIC_SITE_URL`, the Supabase
+  site URL, every link in already-sent member email and the one URI whitelisted
+  in Google Cloud all say the apex. Both calendar routes built their redirect
+  URI from the request's origin; they now build it from `siteUrl()`, with the
+  OAuth state cookie pinned to the registrable domain so it survives the hop.
+
+  **Second, and worse: booking never wrote anything to Google, and said so to
+  nobody.** With the connection working, a booking still came back with
+  `google_event_id` null. A6 narrowed the scope to `calendar.app.created` on
+  2026-09-03, three weeks after booking was last tested end to end, and that
+  scope does not make the gym's own calendar read-only, it makes it invisible.
+  Verified directly against the stored token:
+
+  | call | result |
+  |---|---|
+  | `events.insert` on `primary` | **404 Not Found** |
+  | `freeBusy` on `primary` | 200, `busy: []` |
+  | `calendarList` | 403 insufficient scopes |
+
+  The mirror write is best-effort by design, so it threw, was logged and
+  swallowed, while the member was told they were booked and marked returned.
+  A gym running on this would double-book.
+
+  Fixed by having casdey create and own a calendar inside the gym's account
+  (migration `0020`, `google_write_calendar_id`). **The gym sees a "casdey
+  bookings" calendar in their sidebar rather than bookings in their main one.**
+  That is the price of a non-sensitive scope, and it is a fair one: the
+  alternative is `calendar.events`, which is sensitive and drags casdey into
+  the Google verification review A6 bought its way out of. It is also better
+  for the gym, who can hide or delete the whole calendar in one action and
+  knows casdey can never touch anything else.
+
+  **Verified end to end in production 2026-09-05**: connect → the calendar is
+  created → book a slot → `google_event_id` set and the event fetched back
+  from Google as `confirmed` → cancel → the Google event reads `cancelled`
+  → and once the member's last live booking was cancelled their status
+  correctly fell back from `returned` to `contacted`.
 - **C1 — not attempted, and not mine.** It needs a live-mode Stripe checkout
   with a real card. Entering card details is out of scope for Claude, so this
   stays with Davide.
@@ -1148,7 +1180,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | A3 | CSV import hardening vs real exports | me | code-side done; real-file → B4/C |
 | A4 | Default win-back copy in gym voice | me | already met |
 | A5 | Empty/edge states + FAQ per step | me | done |
-| A6 | Calendar prod hardening (fail-closed, scope, re-auth) | me | done — incl. the double-booking exclusion constraint (0015); only Google-mirror reconciliation job left, post-V1 |
+| A6 | Calendar prod hardening (fail-closed, scope, re-auth) | me | done — incl. the double-booking exclusion constraint (0015). **Its scope narrowing silently broke the booking write; found and fixed 2026-09-05, see C3.** Only the Google-mirror reconciliation job is left, post-V1 |
 | A7 | GDPR/legal re-audit for gym | me | done (postal address → Davide) |
 | A8 | Free-plan limits implementation | me | done |
 | A9 | Marketing landing design review | me | done |
@@ -1173,7 +1205,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | F6 | Tests: 4-plan capability matrix + price→tier mapping | me | done 2026-09-04 — `stripe.test.ts` added; found + fixed the silent Standard→Pro over-grant |
 | C1 | Live-mode Stripe checkout + refund in prod | Davide | todo — needs a real card, so not Claude's to do |
 | C2 | Real Resend campaign send in prod | me | **done 2026-09-05** — self-test from prod, `delivered` in Resend's event log, gym display name, gym reply-to, live booking + unsubscribe links |
-| C3 | Calendar booking end-to-end in prod | me | **was broken in prod, fixed in code 2026-09-05** (`redirect_uri_mismatch`: apex vs www). Needs the deploy, then connect → book → cancel |
+| C3 | Calendar booking end-to-end in prod | me | **done 2026-09-05** — two prod-only breaks found and fixed: `redirect_uri_mismatch` (apex vs www), then booking never writing to Google at all under A6's narrowed scope (migration `0020`). Connect → book → event confirmed in Google → cancel → event cancelled, all verified in prod |
 | C4 | Every wizard step verified in prod | me | **done 2026-09-05** — all 13 `/app` routes 200, matching local; C3 was the only prod-only break |
 | G1 | Email from the gym's own domain (Resend per-gym) | me | code + UI done 2026-09-04, admin key live; onboarding step added 2026-09-05. **Verification never yet observed**; the subdomain theory was checked and is wrong (both casdey domains are verified subdomain-and-apex); needs a retry left overnight, which needs a GoDaddy DNS change → Davide |
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
