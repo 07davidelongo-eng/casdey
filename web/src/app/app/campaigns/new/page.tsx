@@ -1,5 +1,5 @@
 import { requireGym } from "@/lib/dal";
-import { atRiskRuleFor, ruleFor } from "@/lib/lapse";
+import { atRiskRuleFor, describeRule, ruleFor } from "@/lib/lapse";
 import {
   buildAtRiskAudience,
   buildAudience,
@@ -45,7 +45,7 @@ export default async function NewCampaignPage() {
       <PageHeader
         eyebrow="New campaign"
         title="Write to the ones who stopped coming"
-        lede={`${winBackAudience.length} to win back, ${atRiskAudience.length} worth checking in with early: no visit for ${gym.lapsed_after_months} months / ${gym.at_risk_after_days} days, at most ${gym.max_visits} on record.`}
+        lede={`${winBackAudience.length} to win back, ${atRiskAudience.length} worth checking in with early. Win-back means ${describeRule(ruleFor(gym))}; a check-in goes out after ${gym.at_risk_after_days} quiet days.`}
       />
 
       {nothingToShow ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState, useId, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import type { Gym } from "@/lib/types";
@@ -19,6 +19,16 @@ export function SettingsForm({
   const id = useId();
   const [state, action, pending] = useActionState(saveSettingsAction, INITIAL);
   const disabled = readOnly || pending;
+
+  // The window is one number and a unit, not two fields. Which column it
+  // lands in is ruleFor()'s problem (src/lib/lapse.ts), not the gym's.
+  const [unit, setUnit] = useState<"months" | "days">(
+    gym.lapsed_after_days != null ? "days" : "months",
+  );
+  const [windowValue, setWindowValue] = useState(
+    String(gym.lapsed_after_days ?? gym.lapsed_after_months),
+  );
+  const [capVisits, setCapVisits] = useState(gym.max_visits != null);
 
   const symbol = currencySymbol(gymCurrency(gym));
   const bookingValue =
@@ -92,52 +102,84 @@ export function SettingsForm({
       <Card>
         <CardTitle>What counts as lapsed</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">
-          casdey looks for members who came a few times and then stopped. These
-          two numbers decide who that is. Changing them changes every count in
-          the app straight away.
+          casdey looks for members who stopped coming. This is where you say
+          what that means at your gym. Changing it changes every count in the
+          app straight away.
         </p>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label htmlFor={`${id}-months`} className="field-label">
+            <label htmlFor={`${id}-window`} className="field-label">
               No visit for at least
             </label>
             <div className="flex items-center gap-3">
               <input
-                id={`${id}-months`}
-                name="lapsedAfterMonths"
+                id={`${id}-window`}
+                name="lapseWindow"
                 type="number"
-                min={3}
-                max={60}
+                min={1}
+                max={unit === "days" ? 1825 : 60}
                 step={1}
-                defaultValue={gym.lapsed_after_months}
+                value={windowValue}
+                onChange={(e) => setWindowValue(e.target.value)}
                 required
                 disabled={disabled}
                 className="field literal"
               />
-              <span className="text-[0.9375rem] text-graphite">months</span>
+              <select
+                name="lapseUnit"
+                aria-label="Window unit"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value as "months" | "days")}
+                disabled={disabled}
+                className="field w-auto"
+              >
+                <option value="months">months</option>
+                <option value="days">days</option>
+              </select>
             </div>
+            <p className="field-hint">
+              Months for a rolling membership. Days if you sell class packs and
+              know someone is gone after six weeks.
+            </p>
           </div>
 
           <div>
-            <label htmlFor={`${id}-visits`} className="field-label">
-              And came at most
+            {/* A ceiling is right for a gym whose win-back is aimed at people
+                who tried the place and drifted, and wrong for one that wants
+                to write to everyone who stopped, regulars included. It is a
+                choice, so it is a switch. */}
+            <label className="flex items-center gap-2.5 text-[0.9375rem] text-ink">
+              <input
+                type="checkbox"
+                name="capVisits"
+                checked={capVisits}
+                onChange={(e) => setCapVisits(e.target.checked)}
+                disabled={disabled}
+                className="h-4 w-4 accent-[var(--teal)]"
+              />
+              And they came at most
             </label>
-            <div className="flex items-center gap-3">
+            <div className="mt-2 flex items-center gap-3">
               <input
                 id={`${id}-visits`}
                 name="maxVisits"
                 type="number"
                 min={1}
-                max={20}
+                max={200}
                 step={1}
-                defaultValue={gym.max_visits}
-                required
-                disabled={disabled}
+                defaultValue={gym.max_visits ?? 2}
+                required={capVisits}
+                disabled={disabled || !capVisits}
                 className="field literal"
               />
               <span className="text-[0.9375rem] text-graphite">times</span>
             </div>
+            <p className="field-hint">
+              {capVisits
+                ? "Long-standing regulars are left out of win-back. Check-ins ignore this either way."
+                : "Off: everyone who stopped counts, however many times they came."}
+            </p>
           </div>
         </div>
 

@@ -49,8 +49,10 @@ export type SetupState = {
 export type SetupInput = {
   memberCount: number;
   bookingValueSet: boolean;
-  lapsedAfterMonths: number;
-  maxVisits: number;
+  /** The lapse rule as a sentence, from describeRule() in src/lib/lapse.ts.
+   *  Passed in rather than rebuilt here, so the setup list, the dashboard and
+   *  the members page cannot end up describing three different rules. */
+  ruleDescription: string;
   /** The gym has chosen a win-back offer. */
   offerChosen: boolean;
   /** The server can manage sending domains at all (a Resend key that is
@@ -66,8 +68,6 @@ export type SetupInput = {
 
 export function buildSetupState(input: SetupInput): SetupState {
   const hasMembers = input.memberCount > 0;
-  const visitText =
-    input.maxVisits === 1 ? "one visit" : `${input.maxVisits} visits`;
 
   const steps: SetupStep[] = [
     {
@@ -83,7 +83,7 @@ export function buildSetupState(input: SetupInput): SetupState {
     {
       key: "lapse",
       title: "Check how you define lapsed",
-      body: `Currently: no visit for ${input.lapsedAfterMonths} months, and at most ${visitText} on record. Change it in settings if your gym works differently.`,
+      body: `Currently: ${input.ruleDescription}. Change it in settings if your gym works differently.`,
       href: "/app/settings",
       cta: "Review the window",
       // A sensible default is already in effect the moment a list exists, so

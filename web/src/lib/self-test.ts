@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "./supabase";
+import { ruleFor, windowInDays } from "./lapse";
 import type { Gym } from "./types";
 
 /**
@@ -34,9 +35,12 @@ export async function ensureTestMember(
 ): Promise<TestMember> {
   const client = supabaseAdmin();
 
+  // Comfortably past whichever window is in force, so the self-test member is
+  // unambiguously lapsed under the gym's own rule rather than under an
+  // assumption about months.
   const lastVisit = new Date();
-  lastVisit.setUTCMonth(
-    lastVisit.getUTCMonth() - (gym.lapsed_after_months + 1),
+  lastVisit.setUTCDate(
+    lastVisit.getUTCDate() - (windowInDays(ruleFor(gym)) + 31),
   );
 
   const { data, error } = await client

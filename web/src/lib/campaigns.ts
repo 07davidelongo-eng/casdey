@@ -4,6 +4,8 @@ import { supabaseAdmin } from "./supabase";
 import {
   atRiskCutoff,
   lapseCutoff,
+  ruleFor,
+  visitCeiling,
   type AtRiskRule,
   type LapseRule,
 } from "./lapse";
@@ -79,7 +81,7 @@ export async function buildAudience(
       .eq("consent_email", true)
       .not("email", "is", null)
       .neq("status", "opted_out")
-      .lte("visit_count", rule.maxVisits)
+      .lte("visit_count", visitCeiling(rule))
       .lte("last_visit_at", lapseCutoff(rule, now));
     return { data: data as AudienceMember[] | null, error };
   }
@@ -163,7 +165,7 @@ export async function buildWhatsAppAudience(
       .eq("consent_whatsapp", true)
       .not("phone", "is", null)
       .neq("status", "opted_out")
-      .lte("visit_count", rule.maxVisits)
+      .lte("visit_count", visitCeiling(rule))
       .lte("last_visit_at", lapseCutoff(rule, now));
     return { data: data as AudienceMember[] | null, error };
   }
@@ -330,8 +332,8 @@ export function audienceSnapshot(
   options: { kind?: CampaignKind; reasonFilter?: CancellationReason } = {},
 ): {
   kind: CampaignKind;
-  lapsedAfterMonths: number;
-  maxVisits: number;
+  lapseWindow: { value: number; unit: "months" | "days" };
+  maxVisits: number | null;
   atRiskAfterDays?: number;
   reasonFilter?: CancellationReason;
   builtAt: string;
@@ -340,7 +342,10 @@ export function audienceSnapshot(
   const kind = options.kind ?? "win_back";
   return {
     kind,
-    lapsedAfterMonths: gym.lapsed_after_months,
+    // Records the window as the gym set it, unit and all. Storing only a
+    // month count would round a 45-day studio rule into something the
+    // campaign never actually used.
+    lapseWindow: ruleFor(gym).window,
     maxVisits: gym.max_visits,
     ...(kind === "at_risk" ? { atRiskAfterDays: gym.at_risk_after_days } : {}),
     ...(options.reasonFilter ? { reasonFilter: options.reasonFilter } : {}),

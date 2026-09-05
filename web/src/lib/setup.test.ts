@@ -5,8 +5,7 @@ import { buildSetupState, type SetupInput } from "./setup";
 const base: SetupInput = {
   memberCount: 0,
   bookingValueSet: false,
-  lapsedAfterMonths: 6,
-  maxVisits: 2,
+  ruleDescription: "no visit for 6 months, and at most 2 visits on record",
   offerChosen: false,
   sendingConfigured: true,
   sendingVerified: false,
@@ -106,11 +105,10 @@ describe("buildSetupState", () => {
   it("reflects the gym's own lapse rule in the copy", () => {
     const state = buildSetupState({
       ...base,
-      lapsedAfterMonths: 3,
-      maxVisits: 1,
+      ruleDescription: "no visit for 3 months, and at most 1 visit on record",
     });
     const lapse = state.steps.find((s) => s.key === "lapse");
     expect(lapse?.body).toContain("3 months");
-    expect(lapse?.body).toContain("one visit");
+    expect(lapse?.body).toContain("1 visit");
   });
 });

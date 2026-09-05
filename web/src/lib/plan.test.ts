@@ -16,6 +16,7 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     sender_name: "Test Gym",
     reply_to_email: "a@b.co",
     lapsed_after_months: 12,
+    lapsed_after_days: null,
     max_visits: 2,
     at_risk_after_days: 45,
     daily_send_cap: 50,

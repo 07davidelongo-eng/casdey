@@ -14,16 +14,61 @@ import type { Member, Gym } from "./types";
  * correct.
  */
 
+export type LapseUnit = "months" | "days";
+
 export type LapseRule = {
-  lapsedAfterMonths: number;
-  maxVisits: number;
+  /**
+   * The quiet window, in the unit the gym actually thinks in. A traditional
+   * gym says "a year"; a studio selling 10-class packs knows someone is gone
+   * after six weeks, and rounding that to "two months" is not the same rule.
+   */
+  window: { value: number; unit: LapseUnit };
+  /**
+   * The visit ceiling, or null when the gym has switched it off. Null is not
+   * "zero" and not "unlimited by default": it is a gym saying the number of
+   * times somebody came is none of the rule's business.
+   */
+  maxVisits: number | null;
 };
 
+/**
+ * gyms.lapsed_after_days overrides gyms.lapsed_after_months when it is set.
+ * Two columns for one window is not elegant, and it is deliberate: local
+ * development and production share one database, so the days column had to
+ * arrive without disturbing what the deployed app was already reading. See
+ * supabase/migrations/0022_lapse_rule_flexibility.sql.
+ */
 export function ruleFor(gym: Gym): LapseRule {
   return {
-    lapsedAfterMonths: gym.lapsed_after_months,
+    window:
+      gym.lapsed_after_days != null
+        ? { value: gym.lapsed_after_days, unit: "days" }
+        : { value: gym.lapsed_after_months, unit: "months" },
     maxVisits: gym.max_visits,
   };
+}
+
+/** The window in days, for anything that needs to compare two windows. */
+export function windowInDays(rule: LapseRule): number {
+  return rule.window.unit === "days"
+    ? rule.window.value
+    : rule.window.value * 30;
+}
+
+/**
+ * The rule as a gym owner would say it out loud.
+ *
+ * Four screens were building this sentence themselves, which is four chances
+ * for the dashboard to describe a rule the campaign audience is not using.
+ */
+export function describeRule(rule: LapseRule): string {
+  const { value, unit } = rule.window;
+  const window = `no visit for ${value} ${
+    value === 1 ? unit.slice(0, -1) : unit
+  }`;
+  if (rule.maxVisits == null) return window;
+  const visits = rule.maxVisits === 1 ? "visit" : "visits";
+  return `${window}, and at most ${rule.maxVisits} ${visits} on record`;
 }
 
 /**
@@ -38,11 +83,21 @@ export function lapseCutoff(
   rule: LapseRule,
   now: Date = new Date(),
 ): string {
+  // Days are simple subtraction and must stay that way. Converting 45 days
+  // into "one and a half months" and then doing calendar arithmetic would
+  // land on a different date depending on the month, which is exactly the
+  // imprecision a gym choosing days is trying to avoid.
+  if (rule.window.unit === "days") {
+    const cutoff = new Date(now.getTime());
+    cutoff.setUTCDate(cutoff.getUTCDate() - rule.window.value);
+    return cutoff.toISOString().slice(0, 10);
+  }
+
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
   const day = now.getUTCDate();
 
-  const targetMonthIndex = month - rule.lapsedAfterMonths;
+  const targetMonthIndex = month - rule.window.value;
   const targetYear = year + Math.floor(targetMonthIndex / 12);
   const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
 
@@ -71,7 +126,9 @@ export function isLapsed(
   // Somebody who asked us to stop is never lapsed. They are done.
   if (member.status === "opted_out") return false;
   if (!member.last_visit_at) return false;
-  if (member.visit_count > rule.maxVisits) return false;
+  if (rule.maxVisits != null && member.visit_count > rule.maxVisits) {
+    return false;
+  }
 
   return member.last_visit_at.slice(0, 10) <= lapseCutoff(rule, now);
 }
@@ -109,6 +166,22 @@ export type FilterableQuery<T> = {
   neq(column: string, value: string): T;
 };
 
+/**
+ * The visit ceiling as a number a query can always compare against.
+ *
+ * A gym with the ceiling switched off needs the filter to match everyone, and
+ * `null` cannot express that: PostgREST would send `visit_count=lte.null`,
+ * which matches nobody, so the gym that widened its rule would see an empty
+ * list. Branching the chain instead is possible but sends the compiler into
+ * an excessively-deep instantiation in campaigns.ts (see the note there), so
+ * every caller uses int4's own ceiling, which no visit_count can exceed.
+ */
+export const VISIT_CEILING_OFF = 2_147_483_647;
+
+export function visitCeiling(rule: LapseRule): number {
+  return rule.maxVisits ?? VISIT_CEILING_OFF;
+}
+
 export function applyLapseFilter<T extends FilterableQuery<T>>(
   query: T,
   rule: LapseRule,
@@ -116,7 +189,7 @@ export function applyLapseFilter<T extends FilterableQuery<T>>(
 ): T {
   return query
     .neq("status", "opted_out")
-    .lte("visit_count", rule.maxVisits)
+    .lte("visit_count", visitCeiling(rule))
     .lte("last_visit_at", lapseCutoff(rule, now));
 }
 
@@ -135,7 +208,7 @@ export function applyLapseFilter<T extends FilterableQuery<T>>(
  * regular of five years going quiet for six weeks is the single most valuable
  * person to catch, and capping them out made the settings copy a lie. So
  * AtRiskRule still carries maxVisits (it shares LapseRule, and lapseCutoff
- * needs the months), and at-risk simply never reads it.
+ * needs the window), and at-risk simply never reads it.
  */
 
 export type AtRiskRule = LapseRule & { atRiskAfterDays: number };

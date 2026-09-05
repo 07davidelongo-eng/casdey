@@ -17,16 +17,26 @@ const Schema = z.object({
     .min(2, "Members need a name to recognise on the email.")
     .max(120),
   replyToEmail: z.email("That reply-to address does not look right.").max(320),
-  lapsedAfterMonths: z.coerce
+  lapseWindow: z.coerce
     .number()
     .int()
-    .min(3, "Three months is the shortest window casdey will use.")
-    .max(60, "Five years is the longest window casdey will use."),
-  maxVisits: z.coerce
-    .number()
-    .int()
-    .min(1, "At least one visit.")
-    .max(20, "Twenty visits is the most casdey will treat as a drop-off."),
+    .min(1, "The window has to be at least one.")
+    .max(1825, "Five years is the longest window casdey will use."),
+  lapseUnit: z.enum(["months", "days"]),
+  // Absent from the form data entirely when the box is unticked, which is how
+  // an HTML checkbox reports "off". That absence is the off switch.
+  capVisits: z
+    .union([z.literal("on"), z.null(), z.undefined()])
+    .transform((v) => v === "on"),
+  // Arrives as null when the ceiling is switched off, because the field is
+  // disabled and a disabled field is not submitted at all. So it cannot be
+  // required here; the refine below requires it only when the box is ticked.
+  maxVisits: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((v) => {
+      const raw = typeof v === "string" ? v.trim() : "";
+      return raw === "" ? null : Number(raw);
+    }),
   atRiskAfterDays: z.coerce
     .number()
     .int()
@@ -47,13 +57,44 @@ const Schema = z.object({
       (v) => v === null || (Number.isFinite(v) && v >= 0 && v <= 1_000_000),
       "Enter the value as a number, like 120.",
     ),
-}).refine(
-  (value) => value.atRiskAfterDays < value.lapsedAfterMonths * 30,
-  {
-    message: "The check-in window must be shorter than the lapse window.",
-    path: ["atRiskAfterDays"],
-  },
-);
+})
+  .refine(
+    (value) =>
+      !value.capVisits ||
+      (value.maxVisits !== null &&
+        Number.isInteger(value.maxVisits) &&
+        value.maxVisits >= 1 &&
+        value.maxVisits <= 200),
+    {
+      message: "The visit ceiling has to be a whole number from 1 to 200.",
+      path: ["maxVisits"],
+    },
+  )
+  .refine(
+    (value) => value.lapseUnit !== "months" || value.lapseWindow <= 60,
+    {
+      message: "Five years is the longest window casdey will use.",
+      path: ["lapseWindow"],
+    },
+  )
+  .refine(
+    (value) => value.lapseUnit !== "days" || value.lapseWindow >= 7,
+    {
+      message: "A week is the shortest window casdey will use.",
+      path: ["lapseWindow"],
+    },
+  )
+  .refine(
+    (value) =>
+      value.atRiskAfterDays <
+      (value.lapseUnit === "days"
+        ? value.lapseWindow
+        : value.lapseWindow * 30),
+    {
+      message: "The check-in window must be shorter than the lapse window.",
+      path: ["atRiskAfterDays"],
+    },
+  );
 
 export async function saveSettingsAction(
   _previous: SettingsState,
@@ -65,7 +106,9 @@ export async function saveSettingsAction(
     name: formData.get("name"),
     senderName: formData.get("senderName"),
     replyToEmail: formData.get("replyToEmail"),
-    lapsedAfterMonths: formData.get("lapsedAfterMonths"),
+    lapseWindow: formData.get("lapseWindow"),
+    lapseUnit: formData.get("lapseUnit"),
+    capVisits: formData.get("capVisits"),
     maxVisits: formData.get("maxVisits"),
     atRiskAfterDays: formData.get("atRiskAfterDays"),
     dailySendCap: formData.get("dailySendCap"),
@@ -87,14 +130,26 @@ export async function saveSettingsAction(
       ? null
       : Math.round(value.bookingValue * 100);
 
+  // Both window columns are always written. lapsed_after_days is the one the
+  // app reads when it is set (see ruleFor() in src/lib/lapse.ts), and
+  // lapsed_after_months is kept in step behind it because the deployed app
+  // shares this database and still reads it. A days window rounds UP into the
+  // months column: rounding down would make the stale reader's window shorter
+  // than the gym asked for, which contacts people the gym did not mean to
+  // contact. Too cautious is recoverable, too eager is not.
+  const days = value.lapseUnit === "days" ? value.lapseWindow : null;
+  const months =
+    days === null ? value.lapseWindow : Math.max(3, Math.ceil(days / 30));
+
   const { error } = await supabaseAdmin()
     .from("gyms")
     .update({
       name: value.name,
       sender_name: value.senderName,
       reply_to_email: value.replyToEmail.toLowerCase(),
-      lapsed_after_months: value.lapsedAfterMonths,
-      max_visits: value.maxVisits,
+      lapsed_after_months: months,
+      lapsed_after_days: days,
+      max_visits: value.capVisits ? value.maxVisits : null,
       at_risk_after_days: value.atRiskAfterDays,
       daily_send_cap: value.dailySendCap,
       booking_value_minor: bookingValueMinor,
@@ -112,8 +167,8 @@ export async function saveSettingsAction(
     actorEmail: session.email,
     action: "gym.updated",
     meta: {
-      lapsed_after_months: value.lapsedAfterMonths,
-      max_visits: value.maxVisits,
+      lapse_window: `${value.lapseWindow} ${value.lapseUnit}`,
+      max_visits: value.capVisits ? value.maxVisits : null,
     },
   });
 

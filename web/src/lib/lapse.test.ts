@@ -4,17 +4,23 @@ import {
   applyAtRiskFilter,
   applyLapseFilter,
   atRiskCutoff,
+  describeRule,
   lapseCutoff,
   isAtRisk,
   isContactable,
   isLapsed,
   monthsSince,
+  visitCeiling,
+  VISIT_CEILING_OFF,
   type AtRiskRule,
   type LapseRule,
 } from "./lapse";
 import type { Member } from "./types";
 
-const RULE: LapseRule = { lapsedAfterMonths: 12, maxVisits: 2 };
+const RULE: LapseRule = {
+  window: { value: 12, unit: "months" },
+  maxVisits: 2,
+};
 const AT_RISK_RULE: AtRiskRule = { ...RULE, atRiskAfterDays: 45 };
 const NOW = new Date("2026-08-13T10:00:00Z");
 
@@ -52,7 +58,7 @@ describe("lapseCutoff", () => {
 
   it("crosses a year boundary", () => {
     const now = new Date("2026-02-10T00:00:00Z");
-    expect(lapseCutoff({ ...RULE, lapsedAfterMonths: 3 }, now)).toBe(
+    expect(lapseCutoff({ ...RULE, window: { value: 3, unit: "months" } }, now)).toBe(
       "2025-11-10",
     );
   });
@@ -61,16 +67,78 @@ describe("lapseCutoff", () => {
     // One month before 31 March is 28 February, not 3 March. JavaScript's own
     // date maths gets this wrong, which is why the function does it by hand.
     const now = new Date("2026-03-31T00:00:00Z");
-    expect(lapseCutoff({ ...RULE, lapsedAfterMonths: 1 }, now)).toBe(
+    expect(lapseCutoff({ ...RULE, window: { value: 1, unit: "months" } }, now)).toBe(
       "2026-02-28",
     );
   });
 
   it("keeps 29 February when the target year is a leap year", () => {
     const now = new Date("2025-03-29T00:00:00Z");
-    expect(lapseCutoff({ ...RULE, lapsedAfterMonths: 13 }, now)).toBe(
+    expect(lapseCutoff({ ...RULE, window: { value: 13, unit: "months" } }, now)).toBe(
       "2024-02-29",
     );
+  });
+
+  it("subtracts plain days when the gym set the window in days", () => {
+    // 45 days back from 13 August is 29 June. Going via "one and a half
+    // months" would land somewhere else, which is the whole reason a studio
+    // picks days.
+    expect(lapseCutoff({ ...RULE, window: { value: 45, unit: "days" } }, NOW)).toBe(
+      "2026-06-29",
+    );
+  });
+
+  it("crosses a year boundary in days too", () => {
+    const now = new Date("2026-01-10T00:00:00Z");
+    expect(lapseCutoff({ ...RULE, window: { value: 30, unit: "days" } }, now)).toBe(
+      "2025-12-11",
+    );
+  });
+});
+
+describe("the visit ceiling", () => {
+  const NO_CEILING: LapseRule = { ...RULE, maxVisits: null };
+
+  it("keeps a long-standing regular out of win-back while it is on", () => {
+    const regular = member({ visit_count: 90, last_visit_at: "2024-01-01" });
+    expect(isLapsed(regular, RULE, NOW)).toBe(false);
+  });
+
+  it("includes that same regular once the gym switches it off", () => {
+    const regular = member({ visit_count: 90, last_visit_at: "2024-01-01" });
+    expect(isLapsed(regular, NO_CEILING, NOW)).toBe(true);
+  });
+
+  it("still excludes someone who has not been quiet long enough", () => {
+    const recent = member({ visit_count: 90, last_visit_at: "2026-08-01" });
+    expect(isLapsed(recent, NO_CEILING, NOW)).toBe(false);
+  });
+
+  it("gives queries a ceiling no visit count can exceed, never null", () => {
+    // Passing null into a PostgREST .lte() matches nobody, so a gym that
+    // widened its rule would see an empty list instead of everyone.
+    expect(visitCeiling(NO_CEILING)).toBe(VISIT_CEILING_OFF);
+    expect(visitCeiling(RULE)).toBe(2);
+  });
+});
+
+describe("describeRule", () => {
+  it("says the window in the unit the gym chose", () => {
+    expect(describeRule({ ...RULE, window: { value: 45, unit: "days" } })).toBe(
+      "no visit for 45 days, and at most 2 visits on record",
+    );
+  });
+
+  it("drops the visit clause entirely when the ceiling is off", () => {
+    expect(describeRule({ ...RULE, maxVisits: null })).toBe(
+      "no visit for 12 months",
+    );
+  });
+
+  it("singularises a window of one", () => {
+    expect(
+      describeRule({ window: { value: 1, unit: "months" }, maxVisits: 1 }),
+    ).toBe("no visit for 1 month, and at most 1 visit on record");
   });
 });
 
@@ -119,7 +187,10 @@ describe("isLapsed", () => {
   });
 
   it("follows the gym's own window", () => {
-    const wide: LapseRule = { lapsedAfterMonths: 24, maxVisits: 2 };
+    const wide: LapseRule = {
+      window: { value: 24, unit: "months" },
+      maxVisits: 2,
+    };
     // Away 19 months: lapsed under a 12-month window, not under a 24-month one.
     const away19 = member({ last_visit_at: "2025-01-13" });
     expect(isLapsed(away19, RULE, NOW)).toBe(true);

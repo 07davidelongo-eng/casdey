@@ -1,7 +1,13 @@
 import Link from "next/link";
 
 import { requireGym } from "@/lib/dal";
-import { lapseCutoff, monthsSince, ruleFor } from "@/lib/lapse";
+import {
+  describeRule,
+  lapseCutoff,
+  monthsSince,
+  ruleFor,
+  visitCeiling,
+} from "@/lib/lapse";
 import { capabilities } from "@/lib/plan";
 import {
   ButtonLink,
@@ -50,7 +56,7 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
   if (filter === "lapsed") {
     query = query
       .neq("status", "opted_out")
-      .lte("visit_count", rule.maxVisits)
+      .lte("visit_count", visitCeiling(rule))
       .lte("last_visit_at", cutoff);
   } else if (filter === "contacted") {
     query = query.eq("status", "contacted");
@@ -115,7 +121,7 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
           }
           body={
             filter === "lapsed"
-              ? `No member matches your current rule: no visit for ${gym.lapsed_after_months} months and at most ${gym.max_visits} on record.`
+              ? `No member matches your current rule: ${describeRule(rule)}.`
               : "Once casdey starts writing to members, they show up here."
           }
           action={<ButtonLink href="/app/import">Import your list</ButtonLink>}

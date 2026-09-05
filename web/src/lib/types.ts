@@ -102,9 +102,12 @@ export type Gym = {
   sender_name: string | null;
   reply_to_email: string | null;
   lapsed_after_months: number;
-  max_visits: number;
+  /** Overrides lapsed_after_months when set. See ruleFor() in src/lib/lapse.ts. */
+  lapsed_after_days: number | null;
+  /** Null when the gym has switched the visit ceiling off entirely. */
+  max_visits: number | null;
   /** Days of no visit before a still-active member counts as at-risk.
-   *  Always shorter than lapsed_after_months. See src/lib/lapse.ts. */
+   *  Always shorter than the lapse window. See src/lib/lapse.ts. */
   at_risk_after_days: number;
   daily_send_cap: number;
   stripe_customer_id: string | null;
@@ -255,8 +258,10 @@ export type Campaign = {
  */
 export type AudienceSnapshot = {
   kind: CampaignKind;
-  lapsedAfterMonths: number;
-  maxVisits: number;
+  /** Absent on campaigns built before the window could be set in days. */
+  lapsedAfterMonths?: number;
+  lapseWindow?: { value: number; unit: "months" | "days" };
+  maxVisits: number | null;
   /** Only present for kind: 'at_risk'. */
   atRiskAfterDays?: number;
   /** Only present when a win-back campaign was scoped to one reason. */

@@ -2,7 +2,12 @@ import Link from "next/link";
 
 import { requireGym } from "@/lib/dal";
 import { gymStats } from "@/lib/stats";
-import { atRiskRuleFor, monthsSince, ruleFor } from "@/lib/lapse";
+import {
+  atRiskRuleFor,
+  describeRule,
+  monthsSince,
+  ruleFor,
+} from "@/lib/lapse";
 import {
   estimatedRecoveredMinor,
   formatMoney,
@@ -50,8 +55,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
   const setup = buildSetupState({
     memberCount: stats.members,
     bookingValueSet: gym.booking_value_minor !== null,
-    lapsedAfterMonths: gym.lapsed_after_months,
-    maxVisits: gym.max_visits,
+    ruleDescription: describeRule(ruleFor(gym)),
     offerChosen: Boolean(gym.offer_text),
     sendingConfigured: isSendingConfigured(),
     // Only verified counts. A domain sitting pending sends nothing from the
@@ -105,9 +109,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
       <PageHeader
         eyebrow="Overview"
         title={gym.name}
-        lede={`Lapsed means no visit for ${gym.lapsed_after_months} months, and at most ${gym.max_visits} ${
-          gym.max_visits === 1 ? "visit" : "visits"
-        } on record. Change that in settings.`}
+        lede={`Lapsed means ${describeRule(ruleFor(gym))}. Change that in settings.`}
         actions={
           <ButtonLink href="/app/campaigns/new">Build a campaign</ButtonLink>
         }

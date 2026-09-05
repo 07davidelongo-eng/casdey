@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyAtRiskFilter,
   lapseCutoff,
+  visitCeiling,
   type AtRiskRule,
   type LapseRule,
 } from "./lapse";
@@ -61,7 +62,7 @@ export async function gymStats(
   const lapsedOf = (query: CountQuery) =>
     query
       .neq("status", "opted_out")
-      .lte("visit_count", rule.maxVisits)
+      .lte("visit_count", visitCeiling(rule))
       .lte("last_visit_at", cutoff);
 
   const [members, lapsed, atRisk, reachable, contacted, returned] =
