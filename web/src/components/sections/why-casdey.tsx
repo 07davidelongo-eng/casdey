@@ -1,3 +1,4 @@
+import { Reveal } from "../motion";
 import { Container } from "../ui";
 
 /**
@@ -38,7 +39,9 @@ function Column({
 }) {
   return (
     <div className="p-8 sm:p-10">
-      <p className={quiet ? "label text-stone" : "label text-teal"}>{heading}</p>
+      <p className={quiet ? "label text-stone" : "label text-teal"}>
+        {heading}
+      </p>
       <p className="mt-2 text-[0.9375rem] leading-relaxed text-graphite">
         {note}
       </p>
@@ -54,8 +57,7 @@ function Column({
             <span
               aria-hidden="true"
               className={
-                "mt-[0.6em] h-px w-3 shrink-0 " +
-                (quiet ? "bg-ash" : "bg-teal")
+                "mt-[0.6em] h-px w-3 shrink-0 " + (quiet ? "bg-ash" : "bg-teal")
               }
             />
             {item}
@@ -70,32 +72,34 @@ export function WhyCasdey() {
   return (
     <section id="why-casdey" className="scroll-mt-24 pb-24 sm:pb-32">
       <Container>
-        <div className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
-          <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
-            Everything your gym software does starts with someone walking in.
-          </h2>
-          <p className="text-[1.0625rem] leading-relaxed text-graphite text-pretty lg:pt-2">
-            It runs the members who are already showing up, and it runs them
-            well. The ones who stopped are not a problem it solves badly, they
-            are simply absent from it. On most lists that is the larger half.
-          </p>
-        </div>
-
-        <div className="mt-12 overflow-hidden rounded-[20px] border border-ash bg-white">
-          <div className="grid divide-y divide-ash sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-            <Column
-              quiet
-              heading="Your gym software"
-              note="Everything downstream of a member turning up."
-              items={COVERED}
-            />
-            <Column
-              heading="casdey"
-              note="Everything that happens once they stop."
-              items={UNCOVERED}
-            />
+        <Reveal>
+          <div className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
+            <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
+              Everything your gym software does starts with someone walking in.
+            </h2>
+            <p className="text-[1.0625rem] leading-relaxed text-graphite text-pretty lg:pt-2">
+              It runs the members who are already showing up, and it runs them
+              well. The ones who stopped are not a problem it solves badly, they
+              are simply absent from it. On most lists that is the larger half.
+            </p>
           </div>
-        </div>
+
+          <div className="mt-12 overflow-hidden rounded-[20px] border border-ash bg-white">
+            <div className="grid divide-y divide-ash sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+              <Column
+                quiet
+                heading="Your gym software"
+                note="Everything downstream of a member turning up."
+                items={COVERED}
+              />
+              <Column
+                heading="casdey"
+                note="Everything that happens once they stop."
+                items={UNCOVERED}
+              />
+            </div>
+          </div>
+        </Reveal>
       </Container>
     </section>
   );

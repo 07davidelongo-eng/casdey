@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { AppShot, type View } from "../app-shot";
+import { Reveal } from "../motion";
 import { Container } from "../ui";
 
 /**
@@ -44,52 +45,52 @@ export function WhatItDoes() {
   return (
     <section id="what-it-does" className="scroll-mt-24 py-24 sm:py-32">
       <Container>
-        <h2 className="display max-w-[24ch] text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink">
-          Four screens, and your team touches one of them.
-        </h2>
+        <Reveal>
+          <h2 className="display max-w-[24ch] text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink">
+            Four screens, and your team touches one of them.
+          </h2>
 
-        <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-14">
-          <ol className="list-none">
-            {STEPS.map((step, i) => {
-              const on = i === active;
-              return (
-                <li key={step.view}>
-                  <button
-                    type="button"
-                    onClick={() => setActive(i)}
-                    aria-current={on ? "true" : undefined}
-                    className={
-                      "w-full border-l-2 py-4 pl-5 text-left transition-colors duration-200 " +
-                      (on
-                        ? "border-teal"
-                        : "border-ash hover:border-stone")
-                    }
-                  >
-                    <span
+          <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-14">
+            <ol className="list-none">
+              {STEPS.map((step, i) => {
+                const on = i === active;
+                return (
+                  <li key={step.view}>
+                    <button
+                      type="button"
+                      onClick={() => setActive(i)}
+                      aria-current={on ? "true" : undefined}
                       className={
-                        "block text-[1.0625rem] font-medium transition-colors duration-200 " +
-                        (on ? "text-ink" : "text-stone")
+                        "w-full border-l-2 py-4 pl-5 text-left transition-colors duration-200 " +
+                        (on ? "border-teal" : "border-ash hover:border-stone")
                       }
                     >
-                      {step.title}
-                    </span>
-                    {on && (
-                      <span className="mt-2 block text-[0.9375rem] leading-relaxed text-graphite">
-                        {step.body}
+                      <span
+                        className={
+                          "block text-[1.0625rem] font-medium transition-colors duration-200 " +
+                          (on ? "text-ink" : "text-stone")
+                        }
+                      >
+                        {step.title}
                       </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+                      {on && (
+                        <span className="mt-2 block text-[0.9375rem] leading-relaxed text-graphite">
+                          {step.body}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
 
-          <div className="lg:pt-1">
-            <div key={active} className="view-fade">
-              <AppShot view={STEPS[active].view} />
+            <div className="lg:pt-1">
+              <div key={active} className="view-fade">
+                <AppShot view={STEPS[active].view} />
+              </div>
             </div>
           </div>
-        </div>
+        </Reveal>
       </Container>
     </section>
   );

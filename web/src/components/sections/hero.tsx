@@ -1,4 +1,5 @@
 import { AppShot } from "../app-shot";
+import { Reveal, TiltWindow } from "../motion";
 import { ButtonLink, Container } from "../ui";
 import Link from "next/link";
 
@@ -21,63 +22,75 @@ export function Hero() {
       />
 
       <Container className="relative text-center">
-        <Link
-          href="/login?mode=signup"
-          className="inline-flex items-center gap-2 rounded-full border border-ash bg-white/70 px-3.5 py-1.5 text-[13px] text-graphite transition-colors duration-200 hover:border-stone hover:text-ink"
-        >
-          Free first week, no card
-          <span aria-hidden="true" className="text-teal">
-            &rarr;
-          </span>
-        </Link>
-
-        <h1 className="display mx-auto mt-7 max-w-[19ch] text-[clamp(1.9rem,3.4vw,2.9rem)] text-ink">
-          Win back the members who stopped coming.
-        </h1>
-
-        <p className="mx-auto mt-5 max-w-[52ch] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-          casdey finds them in your own records, writes to each one in your
-          gym&apos;s name, and books the ones who answer.
-        </p>
-
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <ButtonLink
+        <Reveal>
+          <Link
             href="/login?mode=signup"
-            className="px-4 py-2.5 text-[0.875rem]"
+            className="inline-flex items-center gap-2 rounded-full border border-ash bg-white/70 px-3.5 py-1.5 text-[13px] text-graphite transition-colors duration-200 hover:border-stone hover:text-ink"
           >
-            Start your free week
-          </ButtonLink>
-          <ButtonLink
-            href="/#what-it-does"
-            variant="quiet"
-            className="px-4 py-2.5 text-[0.875rem]"
-          >
-            See how it works
-          </ButtonLink>
-        </div>
+            Free first week, no card
+            <span aria-hidden="true" className="text-teal">
+              &rarr;
+            </span>
+          </Link>
+        </Reveal>
+
+        <Reveal delay={70}>
+          <h1 className="display mx-auto mt-7 max-w-[19ch] text-[clamp(1.9rem,3.4vw,2.9rem)] text-ink">
+            Win back the members who stopped coming.
+          </h1>
+        </Reveal>
+
+        <Reveal delay={140}>
+          <p className="mx-auto mt-5 max-w-[52ch] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
+            casdey finds them in your own records, writes to each one in your
+            gym&apos;s name, and books the ones who answer.
+          </p>
+        </Reveal>
+
+        <Reveal delay={210}>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <ButtonLink
+              href="/login?mode=signup"
+              className="px-4 py-2.5 text-[0.875rem]"
+            >
+              Start your free week
+            </ButtonLink>
+            <ButtonLink
+              href="/#what-it-does"
+              variant="quiet"
+              className="px-4 py-2.5 text-[0.875rem]"
+            >
+              See how it works
+            </ButtonLink>
+          </div>
+        </Reveal>
       </Container>
 
       <Container className="relative mt-14 sm:mt-16">
-        <div className="relative">
-          <AppShot view="members" />
+        <TiltWindow>
+          <div className="relative">
+            <AppShot view="members" />
 
-          {/* The moment the product is sold on, floated over the list the
+            {/* The moment the product is sold on, floated over the list the
               way the good software sites layer one panel over another.
               Hidden below md, where it would cover the table it is meant to
               be commenting on. */}
-          <div className="absolute -bottom-7 left-6 hidden w-[268px] rounded-[14px] border border-ash bg-white p-4 shadow-float md:block lg:left-10">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber" />
-              <span className="text-[12px] font-medium text-amber">Returned</span>
+            <div className="absolute -bottom-7 left-6 hidden w-[268px] rounded-[14px] border border-ash bg-white p-4 shadow-float md:block lg:left-10">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-amber" />
+                <span className="text-[12px] font-medium text-amber">
+                  Returned
+                </span>
+              </div>
+              <p className="display mt-2 text-[1.375rem] leading-none text-ink tabular-nums">
+                Tue 14:30
+              </p>
+              <p className="mt-1.5 text-[12px] text-stone">
+                J. Okafor · PT session, 45 min
+              </p>
             </div>
-            <p className="display mt-2 text-[1.375rem] leading-none text-ink tabular-nums">
-              Tue 14:30
-            </p>
-            <p className="mt-1.5 text-[12px] text-stone">
-              J. Okafor · PT session, 45 min
-            </p>
           </div>
-        </div>
+        </TiltWindow>
         <p className="mt-12 text-center text-[12px] text-stone md:mt-14">
           Illustrative. casdey holds no member data of its own.
         </p>

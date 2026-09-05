@@ -1,3 +1,4 @@
+import { CountUp, Typed } from "./motion";
 import { Logo } from "./wordmark";
 
 /**
@@ -104,11 +105,13 @@ function Members() {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h3 className="display text-[1.15rem] text-ink">Members</h3>
         <p className="text-[12px] text-stone">
-          412 members
+          <CountUp to={412} /> members
           <span className="mx-1.5 text-ash">·</span>
-          <span className="text-teal">168 lapsed</span>
+          <span className="text-teal">
+            <CountUp to={168} /> lapsed
+          </span>
           <span className="mx-1.5 text-ash">·</span>
-          worth €14,900
+          worth <CountUp to={14900} prefix="€" />
         </p>
       </div>
 
@@ -164,7 +167,7 @@ function Offer() {
         What the quiet list is worth
       </h3>
       <p className="mt-4 display text-[2.4rem] leading-none text-ink tabular-nums">
-        €14,900
+        <CountUp to={14900} prefix="€" />
       </p>
       <p className="mt-2 text-[12px] text-stone">
         168 lapsed members, valued at your own prices
@@ -218,8 +221,7 @@ function Campaign() {
             Hi <span className="font-semibold text-teal">Joseph</span>,
           </p>
           <p className="mt-2">
-            It has been a while since your last visit with us. Want me to find
-            you a time to come back in?
+            <Typed text="It has been a while since your last visit with us. Want me to find you a time to come back in?" />
           </p>
           <p className="mt-2">Sarah, Iron Works Gym</p>
         </div>
