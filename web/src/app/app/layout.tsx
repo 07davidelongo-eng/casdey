@@ -23,7 +23,10 @@ import "@/styles/product.css";
  */
 
 export const metadata = {
-  title: "casdey",
+  // The template has to be restated here, not just the name. A plain string
+  // title carries no template, so the root's "%s · casdey" reached /app but
+  // died one segment further down: "Overview · casdey" but a bare "Members".
+  title: { default: "casdey", template: "%s · casdey" },
   robots: { index: false, follow: false },
 };
 
