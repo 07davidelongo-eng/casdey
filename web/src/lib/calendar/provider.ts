@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../supabase";
 import type { CalendarConnection } from "../types";
 import type { Interval } from "./availability";
 import {
+  createAppCalendar,
   deleteEvent as googleDeleteEvent,
   insertEvent as googleInsertEvent,
   queryFreeBusy,
@@ -119,34 +120,75 @@ export async function calendarFor(
     return null;
   }
 
-  const calendarId = connection.google_calendar_id;
+  // Two different calendars, and conflating them is what broke booking in
+  // production: casdey READS busy times from the gym's own diary (normally
+  // "primary") and WRITES bookings into a calendar it created itself, because
+  // the calendar.app.created scope cannot see any other one.
+  const readId = connection.google_calendar_id;
 
   return {
-    calendarId,
+    calendarId: readId,
     connectedEmail: connection.connected_email,
     async getBusy(timeMin, timeMax) {
+      const writeId = connection.google_write_calendar_id;
       return queryFreeBusy({
         accessToken: await validAccessToken(connection),
-        calendarId,
+        // Both, so a slot casdey booked is busy even before the gym's own
+        // diary knows about it. Duplicates are harmless; openSlots merges.
+        calendarId: writeId && writeId !== readId ? [readId, writeId] : readId,
         timeMin,
         timeMax,
       });
     },
     async createEvent(opts) {
+      const accessToken = await validAccessToken(connection);
       return googleInsertEvent({
-        accessToken: await validAccessToken(connection),
-        calendarId,
+        accessToken,
+        calendarId: await writeCalendarId(connection, accessToken),
         ...opts,
       });
     },
     async deleteEvent(eventId) {
+      const accessToken = await validAccessToken(connection);
       return googleDeleteEvent({
-        accessToken: await validAccessToken(connection),
-        calendarId,
+        accessToken,
+        calendarId: await writeCalendarId(connection, accessToken),
         eventId,
       });
     },
   };
+}
+
+/**
+ * The calendar casdey writes into, creating it if this connection predates
+ * having one.
+ *
+ * Provisioned lazily rather than only at connect time so a gym that connected
+ * earlier is repaired the first time it books, instead of being told to go
+ * and reconnect for a reason it cannot see. Stored straight away, so this
+ * costs one extra Google call once per connection and never again.
+ */
+async function writeCalendarId(
+  connection: CalendarConnection,
+  accessToken: string,
+): Promise<string> {
+  const existing = connection.google_write_calendar_id;
+  // "primary" is not a usable write target under the app-created scope, so an
+  // old row carrying it is treated as unprovisioned rather than trusted.
+  if (existing && existing !== "primary") return existing;
+
+  const { calendarId } = await createAppCalendar({ accessToken });
+
+  await supabaseAdmin()
+    .from("calendar_connections")
+    .update({ google_write_calendar_id: calendarId })
+    .eq("id", connection.id);
+
+  // Keep the in-memory row in step, so two bookings in one request do not
+  // create two calendars.
+  connection.google_write_calendar_id = calendarId;
+
+  return calendarId;
 }
 
 /** The non-secret view of a gym's connection, safe to render in Settings. */

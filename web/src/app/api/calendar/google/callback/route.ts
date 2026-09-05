@@ -3,7 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
-import { calendarRedirectUri, exchangeCode } from "@/lib/calendar/google";
+import {
+  calendarRedirectUri,
+  createAppCalendar,
+  exchangeCode,
+} from "@/lib/calendar/google";
 import { encryptToken } from "@/lib/calendar/tokens";
 
 export const runtime = "nodejs";
@@ -68,6 +72,24 @@ export async function GET(request: NextRequest): Promise<Response> {
       return clearStateAndRedirect(back);
     }
 
+    // The calendar casdey will write bookings into. It has to make its own:
+    // under the calendar.app.created scope the gym's "primary" calendar is not
+    // visible at all, so there is nowhere else a booking is allowed to go.
+    // Best-effort here rather than fatal, because a connection that can still
+    // read free/busy is worth keeping, and the write calendar is provisioned
+    // again on first use if this call failed.
+    let writeCalendarId: string | null = null;
+    try {
+      writeCalendarId = (await createAppCalendar({
+        accessToken: tokens.accessToken,
+      })).calendarId;
+    } catch (calendarError) {
+      console.error(
+        "[calendar] could not create the casdey calendar",
+        calendarError instanceof Error ? calendarError.message : calendarError,
+      );
+    }
+
     // Upsert: reconnecting replaces the old tokens rather than erroring on the
     // one-connection-per-gym unique constraint.
     const { error } = await supabaseAdmin()
@@ -77,6 +99,7 @@ export async function GET(request: NextRequest): Promise<Response> {
           gym_id: gym.id,
           provider: "google",
           google_calendar_id: "primary",
+          google_write_calendar_id: writeCalendarId,
           access_token_enc: encryptToken(tokens.accessToken),
           refresh_token_enc: encryptToken(tokens.refreshToken),
           token_expires_at: tokens.expiresAt.toISOString(),

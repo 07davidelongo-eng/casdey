@@ -340,6 +340,10 @@ export type CalendarConnection = {
   gym_id: string;
   provider: CalendarProvider;
   google_calendar_id: string;
+  /** The calendar casdey creates and writes bookings into. Null on a
+   *  connection made before this existed; provisioned on first use. Never
+   *  "primary", which the calendar.app.created scope cannot see. */
+  google_write_calendar_id: string | null;
   access_token_enc: string | null;
   refresh_token_enc: string | null;
   token_expires_at: string | null;

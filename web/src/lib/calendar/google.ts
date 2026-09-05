@@ -194,20 +194,71 @@ export async function refreshAccessToken(refreshToken: string): Promise<GoogleTo
   };
 }
 
-/** Turns a freebusy.query response into the busy intervals openSlots wants. */
+/**
+ * The name of the calendar casdey creates in the gym's Google account.
+ *
+ * It has to create one. Under `calendar.app.created` the gym's own
+ * `primary` calendar is not visible at all (events.insert answers 404, not
+ * 403), so there is nowhere else casdey is allowed to put a booking. The gym
+ * sees this as an extra calendar in their sidebar, which they can hide, share
+ * or delete, and casdey can never reach anything outside it.
+ */
+export const CASDEY_CALENDAR_SUMMARY = "casdey bookings";
+
+/**
+ * Creates that calendar and returns its id. Called once, when a gym connects.
+ */
+export async function createAppCalendar(opts: {
+  accessToken: string;
+  timeZone?: string | null;
+}): Promise<{ calendarId: string }> {
+  const response = await fetch(`${CALENDAR_API}/calendars`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      summary: CASDEY_CALENDAR_SUMMARY,
+      description:
+        "Bookings made through casdey. casdey can only see and change events on this calendar.",
+      ...(opts.timeZone ? { timeZone: opts.timeZone } : {}),
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `Google calendars.insert failed: ${response.status} ${detail.slice(0, 200)}`,
+    );
+  }
+  const json = (await response.json()) as { id?: string };
+  if (!json.id) {
+    throw new Error("Google created the calendar but returned no id");
+  }
+  return { calendarId: json.id };
+}
+
+/**
+ * Turns a freebusy.query response into the busy intervals openSlots wants.
+ *
+ * Takes every calendar asked about and merges them, because a gym is busy if
+ * *any* of their calendars says so. openSlots does not care which one.
+ */
 export function parseFreeBusy(
   json: unknown,
-  calendarId: string,
+  calendarIds: string | string[],
 ): Interval[] {
   const calendars = (json as { calendars?: Record<string, { busy?: { start: string; end: string }[] }> })
     ?.calendars;
-  const busy = calendars?.[calendarId]?.busy ?? [];
-  return busy.map((b) => ({ start: new Date(b.start), end: new Date(b.end) }));
+  const ids = Array.isArray(calendarIds) ? calendarIds : [calendarIds];
+  return ids
+    .flatMap((id) => calendars?.[id]?.busy ?? [])
+    .map((b) => ({ start: new Date(b.start), end: new Date(b.end) }));
 }
 
 export async function queryFreeBusy(opts: {
   accessToken: string;
-  calendarId: string;
+  calendarId: string | string[];
   timeMin: Date;
   timeMax: Date;
 }): Promise<Interval[]> {
@@ -220,7 +271,10 @@ export async function queryFreeBusy(opts: {
     body: JSON.stringify({
       timeMin: opts.timeMin.toISOString(),
       timeMax: opts.timeMax.toISOString(),
-      items: [{ id: opts.calendarId }],
+      items: (Array.isArray(opts.calendarId)
+        ? opts.calendarId
+        : [opts.calendarId]
+      ).map((id) => ({ id })),
     }),
   });
   if (!response.ok) {

@@ -117,3 +117,35 @@ describe("calendarStateCookieDomain", () => {
     expect(calendarStateCookieDomain()).toBeUndefined();
   });
 });
+
+describe("parseFreeBusy across several calendars", () => {
+  // casdey reads the gym's own diary AND the calendar it writes into, because
+  // a gym is busy if either says so. Before the split there was one calendar
+  // id and this case could not arise.
+  const json = {
+    calendars: {
+      primary: { busy: [{ start: "2026-09-07T09:00:00Z", end: "2026-09-07T10:00:00Z" }] },
+      "casdey@group.calendar.google.com": {
+        busy: [{ start: "2026-09-07T14:00:00Z", end: "2026-09-07T14:30:00Z" }],
+      },
+    },
+  };
+
+  it("merges the busy blocks from every calendar asked about", () => {
+    const merged = parseFreeBusy(json, [
+      "primary",
+      "casdey@group.calendar.google.com",
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged[0].start.toISOString()).toBe("2026-09-07T09:00:00.000Z");
+    expect(merged[1].end.toISOString()).toBe("2026-09-07T14:30:00.000Z");
+  });
+
+  it("still takes a single id, the way every existing caller passes one", () => {
+    expect(parseFreeBusy(json, "primary")).toHaveLength(1);
+  });
+
+  it("ignores a calendar Google returned nothing for", () => {
+    expect(parseFreeBusy(json, ["primary", "missing"])).toHaveLength(1);
+  });
+});
