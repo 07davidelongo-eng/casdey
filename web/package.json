@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "check:resend": "node scripts/resend-check.mjs",
     "check:stripe": "node scripts/stripe-check.mjs",
-    "setup:stripe": "node scripts/stripe-setup.mjs"
+    "setup:stripe": "node scripts/stripe-setup.mjs",
+    "check:stripe:prod": "node scripts/stripe-check-prod.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
