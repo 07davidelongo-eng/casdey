@@ -98,9 +98,18 @@ export function WhatsAppSettingsForm({
             className="field literal"
           />
           <p className="field-hint">
+            Your template must contain{" "}
+            <strong className="text-ink">exactly one variable</strong>,{" "}
+            <code className="literal">{"{{1}}"}</code>, which casdey fills with
+            your gym&apos;s name. A template with none, or with more than one,
+            is rejected the moment casdey tries to send it, and a replacement
+            takes days to get approved. Worth checking before you submit it to
+            Meta rather than after.
+          </p>
+          <p className="field-hint mt-2">
             Leave this blank if you have not had a template approved yet. You
-            can turn WhatsApp on in the meantime; creating a campaign is blocked
-            until this is set.
+            can turn WhatsApp on in the meantime; creating a campaign is
+            blocked until this is set.
           </p>
         </div>
       </Card>

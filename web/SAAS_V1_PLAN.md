@@ -463,7 +463,64 @@ JD's cold-outreach asks, pulled into V1 per §0. The first two of JD's four
 (at-risk detection, cancellation reasons) already shipped in `88ff34f`. These
 are the rest.
 
-### E1. WhatsApp channel + AI reply loop — revive for gym — `code done 2026-09-03; prod verify + B8 left` — firm V1
+### E1. WhatsApp channel + AI reply loop — `code done; first-use audit done 2026-09-05` — firm V1
+
+**First-use readiness audit, 2026-09-05.** Davide's ask was not "is it coded",
+it was "do you believe it has to work the first time a gym uses it". It did
+not, and the whole path was walked against how it will actually be set up.
+
+**Three ways the first message would have failed. All fixed.**
+
+1. **Every inbound reply would have been rejected, 401.** Twilio signs the
+   webhook URL exactly as typed into its console. The route verified against
+   `siteUrl()`, the apex, while casdey answers on both the apex and `www`
+   and the apex 308s to `www` in production. The URL a person sees and copies
+   is the www one, and that signature can never match an apex check. The
+   member's reply is lost and the gym never learns a conversation happened.
+   Now either spelling of casdey's own hostname is accepted, which gives
+   nothing away: forging any signature at all needs the auth token.
+2. **A template *name* typed where a Content SID belongs saved happily.** The
+   value goes straight into Twilio's `ContentSid`, which must be `HX` plus
+   32 hex characters, and both Meta and Twilio show a template's friendly name
+   far more prominently than its SID. Validation checked length only, so the
+   first sign of trouble was an opaque error on a real campaign to real
+   members. Now checked for shape at the field.
+3. **A campaign could be created with no sender at all.** The gate wanted the
+   Pro plan, the toggle and the template, but not `whatsapp_from`, so a
+   campaign would build its whole audience and fail on the first send.
+
+**And one thing nobody was told.** casdey always sends exactly one template
+variable, `{{1}}`, filled with the gym's name. A gym getting a template
+approved with none, or with two, only finds out when the send is rejected,
+having already waited days for Meta. The field now says so, before they submit
+it rather than after.
+
+**Checked and found sound, so recorded rather than changed:** inbound `To`
+matching against `gyms.whatsapp_from` agrees on E.164 formatting; the 24-hour
+freeform window cannot be breached, because the conversation card is read-only
+and AI replies go out immediately on the inbound message; duplicate deliveries
+are claimed idempotently against `whatsapp_events`; the provider genuinely
+cannot be constructed without a per-gym sender; and `TWILIO_ACCOUNT_SID` /
+`TWILIO_AUTH_TOKEN` / `ANTHROPIC_API_KEY` are all in Vercel.
+
+**Correction to CLAUDE.md:** it still says `TWILIO_WHATSAPP_FROM` is
+deliberately unset so the channel stays "honestly disabled". That env var is no
+longer read anywhere. G2 replaced it with `gyms.whatsapp_from`, so the channel
+becomes live for a gym the moment that gym sets its own number, and nothing
+casdey-side gates it beyond the Pro plan.
+
+**What still cannot be guaranteed from here, honestly:**
+- The gym's own Meta/Twilio sender registration. If the number is not properly
+  registered as a WhatsApp sender, nothing casdey does helps.
+- That Meta approves the gym's template at all, or approves the wording.
+- The very first live send, which has still never happened. Everything on
+  casdey's side of the Twilio boundary is now either verified or fails at
+  setup instead of at send, but the boundary itself is untested in production.
+
+**Not Davide's to unblock**, and the board no longer pretends otherwise: since
+G2 made the sender per-gym, the Meta sender and its template approval belong
+to the gym, under the gym's own account. This waits on the first gym that
+wants WhatsApp.
 Restored the WhatsApp channel built pre-pivot (`81d9a93`, `314c291`) and
 deleted in the gym rebuild (`25af6aa`). Commit `cd0fd70`.
 - **Done — engine.** `src/lib/whatsapp/{twilio,signature,send,ai-agent,campaign-send}.ts`
@@ -1249,7 +1306,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
 | B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | done 2026-09-04 — Trial→Full verified via API, $20 balance; Vercel has SID/TOKEN/ANTHROPIC. E1 prod send now gated on a Meta-approved sender + templates, not billing |
 | B9 | Confirm JD's gym software + API access (feeds E2) | Davide | closed 2026-09-04 — LegitFit, no developer API, Zapier is trigger-only → E2 to V2 |
-| E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03. **Not Davide's to unblock**: since G2 made the sender per-gym, the Meta sender and template approval belong to the *gym*, under its own WABA. So prod verification waits on the first gym that wants WhatsApp, not on anything casdey can do first |
+| E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; **first-use audit done 2026-09-05**, which found and fixed three failures that would each have broken the first real message (inbound signature rejected on the www hostname, a template name accepted where a Content SID is required, a campaign creatable with no sender) plus the undocumented one-variable template contract. **Not Davide's to unblock**: the Meta sender and template approval belong to the gym, under its own WABA |
 | E2 | Direct LegitFit member sync | me | **exits to V2** 2026-09-04 — no API, and Zapier triggers cannot backfill the historical members casdey needs; CSV (A3) is the V1 path |
 | F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | done 2026-09-03 — Standard €99 / Pro €289; caps 200 / 2,000; WhatsApp + guarantee Pro-only; flat 20% early-adopter |
 | F1 | Plan model: 4-plan capabilities, caps 50/200/2000, gates wired | me | code done 2026-09-03 |
