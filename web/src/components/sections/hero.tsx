@@ -1,55 +1,51 @@
-import { HeroMockup } from "../marks/hero-mockup";
+import { MemberWall } from "../member-wall";
 import { ButtonLink, Container } from "../ui";
 
 const SOFTWARE = ["Mindbody", "Glofox", "TeamUp", "ABC Fitness"];
 
+/**
+ * The hero shows the problem instead of claiming it.
+ *
+ * Every version before this one put a headline beside a mocked-up product
+ * card, which is the arrangement every B2B page uses and which asks the
+ * visitor to take the premise on trust. The list itself is more persuasive
+ * than any sentence about it: a gym owner recognises that shape immediately,
+ * because it is their own export.
+ */
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pb-16 pt-14 sm:pb-20 sm:pt-20">
-      {/* A single wash of the shallow tint, set off the right edge, so the hero
-          sits slightly forward of the paper without becoming a coloured band. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-40 -top-56 h-[620px] w-[620px] rounded-full bg-shallow/60 blur-3xl"
-      />
+    <section className="pb-16 pt-16 sm:pb-24 sm:pt-24">
+      <Container>
+        <h1 className="display max-w-[46rem] text-[clamp(2.15rem,4.4vw,3.45rem)] text-ink">
+          Every gym has a quiet half.
+          <span className="text-stone">
+            {" "}
+            casdey finds them, writes in your name, and books the ones who
+            answer.
+          </span>
+        </h1>
 
-      <Container className="relative">
-        <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
-          <div>
-            <h1 className="display text-[clamp(2.5rem,5.4vw,4rem)] text-ink">
-              Win back the members
-              <br />
-              who quietly
-              <br />
-              stopped coming.
-            </h1>
-
-            <p className="mt-7 max-w-lg text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-              casdey finds the members your gym has not seen in years and
-              writes to them in your name, so the ones worth winning back reply
-              straight to your front desk. No chasing, no ad spend.
-            </p>
-
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <ButtonLink href="/login?mode=signup">
-                Start your free week
-              </ButtonLink>
-              <ButtonLink href="/#how-it-works" variant="quiet">
-                See how it works
-              </ButtonLink>
-            </div>
-
-            <p className="label mt-4 text-stone">
-              free first week · no card · no commitment
-            </p>
-          </div>
-
-          <div className="lg:justify-self-end">
-            <HeroMockup />
-          </div>
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ButtonLink href="/login?mode=signup">
+            Start your free week
+          </ButtonLink>
+          <ButtonLink href="/#how-it-works" variant="quiet">
+            See how it works
+          </ButtonLink>
+          <p className="label text-stone sm:ml-3">
+            no card · no commitment
+          </p>
         </div>
 
-        <div className="mt-20 flex flex-col gap-5 border-t border-ash/70 pt-8 sm:flex-row sm:items-center sm:gap-10">
+        <div className="mt-16 sm:mt-20">
+          <p className="mb-10 max-w-[34rem] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
+            Sort any gym list by time since last visit and this is the shape.
+            Your gym software covers the left. Nothing covers the right.
+          </p>
+          <MemberWall />
+        </div>
+
+        <div className="mt-16 flex flex-col gap-5 border-t border-ash/70 pt-8 sm:flex-row sm:items-center sm:gap-10">
           <p className="label shrink-0 text-stone">
             works with any gym software
           </p>
