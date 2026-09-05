@@ -11,7 +11,12 @@ import {
   REASONS,
 } from "@/lib/offers/questions";
 import { OFFERS } from "@/lib/offers/library";
-import { deadlineFrom, formatDeadline, rankOffers, renderOffer } from "@/lib/offers/select";
+import {
+  deadlineFrom,
+  formatDeadline,
+  rankOffers,
+  renderOffer,
+} from "@/lib/offers/select";
 import type { GymType, LapseReason, OfferBudget } from "@/lib/offers/types";
 import { chooseOfferAction, type OfferState } from "./actions";
 import { EditStep } from "./edit-step";
@@ -42,14 +47,38 @@ const EMPTY: Answers = {
 };
 
 const STEPS = [
-  { key: "gymType", title: "What kind of place is this?", why: "Different rooms lose people for different reasons." },
-  { key: "reason", title: "Why do members usually stop coming?", why: "This is the one an offer has to answer. Getting it wrong makes the offer irrelevant rather than merely imperfect." },
-  { key: "budget", title: "What can you actually afford to give?", why: "casdey will not suggest an offer you cannot honour. A promise broken in public is worse than no offer." },
-  { key: "offPeak", title: "Do you have quiet hours worth filling?", why: "An empty spot costs you almost nothing and is worth the same to the member as one that costs you money." },
-  { key: "deadline", title: "How long should it stay open?", why: "An offer with no end is not an offer." },
+  {
+    key: "gymType",
+    title: "What kind of place is this?",
+    why: "Different rooms lose people for different reasons.",
+  },
+  {
+    key: "reason",
+    title: "Why do members usually stop coming?",
+    why: "This is the one an offer has to answer. Getting it wrong makes the offer irrelevant rather than merely imperfect.",
+  },
+  {
+    key: "budget",
+    title: "What can you actually afford to give?",
+    why: "casdey will not suggest an offer you cannot honour. A promise broken in public is worse than no offer.",
+  },
+  {
+    key: "offPeak",
+    title: "Do you have quiet hours worth filling?",
+    why: "An empty spot costs you almost nothing and is worth the same to the member as one that costs you money.",
+  },
+  {
+    key: "deadline",
+    title: "How long should it stay open?",
+    why: "An offer with no end is not an offer.",
+  },
 ] as const;
 
-export function OfferBuilder({ current }: { current: { id: string | null; text: string | null; expiresAt: string | null } }) {
+export function OfferBuilder({
+  current,
+}: {
+  current: { id: string | null; text: string | null; expiresAt: string | null };
+}) {
   const [step, setStep] = useState(0);
   /** The offer the gym picked, held while they edit its wording. */
   const [chosenId, setChosenId] = useState<string | null>(null);
@@ -81,7 +110,9 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
   );
 
   const ranked = useMemo(() => (inputs ? rankOffers(inputs) : []), [inputs]);
-  const deadline = inputs ? deadlineFrom(new Date(), inputs.deadlineDays) : null;
+  const deadline = inputs
+    ? deadlineFrom(new Date(), inputs.deadlineDays)
+    : null;
 
   function pick<K extends keyof Answers>(key: K, value: Answers[K]) {
     setAnswers((a) => ({ ...a, [key]: value }));
@@ -127,7 +158,6 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
     );
   }
 
-
   if (step >= STEPS.length && inputs) {
     return (
       <div className="space-y-5">
@@ -152,7 +182,7 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
         {ranked.map(({ offer }) => (
           <Card key={offer.id}>
             <CardTitle>{offer.name}</CardTitle>
-            <p className="mb-4 rounded-md bg-chalk-2 p-3 text-[0.9375rem]">
+            <p className="mb-4 rounded-md bg-mist p-3 text-[0.9375rem]">
               {offer.dated && deadline
                 ? renderOffer(offer, deadline)
                 : offer.memberFacing}
@@ -173,7 +203,7 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
 
         <button
           type="button"
-          className="text-[0.875rem] text-struck underline"
+          className="text-[0.875rem] text-teal underline"
           onClick={() => {
             setAnswers(EMPTY);
             setStep(0);
@@ -189,7 +219,7 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
 
   return (
     <Card>
-      <p className="label mb-2 text-struck">
+      <p className="label mb-2 text-teal">
         Question {step + 1} of {STEPS.length}
       </p>
       <CardTitle>{current_.title}</CardTitle>
@@ -198,23 +228,48 @@ export function OfferBuilder({ current }: { current: { id: string | null; text: 
       <div className="space-y-2">
         {current_.key === "gymType" &&
           GYM_TYPES.map((c) => (
-            <ChoiceButton key={c.value} label={c.label} hint={c.hint} onClick={() => pick("gymType", c.value)} />
+            <ChoiceButton
+              key={c.value}
+              label={c.label}
+              hint={c.hint}
+              onClick={() => pick("gymType", c.value)}
+            />
           ))}
         {current_.key === "reason" &&
           REASONS.map((c) => (
-            <ChoiceButton key={c.value} label={c.label} hint={c.hint} onClick={() => pick("reason", c.value)} />
+            <ChoiceButton
+              key={c.value}
+              label={c.label}
+              hint={c.hint}
+              onClick={() => pick("reason", c.value)}
+            />
           ))}
         {current_.key === "budget" &&
           BUDGETS.map((c) => (
-            <ChoiceButton key={c.value} label={c.label} hint={c.hint} onClick={() => pick("budget", c.value)} />
+            <ChoiceButton
+              key={c.value}
+              label={c.label}
+              hint={c.hint}
+              onClick={() => pick("budget", c.value)}
+            />
           ))}
         {current_.key === "offPeak" &&
           OFF_PEAK_CHOICES.map((c) => (
-            <ChoiceButton key={String(c.value)} label={c.label} hint={c.hint} onClick={() => pick("hasOffPeakCapacity", c.value)} />
+            <ChoiceButton
+              key={String(c.value)}
+              label={c.label}
+              hint={c.hint}
+              onClick={() => pick("hasOffPeakCapacity", c.value)}
+            />
           ))}
         {current_.key === "deadline" &&
           DEADLINE_CHOICES.map((c) => (
-            <ChoiceButton key={c.value} label={c.label} hint={c.hint} onClick={() => pick("deadlineDays", c.value)} />
+            <ChoiceButton
+              key={c.value}
+              label={c.label}
+              hint={c.hint}
+              onClick={() => pick("deadlineDays", c.value)}
+            />
           ))}
       </div>
 
@@ -244,7 +299,7 @@ function ChoiceButton({
     <button
       type="button"
       onClick={onClick}
-      className="block w-full rounded-lg border border-line px-4 py-3 text-left transition hover:border-struck hover:bg-chalk-2"
+      className="block w-full rounded-lg border border-ash px-4 py-3 text-left transition-[background-color,border-color,transform] duration-200 ease-out hover:border-teal hover:bg-mist active:scale-[0.995]"
     >
       <span className="block text-[0.9375rem] font-medium">{label}</span>
       <span className="block text-[0.8125rem] text-stone">{hint}</span>
@@ -264,13 +319,13 @@ function CurrentOffer({
   return (
     <Card>
       <CardTitle>Your current offer</CardTitle>
-      <p className="mb-4 rounded-md bg-chalk-2 p-3 text-[0.9375rem]">
+      <p className="mb-4 rounded-md bg-mist p-3 text-[0.9375rem]">
         {current.text}
       </p>
       <p className="mb-4 text-[0.875rem] text-stone">
-        Every campaign you start from now carries this. Changing it here does not
-        change offers already sent: a member who was promised something keeps
-        being promised it.
+        Every campaign you start from now carries this. Changing it here does
+        not change offers already sent: a member who was promised something
+        keeps being promised it.
       </p>
       <div className="flex gap-2">
         <Button type="button" onClick={onEdit}>
