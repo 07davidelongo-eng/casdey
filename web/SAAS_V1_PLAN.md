@@ -340,7 +340,30 @@ eu-west-1) via a read-only schema probe over `SUPABASE_DB_URL`:
   `members.cancelled_at` present; `member_events_type_check` includes both
   `return_undone` and `cancelled`.
 
-### B4. Source real gym-platform CSV exports — `todo` (feeds A3)
+### B4. Source real gym-platform CSV exports — `still todo; synthetic stand-ins added 2026-09-05`
+
+**Synthetic exports now exist and they found two real bugs.**
+`src/lib/ingestion/exports.test.ts` holds whole-file fixtures for Mindbody,
+Glofox, TeamUp, ABC Fitness and LegitFit, written from each platform's known
+column names and carrying the quirks a real file has and a hand-written test
+row does not: a BOM, a comma inside a quoted name, a blank trailing line,
+"N/A" where a date belongs, and columns casdey ignores between the ones it
+needs.
+
+**They do not close this item.** Nothing synthetic proves compatibility with a
+real export, and LegitFit is both the least known and the most important, being
+JD's platform and, with no API and a trigger-only Zapier app, the only way in.
+
+What they caught, both in visit count, both silent:
+- **"Total Bookings" matched nothing.** `booking` was in the last-visit
+  patterns but not the count ones, and Glofox counts in bookings.
+- **"Classes Attended" matched nothing either**, for a different reason: every
+  pattern expected "Total Classes", and this reads noun then verb.
+
+A lost count falls back to one visit, and the lapse rule is "no visit for N
+months AND at most X visits", so a nine-class regular lands next to someone who
+came once and never came back. casdey would then win-back people who never
+lapsed, which is the one mistake a gym would not forgive. Patterns widened.
 Real member-export CSVs from Mindbody / Glofox / TeamUp / ABC Fitness — even one
 or two each. Ask engaged leads (e.g. JD) for a sample export as part of the
 onboarding conversation.
@@ -1026,6 +1049,43 @@ works in prod with real credentials, using throwaway data.
 
 Any failure here → back to the relevant Track A item.
 
+### Track C progress, 2026-09-05
+
+Signed into production as info@casdey.com through Google (the account is
+already signed in on this machine, so no password is involved) and walked it.
+
+- **C4 — done.** All thirteen `/app` routes return 200 in production and match
+  what local shows, including the new offer and sending steps on the checklist
+  and the title fix. WhatsApp settings correctly warn a non-Pro gym before it
+  spends days on Meta approval. Nothing was prod-only broken **except C3**.
+- **C2 — done, and proven rather than assumed.** A campaign self-test sent from
+  production landed as `delivered` in Resend's own event log, from
+  `casdey Sending Test <no-reply@mail.casdey.com>`, reply-to the gym, with a
+  working booking link and unsubscribe link on the production domain. The same
+  API listing shows the cold outreach's sends sitting directly beneath it,
+  which is G1a's shared quota in one screen.
+- **C3 — was broken in production, now fixed in code, still unverified.**
+  Connecting a Google Calendar had **never** been possible in production: every
+  attempt died on Google's `Error 400: redirect_uri_mismatch` before any
+  consent screen. casdey.com answers on both the apex and `www` and the apex
+  308s to `www`, so every visitor is on `www`, while `NEXT_PUBLIC_SITE_URL`,
+  the Supabase site URL, every link in already-sent member email and the one
+  URI whitelisted in Google Cloud all say the apex. Both calendar routes built
+  their redirect URI from the request's origin. They now build it from
+  `siteUrl()`, and the OAuth state cookie is pinned to the registrable domain
+  so it survives the hop. Needs a deploy, then the connect → book → cancel walk.
+- **C1 — not attempted, and not mine.** It needs a live-mode Stripe checkout
+  with a real card. Entering card details is out of scope for Claude, so this
+  stays with Davide.
+
+**Worth knowing about this environment:** local dev and production share one
+Supabase database, but local now points at test-mode Stripe while production
+points at live. The test gym therefore shows "Standard is active" in production
+off a *test-mode* subscription, and its "Manage billing" would hand a live key
+a test-mode customer. Harmless for a real customer, who only ever goes through
+production, but it makes the test gym's billing screen a poor thing to judge
+production by.
+
 ---
 
 ## 5. TRACK D — final acceptance (Davide only, last)
@@ -1096,13 +1156,13 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | B1 | Google OAuth consent screen: publish | Davide | done — published to prod, no verification needed (non-sensitive scopes) |
 | B2 | Calendar env vars into Vercel | Davide | done (ahead of B1) |
 | B3 | Confirm migrations 0011/0012/0013 on live DB | Davide | done — all three verified on live DB |
-| B4 | Source real Mindbody/Glofox/TeamUp/ABC **+ LegitFit** CSVs | Davide | todo — LegitFit is now the priority one (JD's platform, and CSV is its only path) |
+| B4 | Source real Mindbody/Glofox/TeamUp/ABC **+ LegitFit** CSVs | Davide | still todo — but synthetic whole-file fixtures added 2026-09-05 and they caught two silent visit-count bugs. Real files, LegitFit first, still wanted |
 | B5 | Confirm Vercel plan; revert cron if Pro | Davide | done — Hobby |
 | B6 | Delete stray empty Vercel project "web" | Davide | done — removed, only `casdey` remains |
 | B7 | Decide Free-plan limits shape | Davide | done (→ A8) |
 | B8 | Upgrade Twilio account (blocks E1 prod send) | Davide | done 2026-09-04 — Trial→Full verified via API, $20 balance; Vercel has SID/TOKEN/ANTHROPIC. E1 prod send now gated on a Meta-approved sender + templates, not billing |
 | B9 | Confirm JD's gym software + API access (feeds E2) | Davide | closed 2026-09-04 — LegitFit, no developer API, Zapier is trigger-only → E2 to V2 |
-| E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03; prod verify + B8 left |
+| E1 | WhatsApp channel + AI reply loop — revive for gym | me | code done + 0014 applied 2026-09-03. **Not Davide's to unblock**: since G2 made the sender per-gym, the Meta sender and template approval belong to the *gym*, under its own WABA. So prod verification waits on the first gym that wants WhatsApp, not on anything casdey can do first |
 | E2 | Direct LegitFit member sync | me | **exits to V2** 2026-09-04 — no API, and Zapier triggers cannot backfill the historical members casdey needs; CSV (A3) is the V1 path |
 | F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | done 2026-09-03 — Standard €99 / Pro €289; caps 200 / 2,000; WhatsApp + guarantee Pro-only; flat 20% early-adopter |
 | F1 | Plan model: 4-plan capabilities, caps 50/200/2000, gates wired | me | code done 2026-09-03 |
@@ -1111,17 +1171,17 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | F4 | Guarantee Pro-gated; 20% coupon currency-agnostic | me | code done 2026-09-03 |
 | F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | done 2026-09-03 |
 | F6 | Tests: 4-plan capability matrix + price→tier mapping | me | done 2026-09-04 — `stripe.test.ts` added; found + fixed the silent Standard→Pro over-grant |
-| C1 | Live-mode Stripe checkout + refund in prod | both | todo |
-| C2 | Real Resend campaign send in prod | both | todo |
-| C3 | Calendar booking end-to-end in prod | both | todo |
-| C4 | Every wizard step verified in prod | both | todo |
+| C1 | Live-mode Stripe checkout + refund in prod | Davide | todo — needs a real card, so not Claude's to do |
+| C2 | Real Resend campaign send in prod | me | **done 2026-09-05** — self-test from prod, `delivered` in Resend's event log, gym display name, gym reply-to, live booking + unsubscribe links |
+| C3 | Calendar booking end-to-end in prod | me | **was broken in prod, fixed in code 2026-09-05** (`redirect_uri_mismatch`: apex vs www). Needs the deploy, then connect → book → cancel |
+| C4 | Every wizard step verified in prod | me | **done 2026-09-05** — all 13 `/app` routes 200, matching local; C3 was the only prod-only break |
 | G1 | Email from the gym's own domain (Resend per-gym) | me | code + UI done 2026-09-04, admin key live; onboarding step added 2026-09-05. **Verification never yet observed**; the subdomain theory was checked and is wrong (both casdey domains are verified subdomain-and-apex); needs a retry left overnight, which needs a GoDaddy DNS change → Davide |
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | H1 | In-app feedback box (extend the support widget) | me | **done 2026-09-05** — migration `0019`, `feedback` table + email to Davide, in the support widget. No proactive prompts in V1, by decision |
 | H2 | Interactive win-back offer builder | me | **done 2026-09-05** — curated library of 11 offers (no LLM), 5-question flow at `/app/offer`, merged into campaigns via `{{offer}}`, migration `0018`. Wording in `src/lib/offers/library.ts` still unreviewed by Davide |
-| D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate |
+| D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate. Plain English: sign up at casdey.com as if you were a gym owner who has never seen it, with no help and no shortcuts, and see whether you get all the way from signup to an approved campaign without being confused or stuck. Everything else on this board exists to make that walk boring |
 
 Update this board as items move. This doc is the pointer target from
 `CLAUDE.md`, `SAAS_ROADMAP.md`, and `SAAS_ONBOARDING.md`.
