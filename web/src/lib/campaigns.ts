@@ -209,7 +209,8 @@ export async function buildWhatsAppAudience(
 /**
  * At-risk audience: still-active members whose last visit fell inside the
  * gym's at-risk window but hasn't yet crossed the lapse cutoff. See
- * isAtRisk in src/lib/lapse.ts for why these two ranges never overlap.
+ * isAtRisk in src/lib/lapse.ts for why these two ranges never overlap, and
+ * for why this one, unlike the lapsed audiences above, has no visit cap.
  */
 export async function buildAtRiskAudience(
   gymId: string,
@@ -231,7 +232,6 @@ export async function buildAtRiskAudience(
     .eq("consent_email", true)
     .not("email", "is", null)
     .eq("status", "active")
-    .lte("visit_count", rule.maxVisits)
     .gt("last_visit_at", lapseCutoff(rule, now))
     .lte("last_visit_at", atRiskCutoff(rule, now))
     .order("last_visit_at", { ascending: true });

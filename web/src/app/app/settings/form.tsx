@@ -163,7 +163,9 @@ export function SettingsForm({
           <p className="field-hint">
             A still-active member who has not been in this long gets a gentler
             check-in campaign, before they count as lapsed. Keep it shorter
-            than the lapse window above.
+            than the lapse window above. The visit limit does not apply here:
+            a regular who goes quiet is worth checking on however many times
+            they have been in.
           </p>
         </div>
       </Card>

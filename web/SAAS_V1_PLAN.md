@@ -1180,6 +1180,38 @@ Hourly matters at several gyms, not at one.
 
 ---
 
+## 3.10. At-risk visit cap — decided and fixed 2026-09-05
+
+**A gym's most valuable warning was never firing.** `isAtRisk` inherited the
+lapse rule's `visit_count <= max_visits` cap. With the default of 2, a member
+who had been in 20 times and then stopped coming was never flagged as at risk,
+never appeared in the dashboard's "At risk" count, and could never be added to
+a check-in campaign. The settings copy said only "a still-active member who has
+not been in this long", so nothing on screen explained the silence.
+
+**Decision (Davide, 2026-09-05): drop the cap for at-risk only.** The visit cap
+earns its place in win-back, which is aimed at people who tried the gym and
+drifted rather than at long-standing members. A check-in is the opposite
+errand: a five-year regular going quiet for six weeks is the single person a
+gym most wants to catch before they cancel. Win-back keeps its cap unchanged.
+
+**Changed in three places, which have to agree:** `isAtRisk` and
+`applyAtRiskFilter` in `src/lib/lapse.ts` (the prose rule and the dashboard's
+count query), and the hand-written query in `buildAtRiskAudience` in
+`src/lib/campaigns.ts`, which is spelled out rather than routed through the
+helper because chaining it onto a full-row select blew up the compiler. The
+settings hint now states outright that the visit limit does not apply to
+check-ins.
+
+**Consequence, accepted:** at-risk audiences get bigger, so more members get
+emailed. The lapse cap is untouched, so a high-visit member who has been gone
+longer than the lapse window still falls into neither bucket: at-risk requires
+`last_visit_at` after the lapse cutoff, and win-back still caps visits. That is
+the one remaining gap, and closing it would mean changing who counts as lapsed,
+which is a separate decision nobody has asked for.
+
+---
+
 ## 4. TRACK C — production verification (me + Davide, after A + B green)
 
 Not the same as Davide's walkthrough — this is targeted proof each integration
@@ -1359,6 +1391,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | G1 | Email from the gym's own domain (Resend per-gym) | me | **done and proven in prod 2026-09-05** — connect → DNS at GoDaddy → `verified` → a real send delivered from `hello@gymtest.casdey.com` with the gym's reply-to. Two findings on the way: it only needed time, and the "Check again" button was itself un-verifying the domain, which no gym could ever have got past |
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day. **Now also the binding limit on send throughput** (§3.9): until this happens a gym's campaign is throttled to ~25/day whatever the code does |
 | §3.9 | Send throughput: drain a full day's work per run | me | **done 2026-09-05** — the queue drained 25/day against a promise of 50/gym/day. Also fixed a loop that would have re-read capped gyms' rows, and a rate-limit error that burned retry attempts |
+| §3.10 | At-risk visit cap: does a regular going quiet count? | Davide + me | **done 2026-09-05** — Davide's call: drop the cap for at-risk only, keep it for win-back. A 20-visit regular who stops coming is now flagged and can be sent a check-in; the settings copy no longer implies a limit that is not there |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | H1 | In-app feedback box (extend the support widget) | me | **done 2026-09-05** — migration `0019`, `feedback` table + email to Davide, in the support widget. No proactive prompts in V1, by decision |

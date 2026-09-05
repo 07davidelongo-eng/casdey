@@ -128,6 +128,14 @@ export function applyLapseFilter<T extends FilterableQuery<T>>(
  * gyms_at_risk_before_lapse DB constraint guarantees atRiskAfterDays is
  * strictly shorter than the lapse window, so this range and isLapsed's never
  * overlap, a member is one or the other, never both.
+ *
+ * Deliberately NOT capped by rule.maxVisits, unlike isLapsed. The visit cap
+ * exists to keep win-back aimed at people who tried the place and drifted,
+ * rather than at long-standing members. A check-in is the opposite errand: a
+ * regular of five years going quiet for six weeks is the single most valuable
+ * person to catch, and capping them out made the settings copy a lie. So
+ * AtRiskRule still carries maxVisits (it shares LapseRule, and lapseCutoff
+ * needs the months), and at-risk simply never reads it.
  */
 
 export type AtRiskRule = LapseRule & { atRiskAfterDays: number };
@@ -150,7 +158,6 @@ export function isAtRisk(
   // opted out means this is not "before cancelling" any more.
   if (member.status !== "active") return false;
   if (!member.last_visit_at) return false;
-  if (member.visit_count > rule.maxVisits) return false;
 
   const lastVisit = member.last_visit_at.slice(0, 10);
   return lastVisit > lapseCutoff(rule, now) && lastVisit <= atRiskCutoff(rule, now);
@@ -165,7 +172,6 @@ export function applyAtRiskFilter<
 >(query: T, rule: AtRiskRule, now: Date = new Date()): T {
   return query
     .eq("status", "active")
-    .lte("visit_count", rule.maxVisits)
     .gt("last_visit_at", lapseCutoff(rule, now))
     .lte("last_visit_at", atRiskCutoff(rule, now));
 }

@@ -208,19 +208,17 @@ describe("isAtRisk", () => {
     ).toBe(false);
   });
 
-  it("ignores a regular, the same as isLapsed does", () => {
-    expect(
-      isAtRisk(
-        member({ visit_count: 9, last_visit_at: "2026-06-14" }),
-        AT_RISK_RULE,
-        NOW,
-      ),
-    ).toBe(false);
+  it("catches a regular going quiet, unlike isLapsed", () => {
+    const regular = member({ visit_count: 9, last_visit_at: "2026-06-14" });
+    // The visit cap keeps a nine-time member out of win-back, but a check-in
+    // is exactly the message that member should get.
+    expect(isLapsed(regular, RULE, NOW)).toBe(false);
+    expect(isAtRisk(regular, AT_RISK_RULE, NOW)).toBe(true);
   });
 });
 
 describe("applyAtRiskFilter", () => {
-  it("applies the active-status, visit-count and two-sided date range", () => {
+  it("applies the active-status and two-sided date range, and no visit cap", () => {
     const calls: string[] = [];
     const query = {
       eq(column: string, value: string) {
@@ -241,7 +239,6 @@ describe("applyAtRiskFilter", () => {
 
     expect(calls).toEqual([
       "eq:status:active",
-      "lte:visit_count:2",
       "gt:last_visit_at:2025-08-13",
       "lte:last_visit_at:2026-06-29",
     ]);
