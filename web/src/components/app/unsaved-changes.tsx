@@ -23,19 +23,19 @@ import { Button } from "./ui";
  * did not realise they had unsaved work.
  */
 export function UnsavedChangesGuard() {
-  const router = useRouter();
+  // A route change means the guarded form is gone, along with whatever was
+  // typed into it. Keying on the path remounts the guard and drops all of its
+  // state with it, which is the same reset an effect would do, without
+  // reaching for setState inside one.
   const pathname = usePathname();
+  return <Guard key={pathname} />;
+}
+
+function Guard() {
+  const router = useRouter();
   const [dirty, setDirty] = useState(false);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
-
-  // A route change means the guarded form is gone, along with whatever was
-  // typed into it.
-  useEffect(() => {
-    setDirty(false);
-    setPendingHref(null);
-    formRef.current = null;
-  }, [pathname]);
 
   useEffect(() => {
     function guardedForm(target: EventTarget | null): HTMLFormElement | null {
