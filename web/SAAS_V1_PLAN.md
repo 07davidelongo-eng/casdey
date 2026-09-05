@@ -1180,7 +1180,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | H1 | In-app feedback box (extend the support widget) | me | **done 2026-09-05** — migration `0019`, `feedback` table + email to Davide, in the support widget. No proactive prompts in V1, by decision |
-| H2 | Interactive win-back offer builder | me | **done 2026-09-05** — curated library of 11 offers (no LLM), 5-question flow at `/app/offer`, merged into campaigns via `{{offer}}`, migration `0018`. Wording in `src/lib/offers/library.ts` still unreviewed by Davide |
+| H2 | Interactive win-back offer builder | me | **done 2026-09-05** — curated library of 11 offers (no LLM), 5-question flow at `/app/offer`, merged into campaigns via `{{offer}}`, migration `0018`. Wording in `src/lib/offers/library.ts` reviewed and approved by Davide 2026-09-05 |
 | D1 | Davide's uninterrupted self-serve walkthrough | Davide | todo — final gate. Plain English: sign up at casdey.com as if you were a gym owner who has never seen it, with no help and no shortcuts, and see whether you get all the way from signup to an approved campaign without being confused or stuck. Everything else on this board exists to make that walk boring |
 
 Update this board as items move. This doc is the pointer target from
