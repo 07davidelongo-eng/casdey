@@ -1,6 +1,9 @@
 import type { NextRequest } from "next/server";
 
-import { verifyTwilioSignature } from "@/lib/whatsapp/signature";
+import {
+  verifyTwilioSignatureForAnyUrl,
+  webhookUrlCandidates,
+} from "@/lib/whatsapp/signature";
 import { continueConversation } from "@/lib/whatsapp/ai-agent";
 import { siteUrl } from "@/lib/messaging";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
@@ -87,10 +90,15 @@ export async function POST(request: NextRequest): Promise<Response> {
   const raw = await request.text();
   const params = Object.fromEntries(new URLSearchParams(raw));
   const signature = request.headers.get("x-twilio-signature") ?? "";
-  const url = `${siteUrl()}/api/whatsapp/webhook`;
+  // Both hostname spellings, because Twilio signs whatever URL it was given
+  // and casdey answers on the apex and www alike. See webhookUrlCandidates.
+  const urls = webhookUrlCandidates(siteUrl(), request.url);
 
-  if (!verifyTwilioSignature(url, params, signature, authToken)) {
-    console.error("[whatsapp] signature verification failed");
+  if (!verifyTwilioSignatureForAnyUrl(urls, params, signature, authToken)) {
+    console.error(
+      "[whatsapp] signature verification failed; tried",
+      urls.join(", "),
+    );
     return new Response("Invalid signature", { status: 401 });
   }
 

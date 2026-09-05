@@ -20,6 +20,17 @@ const Schema = z.object({
     .string()
     .trim()
     .max(200)
+    // Checked for shape, not just length. This value goes straight into
+    // Twilio's ContentSid, which must be "HX" followed by 32 hex characters.
+    // Meta and Twilio both show a template's friendly NAME far more
+    // prominently than its SID, so typing "winback_v1" here is the natural
+    // mistake, and it saves happily. Without this the first sign of trouble is
+    // an opaque Twilio error on the first real campaign to real members.
+    // Better to refuse it while the gym is still looking at the field.
+    .refine((v) => v === "" || /^HX[0-9a-fA-F]{32}$/.test(v), {
+      message:
+        "That is not a Content SID. Copy the value beginning HX from Twilio's Content Template Builder, not the template's name.",
+    })
     .transform((v) => (v === "" ? null : v)),
   // The gym's OWN WhatsApp sender, E.164. Never casdey's: the WhatsApp display
   // name belongs to the number, so a number shared across gyms could only ever

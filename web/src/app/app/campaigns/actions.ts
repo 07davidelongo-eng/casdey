@@ -151,10 +151,18 @@ async function createWhatsAppCampaign(
         "The WhatsApp channel is on the Pro plan. Upgrade from Settings → Billing to send over WhatsApp; email campaigns work on your current plan.",
     };
   }
-  if (!gym.whatsapp_enabled || !gym.whatsapp_template_name) {
+  // whatsapp_from belongs in this gate as much as the template does. The
+  // provider cannot be built without a sender, so a campaign created here
+  // would build its whole audience and then fail on the first send, which is
+  // the worst place to discover a missing setting.
+  if (
+    !gym.whatsapp_enabled ||
+    !gym.whatsapp_template_name ||
+    !gym.whatsapp_from
+  ) {
     return {
       error:
-        "WhatsApp is not fully set up. Turn it on and add your approved template SID in Settings → WhatsApp.",
+        "WhatsApp is not fully set up. Turn it on, connect your gym's own WhatsApp number, and add your approved template SID in Settings → WhatsApp.",
     };
   }
 
