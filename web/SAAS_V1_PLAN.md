@@ -747,11 +747,15 @@ round numbers for UK, not a live conversion.
 - The price table now lives once, in `scripts/price-spec.mjs`, shared by the
   setup and check scripts; `stripe.test.ts` asserts it still agrees with
   `PRICE_PLANS`, so the app cannot drift from what Stripe was told to charge.
-- **Current state (checked 2026-09-04):** `web/.env.local` still holds the
-  **retired** 4-var names (`STRIPE_PRICE_{GBP,EUR}_{MONTH,YEAR}`) and both old
-  coupons; none of the 9 new vars are set, in either mode. Note also that the
-  local `STRIPE_SECRET_KEY` is a **live** key, so a local checkout would take
-  real money — worth swapping for the test key while testing.
+- **Current state (re-checked 2026-09-05, superseding the 2026-09-04 note that
+  used to sit here).** `web/.env.local` now holds all 9 new vars, the retired
+  names are gone, and `STRIPE_SECRET_KEY` is a **test** key (`sk_test_`), with
+  the live one kept separately as `STRIPE_SECRET_KEY_LIVE`. Every price id in
+  the file resolves under the test key and 404s under the live one, so the
+  test-mode catalogue exists and a local checkout cannot take real money. The
+  test-mode half of F2 is **done**, not owed.
+- Also verified 2026-09-05: all three test gyms' subscriptions resolve under the
+  test key and 404 under the live one. No real money is moving anywhere.
 
 ### F3. Checkout + billing UI — `code done 2026-09-03`
 - `api/stripe/checkout` takes `tier` (`standard`|`pro`, default `pro`) +
@@ -1212,6 +1216,114 @@ which is a separate decision nobody has asked for.
 
 ---
 
+## 3.11. Feature-readiness stress test — 2026-09-05
+
+A full walk of the product as a gym owner, on a throwaway account, with a
+deliberately messy Irish gym export: sign up, import, offer builder, campaign,
+approve, cancel, export, purge, delete. Three failures found that no test could
+have caught, because none of them are about logic. They are about what a real
+gym's file and a real gym's Google account actually look like.
+
+### The blocker: two members sharing an email address, one silently deleted
+
+An eight-row file reported **8 read, 5 added, 0 updated, 2 skipped**. Seven.
+
+The eighth row was a member whose address had been typed into a different
+member's email column, an ordinary export typo. `dedupeByConflictKey` collapsed
+the pair, keeping the later row, and said nothing. Niamh Kelly (3 visits,
+lapsed, a correct record) was gone from casdey entirely, and Oisín Murphy was
+left holding her address. The campaign audience built from that list would have
+opened **"Hi Oisín,"** in Niamh's inbox: casdey's central promise, that it
+writes to your members as you, failing on the identity of the member.
+
+Last-wins is right ACROSS imports, where a newer file supersedes an older one.
+It is wrong WITHIN one file, where two rows sharing an address are usually two
+people: a couple on one membership, a family, a front-desk placeholder, a typo.
+
+Fixed by keeping the first row and reporting every later collision as a skipped
+record with a reason the gym can act on. Which row survives matters far less
+than the gym being told, so they can fix the export. The counts now close:
+the same file reads **8 = 6 added + 0 updated + 2 skipped**.
+
+### A member with a phone and no email could not be imported at all
+
+The gate was `no email && no member reference → skip`, and its comment said
+"no way to contact them". That stopped being true the day WhatsApp came back as
+the Pro channel: a member with a number and no email address is exactly who
+that channel exists for. Meanwhile the field hint on the import screen has
+always read "A member without one still counts." It did not.
+
+So Pro could never reach the people it was sold on, and the gap was invisible
+because the rows vanished at the door.
+
+Phone now counts as identity. That needs a conflict target or a repeat import
+would insert the same member every month, so **migration `0021` adds a plain
+unique index on `(gym_id, phone)`** — plain, not partial, for the same two
+reasons `0002` gives for email: Postgres treats NULLs as distinct, and
+ON CONFLICT can only infer an index from a bare column list. Numbers are
+already normalised to E.164 at parse time. `applyImportCap` matches on phone
+too, but only for members with nothing better to match on, or a phone-only
+member would read as net-new on every re-import and spend the cap again.
+
+**`0021` is applied to the live DB** (2026-09-05, transaction, verified). Its
+defensive pass, which clears the phone from later duplicates rather than
+deleting anyone, was not theoretical: one gym already held two members on one
+number and would have blocked the index.
+
+### A dead calendar connection was invisible to the gym
+
+Found live: Bridge Street Gym's Google refresh token was `invalid_grant`. Every
+member opening a booking link was told casdey could not show them any times,
+and the gym had no way to know.
+
+The handling was already right, the reporting was not. `validAccessToken` marks
+the connection `revoked` and booking fails closed, but `needsReauth` was read on
+exactly one page, Settings → Booking, which an owner visits once during setup.
+The checklist that would have re-raised it stays hidden because calendar is an
+optional step, so completion never changes. A refresh token dies for ordinary
+reasons: access revoked, password changed, account left idle.
+
+The dashboard now says it, in the warning tone, with a link to reconnect. The
+connection view was already being loaded there for the checklist, so it cost
+one condition.
+
+### Also found, not fixed (deliberately, scope was 1-3)
+
+- **CSV export has no UTF-8 BOM**, so accented names ("Éabha", "Ní Bhriain")
+  open as mojibake in Excel on Windows. Odd next to how carefully import
+  handles encodings, and this is a European product.
+- **No way to close an account.** Data and privacy promises "deleted within 30
+  days of your account closing"; the product only offers "delete all member
+  data". The gym row, the user and the audit trail stay.
+- **Self-tests are ungated and unlimited**: no plan check, no rate limit, they
+  do not count against the gym's daily cap, and each one spends from the same
+  100/day Resend pool the cold outreach draws on.
+- `gyms.onboarded_at` is written by nothing and read by nothing.
+- The live DB still carries the pre-pivot index names (`patients_pkey`,
+  `patients_practice_email_key`). Cosmetic: ON CONFLICT infers on columns.
+
+### One operational hazard, unrelated to features
+
+Local dev and production share one Supabase database, so **a campaign approved
+on localhost queues rows the production cron will really send**. One was
+approved during this walk and cancelled within the minute for exactly that
+reason. Worth a guard before anyone else develops against this database.
+
+### Confirmed working, for the record
+
+BOM, accents, `dd/mm/yyyy`, quoted commas, a blank row, `"Total Bookings"` as a
+visit count, phone to E.164, the skip-reason preview, the DPA gate, lapse maths
+(4 of 5, checked by hand), the offer builder, `{{offer}}` merged into the real
+message, the approve confirmation, cancellation clearing the queue, export,
+purge, the audit log, and the H1 feedback box end to end.
+
+`audit_log` and `feedback` deny DELETE even to the service role, so "this log
+cannot be edited or deleted, including by us" is enforced in the database
+rather than merely claimed. Note the same is true of feedback, which holds
+`author_email`: removing a row needs the Postgres console.
+
+---
+
 ## 4. TRACK C — production verification (me + Davide, after A + B green)
 
 Not the same as Davide's walkthrough — this is targeted proof each integration
@@ -1379,7 +1491,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | E2 | Direct LegitFit member sync | me | **exits to V2** 2026-09-04 — no API, and Zapier triggers cannot backfill the historical members casdey needs; CSV (A3) is the V1 path |
 | F0 | 3-tier definitions (prices, capability split, discount/mapping) | Davide | done 2026-09-03 — Standard €99 / Pro €289; caps 200 / 2,000; WhatsApp + guarantee Pro-only; flat 20% early-adopter |
 | F1 | Plan model: 4-plan capabilities, caps 50/200/2000, gates wired | me | code done 2026-09-03 |
-| F2 | Stripe: tier-aware stripe.ts + 8-price setup script | me + Davide | done 2026-09-04 — live catalogue created, 9 vars set in Vercel, 6 retired ones removed, verified by `check:stripe`; test-mode set still owed (needs Davide's test key) |
+| F2 | Stripe: tier-aware stripe.ts + 8-price setup script | me + Davide | done 2026-09-04 — live catalogue created, 9 vars set in Vercel, 6 retired ones removed, verified by `check:stripe`. **Test-mode set confirmed done 2026-09-05**: `.env.local` carries a `sk_test_` key and all 9 vars, every price id resolves under it |
 | F3 | Checkout tier param + 3-tier billing UI | me | code done 2026-09-03 |
 | F4 | Guarantee Pro-gated; 20% coupon currency-agnostic | me | code done 2026-09-03 |
 | F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | done 2026-09-03 |
@@ -1392,6 +1504,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day. **Now also the binding limit on send throughput** (§3.9): until this happens a gym's campaign is throttled to ~25/day whatever the code does |
 | §3.9 | Send throughput: drain a full day's work per run | me | **done 2026-09-05** — the queue drained 25/day against a promise of 50/gym/day. Also fixed a loop that would have re-read capped gyms' rows, and a rate-limit error that burned retry attempts |
 | §3.10 | At-risk visit cap: does a regular going quiet count? | Davide + me | **done 2026-09-05** — Davide's call: drop the cap for at-risk only, keep it for win-back. A 20-visit regular who stops coming is now flagged and can be sent a check-in; the settings copy no longer implies a limit that is not there |
+| §3.11 | Feature-readiness stress test (full walk as a gym) | me | **done 2026-09-05** — three failures found and fixed: a shared email address silently deleting one member and giving another their identity, phone-only members unimportable (so Pro's WhatsApp channel could reach nobody), and a dead calendar connection invisible to the gym. Migration `0021` applied. Four smaller items left open, listed in §3.11 |
 | G2 | WhatsApp from the gym's own number | me | done 2026-09-04 (code) — `gyms.whatsapp_from`; also fixed the inbound routing ambiguity |
 | G3 | Self-serve WhatsApp onboarding (Meta Embedded Signup) | me | **V2** — needs Tech Provider, which needs Meta business verification, which needs a legal entity |
 | H1 | In-app feedback box (extend the support widget) | me | **done 2026-09-05** — migration `0019`, `feedback` table + email to Davide, in the support widget. No proactive prompts in V1, by decision |

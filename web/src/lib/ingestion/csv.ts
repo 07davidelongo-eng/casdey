@@ -176,10 +176,22 @@ export function normalizeRow(
 
   const externalRef = cell(row, mapping.externalRef) || null;
 
-  // Without one of these there is no way to identify the member on a repeat
-  // import, and no way to contact them. The row is not worth storing.
-  if (!email && !externalRef) {
-    return issue("email", "No email address and no member reference");
+  const rawPhone = cell(row, mapping.phone);
+  const phone = rawPhone
+    ? (defaultCountry ? normalizePhoneForCountry(rawPhone, defaultCountry) : rawPhone).slice(0, 40)
+    : null;
+
+  // One of these three, or there is no way to tell this member apart from any
+  // other on a repeat import and no way to reach them.
+  //
+  // Phone counts. It did not until now, and the rule's old comment ("no way to
+  // contact them") stopped being true the day WhatsApp came back as the Pro
+  // channel: a member with a number and no email address is precisely who that
+  // channel exists for, and dropping them at the door meant Pro could never
+  // reach the people it was sold on. The field hint on the import screen has
+  // always said a member without an email still counts. Now it does.
+  if (!email && !externalRef && !phone) {
+    return issue("email", "No email address, phone number or member reference");
   }
 
   let first: string | null = cell(row, mapping.firstName) || null;
@@ -200,11 +212,6 @@ export function normalizeRow(
     }
     visitCount = Math.max(1, parsed);
   }
-
-  const rawPhone = cell(row, mapping.phone);
-  const phone = rawPhone
-    ? (defaultCountry ? normalizePhoneForCountry(rawPhone, defaultCountry) : rawPhone).slice(0, 40)
-    : null;
 
   const member: RawMember = {
     externalRef,

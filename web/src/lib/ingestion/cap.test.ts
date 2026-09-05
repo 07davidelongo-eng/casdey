@@ -87,3 +87,51 @@ describe("applyImportCap", () => {
     expect(out.droppedNew).toBe(2);
   });
 });
+
+describe("applyImportCap, members identified only by phone", () => {
+  it("treats a phone-only member the gym already holds as an update", () => {
+    // Without this they read as net-new on every monthly re-import and spend
+    // the cap again each time, until a full list stops importing at all.
+    const out = applyImportCap([member({ phone: "+353871234567" })], {
+      limit: 50,
+      currentTotal: 50, // no room for anyone new
+      existingRefs: new Set(),
+      existingEmails: new Set(),
+      existingPhones: new Set(["+353871234567"]),
+    });
+
+    expect(out.toWrite).toHaveLength(1);
+    expect(out.droppedNew).toBe(0);
+  });
+
+  it("still counts a phone number the gym has never seen as net-new", () => {
+    const out = applyImportCap([member({ phone: "+353870000000" })], {
+      limit: 50,
+      currentTotal: 50,
+      existingRefs: new Set(),
+      existingEmails: new Set(),
+      existingPhones: new Set(["+353871234567"]),
+    });
+
+    expect(out.toWrite).toHaveLength(0);
+    expect(out.droppedNew).toBe(1);
+  });
+
+  it("does not match on phone when the member has an email to match on", () => {
+    // Email is the conflict key for this member, so a shared household phone
+    // must not make a genuinely new member look like one already stored.
+    const out = applyImportCap(
+      [member({ email: "new@x.co", phone: "+353871234567" })],
+      {
+        limit: 50,
+        currentTotal: 50,
+        existingRefs: new Set(),
+        existingEmails: new Set(),
+        existingPhones: new Set(["+353871234567"]),
+      },
+    );
+
+    expect(out.toWrite).toHaveLength(0);
+    expect(out.droppedNew).toBe(1);
+  });
+});

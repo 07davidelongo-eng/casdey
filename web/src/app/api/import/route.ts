@@ -180,16 +180,18 @@ export async function POST(request: NextRequest): Promise<Response> {
         .eq("is_test", false),
       admin
         .from("members")
-        .select("external_ref, email")
+        .select("external_ref, email, phone")
         .eq("gym_id", gym.id)
         .eq("is_test", false),
     ]);
 
     const existingRefs = new Set<string>();
     const existingEmails = new Set<string>();
+    const existingPhones = new Set<string>();
     for (const row of existingRows ?? []) {
       if (row.external_ref) existingRefs.add(row.external_ref as string);
       if (row.email) existingEmails.add((row.email as string).toLowerCase());
+      if (row.phone) existingPhones.add(row.phone as string);
     }
 
     const capped = applyImportCap(members, {
@@ -197,6 +199,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       currentTotal: currentTotal ?? 0,
       existingRefs,
       existingEmails,
+      existingPhones,
     });
     members = capped.toWrite;
     capDroppedNew = capped.droppedNew;

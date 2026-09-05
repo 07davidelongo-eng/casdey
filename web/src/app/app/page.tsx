@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireGym } from "@/lib/dal";
 import { gymStats } from "@/lib/stats";
 import { atRiskRuleFor, monthsSince, ruleFor } from "@/lib/lapse";
@@ -115,6 +117,33 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         <div className="mb-6">
           <Notice>
             Your free week has started. Nothing is charged for seven days.
+          </Notice>
+        </div>
+      ) : null}
+
+      {/* A dead calendar connection has to be said HERE, not only on the
+          settings page that turned it on. Google's refresh token dies for
+          ordinary reasons (the gym revoked access, changed their password,
+          left the account idle), and from that moment every member who opens
+          a booking link is told casdey cannot show them any times, while the
+          gym sees nothing wrong: booking is an optional setup step, so the
+          checklist that would have re-raised it stays hidden, and Settings →
+          Booking is a page an owner visits once. Found live on a real gym
+          whose booking had been silently dead. The view is already loaded
+          above for the checklist, so saying it costs nothing. */}
+      {calendar.needsReauth ? (
+        <div className="mb-6">
+          <Notice tone="warn">
+            Your Google Calendar has disconnected, so casdey is not offering
+            members any booking times. It will not book over something already
+            in your diary, so it stops rather than guesses.{" "}
+            <Link
+              href="/app/settings/booking"
+              className="text-teal underline underline-offset-4"
+            >
+              Reconnect it
+            </Link>{" "}
+            to switch booking back on.
           </Notice>
         </div>
       ) : null}

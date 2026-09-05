@@ -80,7 +80,10 @@ export async function upsertMembers(
   options: { gymId: string; importId: string; source: string },
 ): Promise<UpsertResult> {
   const withRef = members.filter((p) => p.externalRef);
-  const withoutRef = members.filter((p) => !p.externalRef && p.email);
+  const withEmail = members.filter((p) => !p.externalRef && p.email);
+  // Neither, but a phone number. Stored rather than dropped, because on Pro
+  // WhatsApp is how these members are reached. See the identity gate in csv.ts.
+  const withPhone = members.filter((p) => !p.externalRef && !p.email && p.phone);
 
   const result: UpsertResult = {
     imported: 0,
@@ -91,24 +94,87 @@ export async function upsertMembers(
   };
 
   await run(withRef, "gym_id,external_ref", options, result);
-  await run(withoutRef, "gym_id,email", options, result);
+  await run(withEmail, "gym_id,email", options, result);
+  await run(withPhone, "gym_id,phone", options, result);
+
+  // A row in none of the three buckets has nothing to identify it by and could
+  // never have been written. Reported rather than dropped: every row the gym
+  // handed us has to end up in one of the numbers on the import screen.
+  for (const member of members) {
+    if (member.externalRef || member.email || member.phone) continue;
+    recordFailure(
+      result,
+      member,
+      "no email address, phone number or member reference to identify them by",
+    );
+  }
 
   return result;
 }
 
+/** What the gym calls the column two rows collided on. */
+const KEY_LABEL: Record<string, string> = {
+  "gym_id,external_ref": "member reference",
+  "gym_id,email": "email address",
+  "gym_id,phone": "phone number",
+};
+
 /**
- * Collapses rows that share a conflict key so a single statement never tries to
- * touch the same target row twice (Postgres rejects the whole batch otherwise).
- * The last occurrence wins, matching the "re-import updates" contract: a later
- * row in the file is the more recent data.
+ * Separates rows that share a conflict key, so a single statement never tries
+ * to touch the same target row twice (Postgres rejects the whole batch
+ * otherwise).
+ *
+ * The FIRST occurrence is kept and every later one is handed back as a
+ * collision for the caller to report.
+ *
+ * This used to keep the last occurrence and say nothing, on the reasoning that
+ * a later row is more recent data. That reasoning holds ACROSS imports, where
+ * a newer file supersedes an older one. It does not hold WITHIN one file, where
+ * two rows sharing an email address are usually two different people: a couple
+ * on one membership, a family sharing an address, a front-desk placeholder, or
+ * a plain typo. Collapsing them deleted one member outright and left the
+ * survivor holding somebody else's address, so casdey would greet the wrong
+ * person by name at an inbox that was never theirs. The counts said nothing
+ * either: eight rows read, five added, two skipped, and no mention of the
+ * eighth.
+ *
+ * Which row survives matters far less than the gym being told, so that they can
+ * fix the export. First-wins is simply the order they wrote the file in.
  */
-function dedupeByConflictKey(
+export function dedupeByConflictKey(
   members: RawMember[],
   keyOf: (p: RawMember) => string,
-): RawMember[] {
+): { kept: RawMember[]; collisions: RawMember[] } {
   const byKey = new Map<string, RawMember>();
-  for (const member of members) byKey.set(keyOf(member), member);
-  return [...byKey.values()];
+  const collisions: RawMember[] = [];
+
+  for (const member of members) {
+    const key = keyOf(member);
+    if (byKey.has(key)) collisions.push(member);
+    else byKey.set(key, member);
+  }
+
+  return { kept: [...byKey.values()], collisions };
+}
+
+/** One unwritable record, capped so a broken file cannot return a novel. */
+function recordFailure(
+  result: UpsertResult,
+  member: RawMember,
+  reason: string,
+): void {
+  result.failed += 1;
+  if (result.failures.length >= MAX_FAILURES) return;
+  result.failures.push({
+    row: member.sourceRow,
+    ref:
+      member.externalRef ||
+      member.email ||
+      member.phone ||
+      [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+      `row ${member.sourceRow}`,
+    reason,
+  });
 }
 
 async function run(
@@ -118,13 +184,25 @@ async function run(
   result: UpsertResult,
 ): Promise<void> {
   const client = supabaseAdmin();
-  const keyOf: (p: RawMember) => string = onConflict.endsWith("email")
-    ? (p) => (p.email ?? "").toLowerCase()
-    : (p) => p.externalRef ?? "";
-  const deduped = dedupeByConflictKey(members, keyOf);
+  const keyOf: (p: RawMember) => string = onConflict.endsWith("external_ref")
+    ? (p) => p.externalRef ?? ""
+    : onConflict.endsWith("phone")
+      ? (p) => p.phone ?? ""
+      : (p) => (p.email ?? "").toLowerCase();
 
-  for (let start = 0; start < deduped.length; start += BATCH_SIZE) {
-    const slice = deduped.slice(start, start + BATCH_SIZE);
+  const { kept, collisions } = dedupeByConflictKey(members, keyOf);
+
+  const label = KEY_LABEL[onConflict] ?? "identifier";
+  for (const member of collisions) {
+    recordFailure(
+      result,
+      member,
+      `this ${label} is already used by an earlier row in the same file, so this record was not imported. If they are two different people, give them different details and import again`,
+    );
+  }
+
+  for (let start = 0; start < kept.length; start += BATCH_SIZE) {
+    const slice = kept.slice(start, start + BATCH_SIZE);
     const rows = slice.map((member) =>
       toRow(member, options.gymId, options.importId, options.source),
     );
@@ -176,17 +254,13 @@ async function runRowByRow(
       .maybeSingle();
 
     if (error) {
-      result.failed += 1;
-      if (result.failures.length < MAX_FAILURES) {
-        result.failures.push({
-          row: member.sourceRow,
-          ref: member.externalRef ?? member.email ?? "(no reference)",
-          reason:
-            error.code === "23505"
-              ? "email already belongs to another member in this gym"
-              : error.message,
-        });
-      }
+      recordFailure(
+        result,
+        member,
+        error.code === "23505"
+          ? "these details already belong to another member in this gym"
+          : error.message,
+      );
       continue;
     }
 

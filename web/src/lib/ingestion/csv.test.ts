@@ -136,14 +136,30 @@ describe("normalizeRow", () => {
     expect(result.member.email).toBeNull();
   });
 
-  it("skips a row with neither an email nor a reference", () => {
+  it("keeps a phone-only member: WhatsApp is how Pro reaches them", () => {
     const result = normalizeRow(
       row({ Email: "", "Member ID": "" }),
       MAPPING,
       "dmy",
       5,
     );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.member.email).toBeNull();
+    expect(result.member.externalRef).toBeNull();
+    expect(result.member.phone).toBe("07700 900123");
+  });
+
+  it("skips a row with no email, no reference and no phone", () => {
+    const result = normalizeRow(
+      row({ Email: "", "Member ID": "", Mobile: "" }),
+      MAPPING,
+      "dmy",
+      5,
+    );
     expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issue.field).toBe("email");
   });
 
   it("rejects a malformed email rather than importing it and failing at send", () => {
