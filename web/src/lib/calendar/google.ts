@@ -92,6 +92,10 @@ export function isGoogleCalendarConfigured(): boolean {
  * The consent-screen URL. `access_type=offline` + `prompt=consent` are what
  * make Google return a refresh token (and return one again on reconnect),
  * without which casdey could not write to the calendar after the first hour.
+ *
+ * `select_account` rides along with it because a gym owner signed into two
+ * Google accounts would otherwise be handed the one the browser used last,
+ * with no way to pick, and bookings would land in the wrong calendar.
  */
 export function buildConsentUrl(opts: {
   clientId: string;
@@ -104,7 +108,7 @@ export function buildConsentUrl(opts: {
     response_type: "code",
     scope: GOOGLE_CALENDAR_SCOPES.join(" "),
     access_type: "offline",
-    prompt: "consent",
+    prompt: "consent select_account",
     include_granted_scopes: "true",
     state: opts.state,
   });

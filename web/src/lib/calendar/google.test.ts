@@ -24,7 +24,7 @@ describe("buildConsentUrl", () => {
 
   it("requests offline access and forces consent so a refresh token comes back", () => {
     expect(parsed.searchParams.get("access_type")).toBe("offline");
-    expect(parsed.searchParams.get("prompt")).toBe("consent");
+    expect(parsed.searchParams.get("prompt")).toBe("consent select_account");
   });
 
   it("carries the state and redirect through", () => {

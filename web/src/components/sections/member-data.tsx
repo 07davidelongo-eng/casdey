@@ -1,5 +1,6 @@
 import { IconShield } from "../marks/icons";
 import { Reveal } from "../motion";
+import { SectionIntro } from "./section-intro";
 import { Container } from "../ui";
 
 /**
@@ -35,18 +36,11 @@ export function MemberData() {
     <section id="member-data" className="scroll-mt-24 pb-24 sm:pb-32">
       <Container>
         <Reveal>
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
-            <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
-              Built to protect your members&apos; data from the first line of
-              code.
-            </h2>
-            <p className="text-[1.0625rem] leading-relaxed text-graphite text-pretty lg:pt-2">
-              casdey handles your members&apos; personal data, so protecting it
-              is not something bolted on later. These are the rules it is built
-              on. We would rather you hold us to them now than find out
-              afterwards.
-            </p>
-          </div>
+          <SectionIntro title="Built to protect your members' data from the first line of code.">
+            casdey handles your members&apos; personal data, so protecting it is
+            not something bolted on later. These are the rules it is built on.
+            We would rather you hold us to them now than find out afterwards.
+          </SectionIntro>
 
           <div className="mt-12 overflow-hidden rounded-[20px] border border-ash bg-white">
             <dl className="grid divide-y divide-ash sm:grid-cols-3 sm:divide-x sm:divide-y-0">

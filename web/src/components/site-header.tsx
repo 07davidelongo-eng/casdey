@@ -18,20 +18,27 @@ import { Logo } from "./wordmark";
  * Keeping that spacer here means every page using the header gets the offset
  * without knowing about it.
  */
-const LINKS = [
-  { href: "/#what-it-does", label: "What it does" },
-  { href: "/#why-casdey", label: "Why casdey" },
-  { href: "/pricing", label: "Pricing" },
-];
-
 /**
- * `sections` is off on any page that is reachable while the homepage is
- * still redirected to /waitlist in production (see next.config.ts). Those
- * links all point at anchors on /, so with the redirect in place they would
- * bounce a visitor straight back to the page they are already on, and
+ * Anchors on the homepage. These are what `sections` gates, because the
+ * homepage still redirects to /waitlist in production (see next.config.ts),
+ * so following one bounces a visitor to the page they are already on, and
  * /waitlist is where the live cold outreach sends people. Turn it back on
  * everywhere once the homepage is published.
  */
+const SECTION_LINKS = [
+  { href: "/#what-it-does", label: "What it does" },
+  { href: "/#why-casdey", label: "Why casdey" },
+];
+
+/**
+ * Real pages, unaffected by that redirect, so they are always shown. Pricing
+ * used to sit in the list above and was hidden alongside the anchors, which
+ * took a live page out of the nav for no reason.
+ */
+const PAGE_LINKS = [
+  { href: "/pricing", label: "Pricing" },
+  { href: "/contact", label: "Contact" },
+];
 export function SiteHeader({ sections = true }: { sections?: boolean } = {}) {
   const [lifted, setLifted] = useState(false);
 
@@ -62,9 +69,9 @@ export function SiteHeader({ sections = true }: { sections?: boolean } = {}) {
               <Logo className="text-[1.4rem]" />
             </Link>
 
-            {sections && (
-              <nav className="hidden gap-7 md:flex" aria-label="Sections">
-                {LINKS.map((link) => (
+            <nav className="hidden gap-7 md:flex" aria-label="Sections">
+              {[...(sections ? SECTION_LINKS : []), ...PAGE_LINKS].map(
+                (link) => (
                   <Link
                     key={link.href}
                     href={link.href}
@@ -72,9 +79,9 @@ export function SiteHeader({ sections = true }: { sections?: boolean } = {}) {
                   >
                     {link.label}
                   </Link>
-                ))}
-              </nav>
-            )}
+                ),
+              )}
+            </nav>
 
             <div className="ml-auto flex items-center gap-3 sm:gap-4">
               <Link

@@ -153,6 +153,11 @@ export function AuthForm({
       provider: "google",
       options: {
         redirectTo: `${canonicalOrigin()}/auth/callback?next=${encodeURIComponent(next)}`,
+        // Without this Google silently reuses whichever account the browser
+        // signed in with last, so someone with two addresses cannot reach the
+        // other one, and a gym that registered with the wrong address has no
+        // way back to the right one. Always show the chooser.
+        queryParams: { prompt: "select_account" },
       },
     });
     if (error) {

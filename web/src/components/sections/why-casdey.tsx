@@ -1,4 +1,5 @@
 import { Reveal } from "../motion";
+import { SectionIntro } from "./section-intro";
 import { Container } from "../ui";
 
 /**
@@ -73,16 +74,11 @@ export function WhyCasdey() {
     <section id="why-casdey" className="scroll-mt-24 pb-24 sm:pb-32">
       <Container>
         <Reveal>
-          <div className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
-            <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
-              Everything your gym software does starts with someone walking in.
-            </h2>
-            <p className="text-[1.0625rem] leading-relaxed text-graphite text-pretty lg:pt-2">
-              It runs the members who are already showing up, and it runs them
-              well. The ones who stopped are not a problem it solves badly, they
-              are simply absent from it. On most lists that is the larger half.
-            </p>
-          </div>
+          <SectionIntro title="Everything your gym software does starts with someone walking in.">
+            It runs the members who are already showing up, and it runs them
+            well. The ones who stopped are not a problem it solves badly, they
+            are simply absent from it. On most lists that is the larger half.
+          </SectionIntro>
 
           <div className="mt-12 overflow-hidden rounded-[20px] border border-ash bg-white">
             <div className="grid divide-y divide-ash sm:grid-cols-2 sm:divide-x sm:divide-y-0">

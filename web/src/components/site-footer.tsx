@@ -24,8 +24,9 @@ const COLUMNS = [
     ],
   },
   {
-    heading: "Legal",
+    heading: "Company",
     links: [
+      { href: "/contact", label: "Contact" },
       { href: "/privacy", label: "Privacy notice" },
       { href: "/terms/processing", label: "Data processing" },
     ],
@@ -43,12 +44,20 @@ export function SiteFooter() {
               Lapsed-member reactivation for gyms and studios in the UK and the
               EU.
             </p>
-            <a
-              href="mailto:info@casdey.com"
-              className="label mt-5 inline-block text-teal transition-colors duration-200 hover:text-teal-hover"
-            >
-              info@casdey.com
-            </a>
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <a
+                href="mailto:info@casdey.com"
+                className="label text-teal transition-colors duration-200 hover:text-teal-hover"
+              >
+                info@casdey.com
+              </a>
+              <a
+                href="https://instagram.com/casdey.co"
+                className="label text-teal transition-colors duration-200 hover:text-teal-hover"
+              >
+                @casdey.co
+              </a>
+            </div>
           </div>
 
           {COLUMNS.map((column) => (

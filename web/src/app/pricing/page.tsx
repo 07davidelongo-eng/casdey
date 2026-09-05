@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { PricingTable } from "@/components/pricing-table";
 import { CtaBand } from "@/components/sections/cta-band";
+import { Guarantee } from "@/components/sections/guarantee";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Container } from "@/components/ui";
@@ -49,7 +50,7 @@ const FAQ = [
 export default function PricingPage() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader sections={false} />
       <main>
         <section className="relative overflow-hidden pt-14 sm:pt-20">
           <div
@@ -80,28 +81,41 @@ export default function PricingPage() {
           </Container>
         </section>
 
+        <section className="pt-24 sm:pt-28">
+          <Container>
+            <Guarantee />
+          </Container>
+        </section>
+
         <section className="py-24 sm:py-32">
           <Container>
-            <div className="grid gap-10 lg:grid-cols-[1fr_1.3fr] lg:gap-16">
-              <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
-                Questions a gym owner actually asks.
-              </h2>
+            <h2 className="display max-w-[24ch] text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
+              Questions a gym owner actually asks.
+            </h2>
 
-              <dl className="overflow-hidden rounded-[20px] border border-ash bg-white">
-                {FAQ.map((item, i) => (
-                  <div
-                    key={item.q}
-                    className={"p-7 sm:p-8 " + (i ? "border-t border-ash" : "")}
-                  >
-                    <dt className="text-[1.0625rem] font-medium text-ink">
-                      {item.q}
-                    </dt>
-                    <dd className="mt-2.5 text-[0.9375rem] leading-relaxed text-graphite">
-                      {item.a}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+            {/* Collapsed by default. Five answers this long, all open at once,
+                is a wall nobody reads; a gym owner has one question and wants
+                it, not the set. */}
+            <div className="mt-10 overflow-hidden rounded-[20px] border border-ash bg-white">
+              {FAQ.map((item, i) => (
+                <details
+                  key={item.q}
+                  className={"group " + (i ? "border-t border-ash" : "")}
+                >
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-6 p-7 text-[1.0625rem] font-medium text-ink sm:p-8">
+                    {item.q}
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0 text-stone transition-transform duration-200 group-open:rotate-45"
+                    >
+                      +
+                    </span>
+                  </summary>
+                  <p className="px-7 pb-7 text-[0.9375rem] leading-relaxed text-graphite sm:px-8 sm:pb-8">
+                    {item.a}
+                  </p>
+                </details>
+              ))}
             </div>
           </Container>
         </section>
