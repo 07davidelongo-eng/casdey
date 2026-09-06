@@ -3,6 +3,11 @@ import "server-only";
 import { supabaseAdmin } from "../supabase";
 import { whatsappProvider } from "./send";
 import { sanitizeReply } from "./sanitize";
+import {
+  CANCELLATION_REASONS,
+  isCancellationReason,
+  type CancellationReason,
+} from "../cancellation";
 import type { Gym, WhatsAppConversation } from "../types";
 
 /**
@@ -41,6 +46,24 @@ const MARK_BOOKING_TOOL = {
   input_schema: { type: "object", properties: {}, required: [] },
 };
 
+const RECORD_REASON_TOOL = {
+  name: "record_reason",
+  description:
+    "Call this when the member says, in their own words, why they stopped coming. Record what they actually said, not what you infer from silence or from them being busy in general. Do not ask for a reason more than once, and never push if they do not want to say.",
+  input_schema: {
+    type: "object",
+    properties: {
+      reason: {
+        type: "string",
+        enum: [...CANCELLATION_REASONS],
+        description:
+          "price: too expensive. relocation: moved away. dissatisfaction: unhappy with the gym itself. health: injury or illness. no_time: could not fit it in. other: a real reason that is none of these.",
+      },
+    },
+    required: ["reason"],
+  },
+};
+
 function systemPrompt(gymName: string): string {
   return `You are messaging on behalf of ${gymName}, a gym, over WhatsApp. You are re-engaging a member who has not been in for a while.
 
@@ -50,10 +73,15 @@ Rules:
 - Never give training, nutrition, injury, or medical advice of any kind. If asked, say a coach at the gym can go through that with them directly.
 - Never invent class times, prices, availability, or membership terms. You cannot book anything yourself.
 - The moment the member clearly says they want to book, call mark_booking_requested and send one short reply confirming the gym will be in touch to arrange a time. Do not negotiate times yourself.
+- If the member tells you why they stopped coming, call record_reason once with what they said. Ask at most once, gently, and only if it comes up naturally. Never press somebody who does not want to say, and never guess.
 - Reply in whatever language the member is writing in.`;
 }
 
-type ClaudeReply = { reply: string; bookingRequested: boolean };
+type ClaudeReply = {
+  reply: string;
+  bookingRequested: boolean;
+  reason: CancellationReason | null;
+};
 
 async function callClaude(
   gym: Gym,
@@ -75,7 +103,9 @@ async function callClaude(
     content: message.body,
   }));
 
-  if (messages.length === 0) return { reply: "", bookingRequested: false };
+  if (messages.length === 0) {
+    return { reply: "", bookingRequested: false, reason: null };
+  }
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -89,7 +119,7 @@ async function callClaude(
       max_tokens: 300,
       system: systemPrompt(gym.name),
       messages,
-      tools: [MARK_BOOKING_TOOL],
+      tools: [MARK_BOOKING_TOOL, RECORD_REASON_TOOL],
     }),
   });
 
@@ -99,19 +129,32 @@ async function callClaude(
   }
 
   const json = (await response.json()) as {
-    content: Array<{ type: string; text?: string; name?: string }>;
+    content: Array<{
+      type: string;
+      text?: string;
+      name?: string;
+      input?: unknown;
+    }>;
   };
 
   let reply = "";
   let bookingRequested = false;
+  let reason: CancellationReason | null = null;
   for (const block of json.content ?? []) {
     if (block.type === "text" && block.text) reply += block.text;
-    if (block.type === "tool_use" && block.name === "mark_booking_requested") {
-      bookingRequested = true;
+    if (block.type !== "tool_use") continue;
+    if (block.name === "mark_booking_requested") bookingRequested = true;
+    if (block.name === "record_reason") {
+      // The enum is declared to the model, and the model is still the one
+      // filling it in, so it is checked here rather than trusted: an
+      // unrecognised value would fail the check constraint on the column and
+      // take the whole reply down with it.
+      const given = (block.input as { reason?: unknown } | undefined)?.reason;
+      if (isCancellationReason(given)) reason = given;
     }
   }
 
-  return { reply: sanitizeReply(reply), bookingRequested };
+  return { reply: sanitizeReply(reply), bookingRequested, reason };
 }
 
 /**
@@ -221,6 +264,25 @@ export async function continueConversation(
         type: "replied",
         meta: { channel: "whatsapp", booking_requested: true },
       });
+    }
+
+    // Why they left, in their own words, learned by asking them. This is the
+    // one channel where casdey hears the answer at all: an email reply goes
+    // straight to the gym's own inbox and casdey never sees it.
+    //
+    // Only ever fills a blank. Staff who recorded a reason at the front desk
+    // heard it from the member in person, and a model reading a WhatsApp
+    // thread does not get to overrule that.
+    if (result.reason) {
+      const { error: reasonError } = await client
+        .from("members")
+        .update({ cancellation_reason: result.reason })
+        .eq("id", conversation.member_id)
+        .is("cancellation_reason", null);
+
+      if (reasonError) {
+        console.error("[whatsapp] reason not recorded", reasonError.message);
+      }
     }
   } catch (sendError) {
     console.error(

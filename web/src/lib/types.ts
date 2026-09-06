@@ -1,4 +1,5 @@
 import type { OfferInputs } from "./offers/types";
+import type { OfferVariants } from "./offers/variants";
 
 import type { CancellationReason } from "./cancellation";
 import type { BillingPeriod } from "./services";
@@ -180,6 +181,9 @@ export type Gym = {
   /** Null for the honest check-in, which makes no promise to expire. */
   offer_expires_at: string | null;
   offer_inputs: OfferInputs | null;
+  /** Per-reason offers, keyed by members.cancellation_reason. Falls back to
+   *  offer_text. See src/lib/offers/variants.ts. */
+  offer_variants: OfferVariants;
   offer_chosen_at: string | null;
 };
 

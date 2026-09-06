@@ -1,5 +1,6 @@
 import { monthsSince } from "./lapse";
 import { REASON_LABELS } from "./cancellation";
+import { offerForMember, parseVariants } from "./offers/variants";
 import type { Member, Gym } from "./types";
 
 /**
@@ -135,7 +136,7 @@ export function contextFor(
     Member,
     "first_name" | "last_visit_at" | "cancellation_reason"
   >,
-  gym: Pick<Gym, "name" | "offer_text">,
+  gym: Pick<Gym, "name" | "offer_text" | "offer_variants">,
   now: Date = new Date(),
   bookingUrl: string | null = null,
 ): TemplateContext {
@@ -144,7 +145,13 @@ export function contextFor(
     gymName: gym.name,
     monthsAway: monthsSince(member.last_visit_at, now),
     bookingUrl,
-    offer: gym.offer_text ?? null,
+    // The offer written for why THIS member left, falling back to the gym's
+    // general one. See src/lib/offers/variants.ts.
+    offer: offerForMember(
+      parseVariants(gym.offer_variants),
+      gym.offer_text,
+      member.cancellation_reason,
+    ),
     reason: member.cancellation_reason
       ? REASON_LABELS[member.cancellation_reason]
       : null,
