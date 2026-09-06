@@ -4,7 +4,7 @@ import { gymCurrency } from "@/lib/money";
 import type { Service } from "@/lib/types";
 import { ServicesForm } from "./form";
 
-export const metadata = { title: "Service prices" };
+export const metadata = { title: "Services" };
 
 export default async function ServicesSettingsPage() {
   const { gym, session, role } = await requireGym();
@@ -18,7 +18,7 @@ export default async function ServicesSettingsPage() {
   const services = (data ?? []) as Service[];
 
   return (
-    <div className="max-w-[42rem] space-y-6">
+    <div className="max-w-[46rem] space-y-6">
       {role !== "owner" ? (
         <Notice tone="warn">
           Only the gym owner can change these. You can read them.
@@ -29,6 +29,10 @@ export default async function ServicesSettingsPage() {
         services={services}
         currency={gymCurrency(gym)}
         readOnly={role !== "owner"}
+        gymDefaults={{
+          slotMinutes: gym.booking_slot_minutes,
+          bufferMinutes: gym.booking_buffer_minutes,
+        }}
       />
     </div>
   );

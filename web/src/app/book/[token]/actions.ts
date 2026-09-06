@@ -11,7 +11,8 @@ import { sendingIdentity } from "@/lib/email/identity";
 import { buildIcs } from "@/lib/calendar/ics";
 import { gymOpenSlots, CalendarUnavailableError } from "@/lib/calendar/gym-slots";
 import { calendarFor } from "@/lib/calendar/provider";
-import type { Gym } from "@/lib/types";
+import { isExclusive, slotShape } from "@/lib/services";
+import type { Gym, Service } from "@/lib/types";
 
 export type BookState = {
   booked: boolean;
@@ -80,12 +81,29 @@ export async function bookSlotAction(
     };
   }
 
+  // The service decides the shape of the booking, so it is read before the
+  // slots are recomputed rather than after: a 60-minute class and a 30-minute
+  // PT session do not have the same open times, and checking one against the
+  // other would confirm a slot that was never offered.
+  let service: Service | null = null;
+  if (serviceId) {
+    const { data } = await client
+      .from("services")
+      .select("*")
+      .eq("id", serviceId)
+      .eq("gym_id", gym.id)
+      .eq("active", true)
+      .eq("bookable", true)
+      .maybeSingle();
+    service = (data as Service) ?? null;
+  }
+
   // Recompute fresh: the slot the member picked must still be open. This is
   // the same engine the page used to show it, so a slot the page offered a
   // moment ago is trusted only as far as this recheck confirms it still holds.
   let openNow;
   try {
-    openNow = await gymOpenSlots(gym);
+    openNow = await gymOpenSlots(gym, new Date(), service);
   } catch (error) {
     // The gym's calendar cannot be read right now, so we cannot confirm this
     // slot is genuinely free. Refuse rather than book blind: booking a slot
@@ -112,23 +130,32 @@ export async function bookSlotAction(
     };
   }
 
-  const endAt = new Date(
-    startAt.getTime() + gym.booking_slot_minutes * 60_000,
-  );
+  const shape = slotShape(service, {
+    slotMinutes: gym.booking_slot_minutes,
+    bufferMinutes: gym.booking_buffer_minutes,
+  });
+  const endAt = new Date(startAt.getTime() + shape.slotMinutes * 60_000);
+  const exclusive = isExclusive(service);
 
-  let valueMinor: number | null = gym.booking_value_minor;
-  let serviceName: string | null = null;
-  if (serviceId) {
-    const { data: service } = await client
-      .from("services")
-      .select("name, price_minor")
-      .eq("id", serviceId)
-      .eq("gym_id", gym.id)
-      .maybeSingle();
-    if (service) {
-      valueMinor = service.price_minor;
-      serviceName = service.name as string;
-    }
+  const valueMinor: number | null = service
+    ? service.price_minor
+    : gym.booking_value_minor;
+  const serviceName: string | null = service?.name ?? null;
+
+  // A place in a class, picked as the lowest number nobody holds. The unique
+  // index on (gym_id, service_id, start_at, seat) is what actually enforces
+  // capacity, so a race here loses on the insert rather than overfilling the
+  // room, and the retry below takes the next seat up.
+  const seat = exclusive
+    ? null
+    : await nextFreeSeat(client, gym.id, serviceId, startAt, service?.capacity ?? 1);
+
+  if (!exclusive && seat === null) {
+    return {
+      booked: false,
+      error: "That class just filled up. Pick another time.",
+      confirmedStartAt: null,
+    };
   }
 
   const { data: booking, error: insertError } = await client
@@ -141,7 +168,9 @@ export async function bookSlotAction(
       end_at: endAt.toISOString(),
       status: "booked",
       value_minor: valueMinor,
-      buffer_minutes: gym.booking_buffer_minutes,
+      buffer_minutes: shape.bufferMinutes,
+      exclusive,
+      seat,
       created_via: "self_serve",
     })
     .select("id, booking_token")
@@ -186,6 +215,9 @@ export async function bookSlotAction(
         start: startAt,
         end: endAt,
         attendeeEmail: member.email,
+        // A class must not consume the gym's free/busy, or the second person
+        // to book it would find their own class marked busy.
+        busy: exclusive,
       });
       await client
         .from("bookings")
@@ -333,4 +365,39 @@ function formatWhen(date: Date, timeZone: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+/**
+ * The lowest free place in a class, or null when it is full.
+ *
+ * Read-then-insert, which races, and that is fine: the unique index on
+ * (gym_id, service_id, start_at, seat) is the real guard, so the worst a race
+ * does is make one caller retry. What it must never do is return a seat above
+ * capacity, which is why the ceiling is checked here and not only in the UI.
+ */
+async function nextFreeSeat(
+  client: ReturnType<typeof supabaseAdmin>,
+  gymId: string,
+  serviceId: string | null,
+  startAt: Date,
+  capacity: number,
+): Promise<number | null> {
+  const { data } = await client
+    .from("bookings")
+    .select("seat")
+    .eq("gym_id", gymId)
+    .eq("service_id", serviceId)
+    .eq("start_at", startAt.toISOString())
+    .eq("status", "booked");
+
+  const taken = new Set(
+    (data ?? [])
+      .map((row) => (row as { seat: number | null }).seat)
+      .filter((seat): seat is number => seat !== null),
+  );
+
+  for (let seat = 1; seat <= capacity; seat += 1) {
+    if (!taken.has(seat)) return seat;
+  }
+  return null;
 }

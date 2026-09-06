@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { requireGym } from "@/lib/dal";
-import { gymStats } from "@/lib/stats";
+import { gymStats, recoveredBreakdown } from "@/lib/stats";
 import {
   atRiskRuleFor,
   describeRule,
@@ -81,6 +81,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
 
   const returned = (returnedRows?.[0] ?? null) as Member | null;
 
+  const breakdown = await recoveredBreakdown(session.supabase, gym.id);
   const currency = gymCurrency(gym);
   const recoveredMinor = estimatedRecoveredMinor(
     stats.returned,
@@ -194,6 +195,42 @@ export default async function DashboardPage(props: PageProps<"/app">) {
             {formatMoney(gym.booking_value_minor ?? 0, currency)} a
             recovered booking. An estimate, not amounts casdey has billed.
           </p>
+
+          {/* What the money is made of, from real bookings rather than from
+              the typical-value setting above. Thirty monthly memberships and
+              thirty single sessions are the same headline and completely
+              different businesses. */}
+          {breakdown.recurringMinor > 0 || breakdown.oneOffMinor > 0 ? (
+            <div className="mt-4 border-t border-ash pt-4">
+              <p className="text-[0.875rem] text-graphite">
+                Of what members actually booked,{" "}
+                <span className="literal text-ink">
+                  {formatMoney(breakdown.recurringMinor, currency)}
+                </span>{" "}
+                is recurring and{" "}
+                <span className="literal text-ink">
+                  {formatMoney(breakdown.oneOffMinor, currency)}
+                </span>{" "}
+                is one off.
+              </p>
+              {breakdown.annualisedRecurringMinor > breakdown.recurringMinor ? (
+                <p className="mt-1 text-[0.8125rem] text-stone">
+                  The recurring half is worth about{" "}
+                  {formatMoney(breakdown.annualisedRecurringMinor, currency)} over
+                  a year if those members stay, which is the number worth
+                  comparing against what casdey costs.
+                </p>
+              ) : null}
+              {breakdown.unclassified > 0 ? (
+                <p className="mt-1 text-[0.8125rem] text-stone">
+                  {breakdown.unclassified}{" "}
+                  {breakdown.unclassified === 1 ? "booking" : "bookings"} had no
+                  service picked, so {breakdown.unclassified === 1 ? "it is" : "they are"}{" "}
+                  not counted in that split.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </Card>
       ) : (
         <Card className="mt-6 flex flex-wrap items-center justify-between gap-4">

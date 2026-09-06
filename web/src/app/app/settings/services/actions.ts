@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
+import { BILLING_PERIODS } from "@/lib/services";
 
 export type ServicesState = { error: string | null; saved: boolean };
 
@@ -17,10 +18,33 @@ export type ServicesState = { error: string | null; saved: boolean };
 const Row = z.object({
   id: z.uuid().nullable(),
   name: z.string().trim().min(1, "Give each service a name.").max(120),
+  description: z.string().trim().max(300).default(""),
   price: z
     .number({ message: "Enter each price as a number." })
     .min(0, "A price cannot be negative.")
     .max(1_000_000, "That price is higher than casdey will store."),
+  billingPeriod: z.enum(BILLING_PERIODS),
+  active: z.boolean(),
+  bookable: z.boolean(),
+  // Null means "inherit the gym's own booking defaults", which is what most
+  // gyms want and what every service starts as.
+  durationMinutes: z
+    .number()
+    .int()
+    .min(5, "A bookable service has to run for at least five minutes.")
+    .max(480, "Eight hours is the longest slot casdey will offer.")
+    .nullable(),
+  bufferMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(240, "Four hours is the longest gap casdey will keep clear.")
+    .nullable(),
+  capacity: z
+    .number()
+    .int()
+    .min(1, "A service needs at least one place.")
+    .max(500, "Five hundred places is the most casdey will hold in one slot."),
 });
 
 const Schema = z
@@ -65,7 +89,17 @@ export async function saveServices(
     ...(row.id ? { id: row.id } : {}),
     gym_id: gym.id,
     name: row.name,
+    description: row.description || null,
     price_minor: Math.round(row.price * 100),
+    billing_period: row.billingPeriod,
+    active: row.active,
+    bookable: row.bookable,
+    // Only meaningful on a bookable service. Clearing them when the switch is
+    // off keeps a stale 90-minute duration from coming back to life if the
+    // gym turns booking on again months later and does not re-read it.
+    duration_minutes: row.bookable ? row.durationMinutes : null,
+    buffer_minutes: row.bookable ? row.bufferMinutes : null,
+    capacity: row.bookable ? row.capacity : 1,
     position: index,
   }));
 

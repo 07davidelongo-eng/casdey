@@ -1,7 +1,8 @@
 import "server-only";
 
 import { supabaseAdmin } from "../supabase";
-import type { Gym } from "../types";
+import type { Gym, Service } from "../types";
+import { isExclusive, slotShape } from "../services";
 import { openSlots, type Interval } from "./availability";
 import { calendarFor, calendarNeedsReauth } from "./provider";
 
@@ -29,18 +30,31 @@ export class CalendarUnavailableError extends Error {
  * gym with no calendar connected still gets a working booking page: it
  * just cannot see bookings made outside casdey.
  */
-export async function gymOpenSlots(
-  gym: Gym,
-  now: Date = new Date(),
-): Promise<Interval[]> {
+type LiveBooking = {
+  start_at: string;
+  end_at: string;
+  service_id: string | null;
+  exclusive: boolean;
+};
+
+type BusyContext = { rows: LiveBooking[]; googleBusy: Interval[] };
+
+/**
+ * Everything that makes a time unavailable, read once.
+ *
+ * Pulled out because slots are now computed per service, and a gym offering
+ * five bookable services would otherwise ask Google for its free/busy five
+ * times to answer one page.
+ */
+async function loadBusy(gym: Gym, now: Date): Promise<BusyContext> {
   const horizonEnd = new Date(
     now.getTime() + (gym.booking_horizon_days + 1) * 86_400_000,
   );
 
-  const [{ data: existing }, googleBusy] = await Promise.all([
+  const [{ data }, googleBusy] = await Promise.all([
     supabaseAdmin()
       .from("bookings")
-      .select("start_at, end_at")
+      .select("start_at, end_at, service_id, exclusive")
       .eq("gym_id", gym.id)
       .eq("status", "booked")
       .lt("start_at", horizonEnd.toISOString())
@@ -48,26 +62,118 @@ export async function gymOpenSlots(
     fetchGoogleBusy(gym, now, horizonEnd),
   ]);
 
+  return { rows: (data ?? []) as LiveBooking[], googleBusy };
+}
+
+function slotsFor(
+  gym: Gym,
+  busyContext: BusyContext,
+  service: Service | null,
+  now: Date,
+): Interval[] {
+  const shape = slotShape(service, {
+    slotMinutes: gym.booking_slot_minutes,
+    bufferMinutes: gym.booking_buffer_minutes,
+  });
+  const exclusive = isExclusive(service);
+
+  // A class the member is trying to join is not a reason they cannot join it.
+  // Every other live booking still blocks: another class needs the room, and
+  // an exclusive booking needs the whole gym.
+  const sameClass = (row: LiveBooking) =>
+    !exclusive && !row.exclusive && row.service_id === (service?.id ?? null);
+
   const busy: Interval[] = [
-    ...(existing ?? []).map((row) => ({
-      start: new Date(row.start_at as string),
-      end: new Date(row.end_at as string),
-    })),
-    ...googleBusy,
+    ...busyContext.rows
+      .filter((row) => !sameClass(row))
+      .map((row) => ({
+        start: new Date(row.start_at),
+        end: new Date(row.end_at),
+      })),
+    ...busyContext.googleBusy,
   ];
 
-  return openSlots(
+  const slots = openSlots(
     {
       hours: gym.booking_hours,
       timezone: gym.timezone,
-      slotMinutes: gym.booking_slot_minutes,
-      bufferMinutes: gym.booking_buffer_minutes,
+      slotMinutes: shape.slotMinutes,
+      bufferMinutes: shape.bufferMinutes,
       minNoticeHours: gym.booking_min_notice_hours,
       horizonDays: gym.booking_horizon_days,
     },
     busy,
     now,
   );
+
+  if (exclusive) return slots;
+
+  // A class slot closes when its places run out, not when it has anybody in
+  // it at all.
+  const capacity = service?.capacity ?? 1;
+  const taken = seatsTaken(busyContext.rows, service?.id ?? null);
+
+  return slots.filter(
+    (slot) => (taken.get(slot.start.getTime()) ?? 0) < capacity,
+  );
+}
+
+/** How many places are gone at each start time, for one service. */
+export function seatsTaken(
+  rows: LiveBooking[],
+  serviceId: string | null,
+): Map<number, number> {
+  const taken = new Map<number, number>();
+  for (const row of rows) {
+    if (row.exclusive || row.service_id !== serviceId) continue;
+    const at = new Date(row.start_at).getTime();
+    taken.set(at, (taken.get(at) ?? 0) + 1);
+  }
+  return taken;
+}
+
+export async function gymOpenSlots(
+  gym: Gym,
+  now: Date = new Date(),
+  service: Service | null = null,
+): Promise<Interval[]> {
+  return slotsFor(gym, await loadBusy(gym, now), service, now);
+}
+
+/**
+ * Open slots for every bookable service at once, plus the generic list for a
+ * gym that has not marked anything bookable.
+ *
+ * Keyed by service id, with null holding the generic list, so the member's
+ * booking page can switch between services without a round trip and without
+ * being offered a 30-minute PT time for a 60-minute class.
+ */
+export async function gymOpenSlotsByService(
+  gym: Gym,
+  services: Service[],
+  now: Date = new Date(),
+): Promise<{
+  slots: Map<string | null, Interval[]>;
+  seats: Map<string, Map<number, number>>;
+}> {
+  const busyContext = await loadBusy(gym, now);
+
+  const slots = new Map<string | null, Interval[]>();
+  const seats = new Map<string, Map<number, number>>();
+
+  if (services.length === 0) {
+    slots.set(null, slotsFor(gym, busyContext, null, now));
+    return { slots, seats };
+  }
+
+  for (const service of services) {
+    slots.set(service.id, slotsFor(gym, busyContext, service, now));
+    if (!isExclusive(service)) {
+      seats.set(service.id, seatsTaken(busyContext.rows, service.id));
+    }
+  }
+
+  return { slots, seats };
 }
 
 async function fetchGoogleBusy(

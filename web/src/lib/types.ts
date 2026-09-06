@@ -1,6 +1,7 @@
 import type { OfferInputs } from "./offers/types";
 
 import type { CancellationReason } from "./cancellation";
+import type { BillingPeriod } from "./services";
 
 /**
  * Domain types shared across the app. These mirror the columns in
@@ -274,7 +275,18 @@ export type Service = {
   id: string;
   gym_id: string;
   name: string;
+  description: string | null;
   price_minor: number;
+  billing_period: BillingPeriod;
+  /** Retired without deleting it, so past bookings keep their history. */
+  active: boolean;
+  /** Members can pick this when booking. */
+  bookable: boolean;
+  /** Null inherits the gym's own booking defaults. See slotShape(). */
+  duration_minutes: number | null;
+  buffer_minutes: number | null;
+  /** Places in one sitting. 1 is exclusive; above 1 is a class. */
+  capacity: number;
   position: number;
   created_at: string;
   updated_at: string;

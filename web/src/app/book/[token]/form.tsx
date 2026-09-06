@@ -9,19 +9,33 @@ import { bookSlotAction, type BookState } from "./actions";
 
 export type SlotOption = { iso: string; timeLabel: string };
 export type DayGroup = { key: string; label: string; slots: SlotOption[] };
-export type ServiceOption = { id: string; name: string; priceMinor: number };
+export type ServiceOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  priceMinor: number;
+  /** "a month", or empty for a one-off. */
+  periodSuffix: string;
+  minutes: number;
+  /** Places left at each start time, keyed by the slot iso. Absent for a
+   *  one-at-a-time service, where a shown slot is simply free. */
+  placesLeft: Record<string, number> | null;
+};
 
 const INITIAL: BookState = { booked: false, error: null, confirmedStartAt: null };
 
 export function BookingForm({
   token,
-  days,
+  daysByService,
   services,
   currency,
   timezone,
 }: {
   token: string;
-  days: DayGroup[];
+  /** Open times per service id, because a 60-minute class and a 30-minute
+   *  session do not have the same ones. The "" key is the generic list for a
+   *  gym with nothing marked bookable. */
+  daysByService: Record<string, DayGroup[]>;
   services: ServiceOption[];
   currency: Currency;
   /** The gym's own timezone. The confirmation must show the time the
@@ -31,8 +45,13 @@ export function BookingForm({
 }) {
   const id = useId();
   const [state, action, pending] = useActionState(bookSlotAction, INITIAL);
+  const [selectedService, setSelectedService] = useState<string>(
+    services[0]?.id ?? "",
+  );
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
-  const [selectedService, setSelectedService] = useState<string>("");
+
+  const service = services.find((s) => s.id === selectedService) ?? null;
+  const days = daysByService[selectedService] ?? [];
 
   if (state.booked) {
     return (
@@ -56,23 +75,34 @@ export function BookingForm({
       {services.length > 0 ? (
         <div className="mb-6">
           <label htmlFor={`${id}-service`} className="field-label">
-            What&apos;s this for? (optional)
+            What would you like to book?
           </label>
           <select
             id={`${id}-service`}
             name="serviceId"
             value={selectedService}
-            onChange={(e) => setSelectedService(e.target.value)}
+            onChange={(e) => {
+              // The times belong to the service, so a change invalidates
+              // whatever was picked under the old one.
+              setSelectedService(e.target.value);
+              setSelectedIso(null);
+            }}
             disabled={pending}
             className="field"
           >
-            <option value="">No preference</option>
             {services.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} · {formatMoney(s.priceMinor, currency)}
+                {s.periodSuffix ? ` ${s.periodSuffix}` : ""}
               </option>
             ))}
           </select>
+          {service ? (
+            <p className="field-hint">
+              {service.description ? `${service.description}. ` : ""}
+              {service.minutes} minutes.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -83,6 +113,7 @@ export function BookingForm({
             <div className="flex flex-wrap gap-2">
               {day.slots.map((slot) => {
                 const active = slot.iso === selectedIso;
+                const left = service?.placesLeft?.[slot.iso];
                 return (
                   <button
                     key={slot.iso}
@@ -97,6 +128,16 @@ export function BookingForm({
                     }`}
                   >
                     {slot.timeLabel}
+                    {left !== undefined ? (
+                      <span
+                        className={
+                          "ml-2 font-normal " +
+                          (active ? "text-white/80" : "text-stone")
+                        }
+                      >
+                        {left} left
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}

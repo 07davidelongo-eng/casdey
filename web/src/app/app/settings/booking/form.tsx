@@ -107,11 +107,17 @@ export function BookingSettingsForm({
       </Card>
 
       <Card>
-        <CardTitle>Slot shape</CardTitle>
+        <CardTitle>Default slot shape</CardTitle>
+        <p className="mb-5 text-[0.875rem] text-stone">
+          What a booking looks like when the service being booked does not say
+          otherwise. A service can set its own length, gap and number of places
+          in Settings → Services, which is where a 60-minute class and a
+          30-minute session stop having to be the same thing.
+        </p>
         <div className="grid gap-5 sm:grid-cols-2">
           <NumberField
             name="slotMinutes"
-            label="Booking length (minutes)"
+            label="Default booking length (minutes)"
             defaultValue={gym.booking_slot_minutes}
             min={5}
             max={480}
@@ -119,7 +125,7 @@ export function BookingSettingsForm({
           />
           <NumberField
             name="bufferMinutes"
-            label="Gap between bookings (minutes)"
+            label="Default gap between bookings (minutes)"
             defaultValue={gym.booking_buffer_minutes}
             min={0}
             max={240}

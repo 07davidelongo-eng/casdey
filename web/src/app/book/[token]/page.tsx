@@ -1,7 +1,11 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { gymOpenSlots, CalendarUnavailableError } from "@/lib/calendar/gym-slots";
+import {
+  gymOpenSlotsByService,
+  CalendarUnavailableError,
+} from "@/lib/calendar/gym-slots";
 import { gymCurrency } from "@/lib/money";
-import type { Gym } from "@/lib/types";
+import { periodSuffix } from "@/lib/services";
+import type { Gym, Service } from "@/lib/types";
 import { BookingForm, type DayGroup, type ServiceOption } from "./form";
 
 import "@/styles/product.css";
@@ -62,9 +66,19 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
     );
   }
 
-  let slots;
+  const { data: serviceRows } = await supabaseAdmin()
+    .from("services")
+    .select("*")
+    .eq("gym_id", gym.id)
+    .eq("active", true)
+    .eq("bookable", true)
+    .order("position", { ascending: true });
+
+  const services = (serviceRows ?? []) as Service[];
+
+  let computed;
   try {
-    slots = await gymOpenSlots(gym);
+    computed = await gymOpenSlotsByService(gym, services);
   } catch (error) {
     // The gym relies on a calendar casdey cannot currently read. Do not show
     // any times, because we cannot trust that any of them are actually free.
@@ -84,22 +98,38 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
     throw error;
   }
 
-  const { data: services } = await supabaseAdmin()
-    .from("services")
-    .select("id, name, price_minor")
-    .eq("gym_id", gym.id)
-    .order("position", { ascending: true });
+  const daysByService: Record<string, DayGroup[]> = {};
+  for (const [serviceId, slots] of computed.slots) {
+    daysByService[serviceId ?? ""] = groupSlotsByDay(
+      slots.map((s) => s.start),
+      gym.timezone,
+    );
+  }
 
-  const days = groupSlotsByDay(
-    slots.map((s) => s.start),
-    gym.timezone,
-  );
+  const serviceOptions: ServiceOption[] = services.map((service) => {
+    const capacity = service.capacity;
+    const taken = computed.seats.get(service.id);
+    const placesLeft = taken
+      ? Object.fromEntries(
+          (computed.slots.get(service.id) ?? []).map((slot) => [
+            slot.start.toISOString(),
+            capacity - (taken.get(slot.start.getTime()) ?? 0),
+          ]),
+        )
+      : null;
 
-  const serviceOptions: ServiceOption[] = (services ?? []).map((s) => ({
-    id: s.id as string,
-    name: s.name as string,
-    priceMinor: s.price_minor as number,
-  }));
+    return {
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      priceMinor: service.price_minor,
+      periodSuffix: periodSuffix(service.billing_period),
+      minutes: service.duration_minutes ?? gym.booking_slot_minutes,
+      placesLeft,
+    };
+  });
+
+  const anyOpen = Object.values(daysByService).some((d) => d.length > 0);
 
   return (
     <Shell wide>
@@ -110,7 +140,7 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
         it, no waiting to hear back.
       </p>
 
-      {days.length === 0 ? (
+      {!anyOpen ? (
         <p className="notice notice-warn mt-6">
           Nothing is open right now. Reply to the message you received and we
           will find you a time by hand.
@@ -119,7 +149,7 @@ export default async function BookPage(props: PageProps<"/book/[token]">) {
         <div className="mt-8">
           <BookingForm
             token={token}
-            days={days}
+            daysByService={daysByService}
             services={serviceOptions}
             currency={gymCurrency(gym)}
             timezone={gym.timezone}

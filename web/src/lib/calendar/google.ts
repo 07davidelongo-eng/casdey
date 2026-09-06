@@ -296,12 +296,17 @@ export async function insertEvent(opts: {
   start: Date;
   end: Date;
   attendeeEmail?: string | null;
+  /** A class does not block the gym's diary: twenty people share one slot, and
+   *  an opaque event would make the second booking of the same class look busy
+   *  and close it. Written transparent so it still shows in the calendar. */
+  busy?: boolean;
 }): Promise<{ eventId: string }> {
   const body: Record<string, unknown> = {
     summary: opts.summary,
     description: opts.description,
     start: { dateTime: opts.start.toISOString() },
     end: { dateTime: opts.end.toISOString() },
+    transparency: opts.busy === false ? "transparent" : "opaque",
   };
   if (opts.attendeeEmail) {
     body.attendees = [{ email: opts.attendeeEmail }];

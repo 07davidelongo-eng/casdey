@@ -34,6 +34,8 @@ export type ConnectedCalendar = {
     start: Date;
     end: Date;
     attendeeEmail?: string | null;
+    /** False for a shared class, so it does not consume free/busy. */
+    busy?: boolean;
   }): Promise<{ eventId: string }>;
   deleteEvent(eventId: string): Promise<void>;
 };
