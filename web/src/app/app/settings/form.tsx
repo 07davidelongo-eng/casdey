@@ -29,8 +29,33 @@ export function SettingsForm({
   );
   const [capVisits, setCapVisits] = useState(gym.max_visits != null);
 
+  /**
+   * React resets a form once its action has run, and a reset restores the DOM
+   * to the values the markup mounted with, not to the values React state is
+   * holding. That is what made a ticked-off ceiling tick itself back on: the
+   * box was drawn from state, the reset put the browser's own default back,
+   * and the two stopped agreeing. Worse quietly: the number field next to it
+   * is disabled while the box is off, a disabled field is never submitted, so
+   * the following save saw capVisits on with no number and reported a ceiling
+   * out of range that the gym had never typed.
+   *
+   * Re-deriving from the gym on reset is the whole fix. It runs on the same
+   * event that does the damage, and it restores exactly what the DOM is being
+   * restored to, so state and markup cannot drift apart.
+   */
+  function syncToGym() {
+    setUnit(gym.lapsed_after_days != null ? "days" : "months");
+    setWindowValue(String(gym.lapsed_after_days ?? gym.lapsed_after_months));
+    setCapVisits(gym.max_visits != null);
+  }
+
   return (
-    <form action={action} data-unsaved-guard className="space-y-6">
+    <form
+      action={action}
+      onReset={syncToGym}
+      data-unsaved-guard
+      className="space-y-6"
+    >
       <Card>
         <CardTitle>How members see you</CardTitle>
         <p className="mb-5 text-[0.875rem] text-stone">

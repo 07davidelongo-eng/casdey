@@ -19,11 +19,13 @@ export function Offer() {
     <section id="pricing" className="scroll-mt-24 pb-24 sm:pb-32">
       <Container>
         <Reveal>
-          <div className="max-w-[34rem]">
-            <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink">
+          {/* Same reasoning as section-intro.tsx: the heading gets the section,
+              the paragraph gets a measure. */}
+          <div>
+            <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-pretty">
               Free for a week. Then free until you say otherwise.
             </h2>
-            <p className="mt-5 text-[1.0625rem] leading-relaxed text-graphite text-pretty">
+            <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
               No card to start, and no bill when the week ends. You only pay
               when you have seen what casdey found in your own list.
             </p>

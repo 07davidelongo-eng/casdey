@@ -137,6 +137,45 @@ export async function buildAudience(
 }
 
 /**
+ * How many contactable members are recorded against each reason for leaving.
+ *
+ * The reason filter used to be offered as six choices that looked equally
+ * available, and picking one whose count was zero built an empty audience and
+ * refused the campaign with a message about nobody having gone quiet, which
+ * was not what had happened at all. A gym cannot know which reasons it has
+ * recorded without being told, so it gets told, on the control itself.
+ *
+ * Deliberately mirrors cancelledBranch's predicate rather than sharing code
+ * with it: this counts, that selects, and the day the two drift is the day a
+ * gym is offered a reason it cannot actually send to.
+ */
+export async function audienceReasonCounts(
+  gymId: string,
+): Promise<Record<string, number>> {
+  const { data, error } = await supabaseAdmin()
+    .from("members")
+    .select("cancellation_reason")
+    .eq("gym_id", gymId)
+    .eq("is_test", false)
+    .eq("consent_email", true)
+    .not("email", "is", null)
+    .neq("status", "opted_out")
+    .neq("status", "returned")
+    .not("cancellation_reason", "is", null);
+
+  if (error) {
+    throw new Error(`reason counts failed: ${error.code} ${error.message}`);
+  }
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const reason = row.cancellation_reason;
+    if (typeof reason === "string") counts[reason] = (counts[reason] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
  * The WhatsApp win-back audience (Track E1). Same lapsed + cancelled logic as
  * buildAudience, but gated on a phone number and consent_whatsapp instead of
  * an email address and consent_email, and suppressed against

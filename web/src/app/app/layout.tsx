@@ -46,7 +46,13 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           too late. */}
       <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
 
-      <aside className="app-sidebar on-deep flex shrink-0 flex-col gap-6 px-4 py-4 md:w-60 md:px-5 md:py-7">
+      {/* Sticky and exactly one viewport tall on desktop, with its own scroll.
+          As a plain flex child it stretched to the height of whatever page it
+          sat beside, which put the gym name, the theme switch and sign out at
+          the foot of a long document instead of the foot of the screen: on
+          Settings you had to scroll the page to reach the controls that are
+          supposed to be always there. */}
+      <aside className="app-sidebar on-deep flex shrink-0 flex-col gap-6 px-4 py-4 md:sticky md:top-0 md:h-[100dvh] md:w-60 md:overflow-y-auto md:px-5 md:py-7">
         <div className="flex items-center justify-between md:block">
           <Link href="/app" className="inline-block text-ink">
             <Logo className="text-[1.5rem]" />

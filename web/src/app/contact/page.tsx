@@ -41,18 +41,6 @@ const CHANNELS = [
   },
 ];
 
-const PEOPLE = [
-  {
-    name: "Davide",
-    role: "Builds casdey, and answers most of the email",
-    email: "davide@casdey.com",
-  },
-  {
-    name: "Abhi",
-    role: "Partner",
-    email: "abhi@casdey.com",
-  },
-];
 
 export default function ContactPage() {
   return (
@@ -68,11 +56,11 @@ export default function ContactPage() {
           <Container className="relative">
             <Eyebrow>Contact</Eyebrow>
             <h1 className="display mt-5 max-w-[18ch] text-[clamp(1.9rem,3.4vw,2.9rem)] text-ink text-balance">
-              There are two of us, and we both read it.
+              Ask us anything. A person reads every message.
             </h1>
             <p className="mt-6 max-w-[54ch] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-              No ticket number, no chatbot, no form that goes nowhere. Ask us
-              anything about the product, your own list, or what happens to your
+              No ticket number, no chatbot, no form that goes nowhere. Ask
+              about the product, your own list, or what happens to your
               members&apos; data. If casdey is not right for your gym we will
               tell you that too.
             </p>
@@ -97,24 +85,6 @@ export default function ContactPage() {
                 ))}
               </dl>
 
-              <div className="grid divide-y divide-ash border-t border-ash sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-                {PEOPLE.map((p) => (
-                  <div key={p.name} className="p-8 sm:p-9">
-                    <p className="text-[1.0625rem] font-medium text-ink">
-                      {p.name}
-                    </p>
-                    <p className="mt-1 text-[0.9375rem] text-graphite">
-                      {p.role}
-                    </p>
-                    <a
-                      href={`mailto:${p.email}`}
-                      className="label mt-4 inline-block text-teal transition-colors duration-200 hover:text-teal-hover"
-                    >
-                      {p.email}
-                    </a>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <p className="mt-8 max-w-[54ch] text-[0.8125rem] leading-relaxed text-stone">

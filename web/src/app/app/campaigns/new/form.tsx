@@ -62,6 +62,7 @@ export function CampaignForm({
   whatsAppEnabled,
   whatsAppTemplateSet,
   offerText,
+  reasonCounts,
 }: {
   gymName: string;
   replyTo: string;
@@ -84,6 +85,10 @@ export function CampaignForm({
   /** The gym's chosen win-back offer, already dated. Powers {{offer}} in the
    *  preview so the gym sees exactly what a member will read. */
   offerText: string | null;
+  /** How many contactable members carry each reason for leaving. Drives the
+   *  counts on the reason filter, so a gym is never offered a choice that
+   *  can only build an empty audience. */
+  reasonCounts: Record<string, number>;
 }) {
   const id = useId();
   const [state, action, pending] = useActionState(createCampaignAction, INITIAL);
@@ -91,6 +96,7 @@ export function CampaignForm({
   const [channel, setChannel] = useState<Channel>("email");
   const [kind, setKind] = useState<CampaignKind>("win_back");
   const [reasonFilter, setReasonFilter] = useState("");
+  const anyReasonRecorded = Object.values(reasonCounts).some((n) => n > 0);
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
   const [subjectTouched, setSubjectTouched] = useState(false);
@@ -296,15 +302,23 @@ export function CampaignForm({
                 className="field"
               >
                 <option value="">Any reason</option>
-                {REASON_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                {REASON_OPTIONS.map((option) => {
+                  const count = reasonCounts[option.value] ?? 0;
+                  return (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      disabled={count === 0}
+                    >
+                      {option.label} ({count})
+                    </option>
+                  );
+                })}
               </select>
               <p className="field-hint">
-                Optional. Narrows to members recorded with that reason, so you
-                can write to it directly.
+                {anyReasonRecorded
+                  ? "Optional. Narrows to members recorded with that reason, so you can write to it directly."
+                  : "Nobody on your list has a reason recorded yet, so there is nothing to narrow to. Reasons are set on a member's page, and casdey records one itself when a member says why in a reply."}
               </p>
             </div>
           ) : null}

@@ -195,7 +195,10 @@ export function trialDaysLeft(
 }
 
 export function planLabel(plan: Plan): string {
-  if (plan === "trial") return "Free week";
+  // "Free week" on its own left the obvious question unanswered: a free week
+  // of which plan? It is Pro, every feature, and saying so is the point of
+  // giving it away. See capabilities(): the trial resolves to the Pro set.
+  if (plan === "trial") return "Free week of Pro";
   if (plan === "standard") return "Standard";
   if (plan === "pro") return "Pro";
   return "Free";

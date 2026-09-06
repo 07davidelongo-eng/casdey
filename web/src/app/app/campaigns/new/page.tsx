@@ -1,6 +1,7 @@
 import { requireGym } from "@/lib/dal";
 import { atRiskRuleFor, describeRule, ruleFor } from "@/lib/lapse";
 import {
+  audienceReasonCounts,
   buildAtRiskAudience,
   buildAudience,
   buildWhatsAppAudience,
@@ -16,11 +17,13 @@ export const metadata = { title: "New campaign" };
 export default async function NewCampaignPage() {
   const { gym } = await requireGym();
 
-  const [winBackAudience, atRiskAudience, whatsAppAudience] = await Promise.all([
-    buildAudience(gym.id, ruleFor(gym)),
-    buildAtRiskAudience(gym.id, atRiskRuleFor(gym)),
-    buildWhatsAppAudience(gym.id, ruleFor(gym)),
-  ]);
+  const [winBackAudience, atRiskAudience, whatsAppAudience, reasonCounts] =
+    await Promise.all([
+      buildAudience(gym.id, ruleFor(gym)),
+      buildAtRiskAudience(gym.id, atRiskRuleFor(gym)),
+      buildWhatsAppAudience(gym.id, ruleFor(gym)),
+      audienceReasonCounts(gym.id),
+    ]);
   const provider = emailProvider();
 
   // The lean AudienceMember shape doesn't carry cancellation_reason (see
@@ -113,7 +116,8 @@ export default async function NewCampaignPage() {
                 : null
             }
             offerText={gym.offer_text}
-      defaultLanguage={languageForCountry(gym.country)}
+            defaultLanguage={languageForCountry(gym.country)}
+            reasonCounts={reasonCounts}
           />
         </>
       )}

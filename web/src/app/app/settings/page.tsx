@@ -16,7 +16,16 @@ export default async function GymSettingsPage() {
         </Notice>
       ) : null}
 
-      <SettingsForm gym={gym} readOnly={role !== "owner"} />
+      {/* Keyed on the values the form draws itself from, so a save that
+          actually changes the lapse rule re-mounts the form against the new
+          server truth rather than leaving client state to be reconciled by
+          hand. See the reset note in form.tsx: this covers the successful
+          save, that covers the rejected one. */}
+      <SettingsForm
+        key={`${gym.lapsed_after_months}:${gym.lapsed_after_days}:${gym.max_visits}`}
+        gym={gym}
+        readOnly={role !== "owner"}
+      />
 
       <p className="text-[0.875rem] text-stone">
         Registered in{" "}

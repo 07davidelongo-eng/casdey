@@ -147,8 +147,6 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         </div>
       ) : null}
 
-      {!setup.complete ? <SetupChecklist state={setup} /> : null}
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Members" value={stats.members} />
         <Stat
@@ -294,6 +292,16 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           </p>
         </Card>
       )}
+
+      {/* Below the numbers, deliberately. The checklist is scaffolding: it is
+          there for the first week and then never again, while the dashboard is
+          what the gym opens casdey to see for the rest of the relationship.
+          Putting setup first made every visit start with a list of chores. */}
+      {!setup.complete ? (
+        <div className="mt-6">
+          <SetupChecklist state={setup} />
+        </div>
+      ) : null}
     </>
   );
 }

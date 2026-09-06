@@ -26,6 +26,7 @@ import { composeBody, contextFor, renderTemplate } from "@/lib/template";
 import { ensureTestMember } from "@/lib/self-test";
 import {
   isCancellationReason,
+  REASON_OPTIONS,
   type CancellationReason,
 } from "@/lib/cancellation";
 import { parseFollowUps, type FollowUp } from "@/lib/follow-ups";
@@ -33,6 +34,28 @@ import { isPersonalisationConfigured, personalise } from "@/lib/personalise";
 import type { CampaignKind, Channel } from "@/lib/types";
 
 export type CampaignState = { error: string | null };
+
+/**
+ * Why an audience came back empty, in the gym's own terms.
+ *
+ * Each branch names the thing the gym can actually change. "Nobody matches"
+ * on its own sends someone to re-check an import that was never the problem.
+ */
+function emptyAudienceMessage(
+  kind: CampaignKind,
+  reasonFilter?: CancellationReason,
+): string {
+  if (reasonFilter) {
+    const label =
+      REASON_OPTIONS.find((option) => option.value === reasonFilter)?.label ??
+      "that reason";
+    return `No member is recorded as having left because of ${label.toLowerCase()}, so there is nobody to write to. Record a reason on a member's page, or set this back to Any reason.`;
+  }
+  if (kind === "at_risk") {
+    return "Nobody matches your at-risk window right now.";
+  }
+  return "Nobody matches right now. Either no member has gone quiet or cancelled, or none of them have an email address on file.";
+}
 
 function parseKind(value: FormDataEntryValue | null): CampaignKind {
   return value === "at_risk" ? "at_risk" : "win_back";
@@ -115,12 +138,12 @@ export async function createCampaignAction(
       : await buildAudience(gym.id, ruleFor(gym), new Date(), reasonFilter);
 
   if (audience.length === 0) {
-    return {
-      error:
-        kind === "at_risk"
-          ? "Nobody matches your at-risk window right now."
-          : "Nobody matches right now. Either no member has gone quiet or cancelled, or none of them have an email address on file.",
-    };
+    // Three different situations used to share one sentence, and the sentence
+    // described only one of them. A gym that had picked a reason nobody is
+    // recorded against was told nobody had gone quiet, which was false and
+    // sent it looking at its import instead of at the control it had just
+    // touched.
+    return { error: emptyAudienceMessage(kind, reasonFilter) };
   }
 
   const { data, error } = await supabaseAdmin()

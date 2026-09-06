@@ -50,97 +50,15 @@ export default async function BillingPage(
     guarantee,
   );
 
-  return (
-    <div className="max-w-[44rem] space-y-6">
-      {params.welcome ? (
-        <Notice>
-          You are set up and your free week has started. Everything is unlocked,
-          no card needed.
-        </Notice>
-      ) : null}
-      {params.upgraded ? (
-        <Notice>You&apos;re upgraded. Sending is on.</Notice>
-      ) : null}
-      {params.cancelled ? (
-        <Notice>Checkout was cancelled, so nothing changed.</Notice>
-      ) : null}
-      {params.refunded ? (
-        <Notice>
-          Refunded. It can take a few days to show up, depending on your bank.
-        </Notice>
-      ) : null}
-      {errorMessage ? <Notice tone="error">{errorMessage}</Notice> : null}
-
-      {!isStripeConfigured() ? (
-        <Notice tone="error">
-          Stripe is not configured on this environment, so upgrading will not
-          open. Set STRIPE_SECRET_KEY and the price ids in the environment.
-        </Notice>
-      ) : null}
-
-      {/* Current standing */}
-      <Card>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <CardTitle>Your plan</CardTitle>
-          <PlanPill plan={planLabel(plan)} />
-        </div>
-
-        {plan === "trial" ? (
-          <p className="text-[0.9375rem] text-graphite">
-            You are on the free week{" "}
-            {daysLeft !== null ? (
-              <>
-                with{" "}
-                <span className="literal text-ink">
-                  {daysLeft} {daysLeft === 1 ? "day" : "days"}
-                </span>{" "}
-                left
-              </>
-            ) : null}
-            . Everything works, including sending. When it ends you drop to the
-            Free plan, and nothing is charged.
-          </p>
-        ) : plan === "free" ? (
-          <p className="text-[0.9375rem] text-graphite">
-            You are on the Free plan. You can import your list and see who has
-            gone quiet, but sending campaigns needs a paid plan. Nothing is
-            charged on Free.
-          </p>
-        ) : (
-          <p className="text-[0.9375rem] text-graphite">
-            {gym.subscription_status === "past_due"
-              ? "Your last payment did not go through. Sending is paused until the card is updated."
-              : `${planLabel(plan)} is active. Sending is on.`}
-            {gym.current_period_end ? (
-              <>
-                {" "}
-                Next payment{" "}
-                <span className="literal text-ink">
-                  {formatDate(gym.current_period_end)}
-                </span>
-                .
-              </>
-            ) : null}
-          </p>
-        )}
-
-        {isPaidPlan(plan) && role === "owner" ? (
-          <form action="/api/stripe/portal" method="post" className="mt-5">
-            <Button type="submit" variant="quiet">
-              Manage billing
-            </Button>
-            <p className="field-hint">
-              Change your card, see invoices, or cancel. Opens Stripe.
-            </p>
-          </form>
-        ) : null}
-      </Card>
-
-      {/* The guarantee is a Pro feature, and everyone on this page sees it.
+  {/* The guarantee is a Pro feature, and everyone on this page sees it.
           It used to be hidden from anyone who had never paid, on the reasoning
           that there was nothing yet to guarantee. That hid it from precisely
           the gym deciding whether to pay at all, which is the only audience
           the promise is for. */}
+  // Rendered under the prices rather than above them: the promise answers
+  // the question the prices raise, so it belongs on that side of the number.
+  const guaranteeSection = (
+    <>
       {!caps.hasGuarantee ? (
         <Card>
           <GuaranteeHeading />
@@ -270,6 +188,94 @@ export default async function BillingPage(
           ) : null}
         </Card>
       )}
+    </>
+  );
+
+  return (
+    <div className="max-w-[44rem] space-y-6">
+      {params.welcome ? (
+        <Notice>
+          You are set up and your free week has started. It is the whole Pro plan,
+          unlocked, with no card needed.
+        </Notice>
+      ) : null}
+      {params.upgraded ? (
+        <Notice>You&apos;re upgraded. Sending is on.</Notice>
+      ) : null}
+      {params.cancelled ? (
+        <Notice>Checkout was cancelled, so nothing changed.</Notice>
+      ) : null}
+      {params.refunded ? (
+        <Notice>
+          Refunded. It can take a few days to show up, depending on your bank.
+        </Notice>
+      ) : null}
+      {errorMessage ? <Notice tone="error">{errorMessage}</Notice> : null}
+
+      {!isStripeConfigured() ? (
+        <Notice tone="error">
+          Stripe is not configured on this environment, so upgrading will not
+          open. Set STRIPE_SECRET_KEY and the price ids in the environment.
+        </Notice>
+      ) : null}
+
+      {/* Current standing */}
+      <Card>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <CardTitle>Your plan</CardTitle>
+          <PlanPill plan={planLabel(plan)} />
+        </div>
+
+        {plan === "trial" ? (
+          <p className="text-[0.9375rem] text-graphite">
+            You are on the free week of Pro{" "}
+            {daysLeft !== null ? (
+              <>
+                with{" "}
+                <span className="literal text-ink">
+                  {daysLeft} {daysLeft === 1 ? "day" : "days"}
+                </span>{" "}
+                left
+              </>
+            ) : null}
+            . Everything works, including sending. When it ends you drop to the
+            Free plan, and nothing is charged.
+          </p>
+        ) : plan === "free" ? (
+          <p className="text-[0.9375rem] text-graphite">
+            You are on the Free plan. You can import your list and see who has
+            gone quiet, but sending campaigns needs a paid plan. Nothing is
+            charged on Free.
+          </p>
+        ) : (
+          <p className="text-[0.9375rem] text-graphite">
+            {gym.subscription_status === "past_due"
+              ? "Your last payment did not go through. Sending is paused until the card is updated."
+              : `${planLabel(plan)} is active. Sending is on.`}
+            {gym.current_period_end ? (
+              <>
+                {" "}
+                Next payment{" "}
+                <span className="literal text-ink">
+                  {formatDate(gym.current_period_end)}
+                </span>
+                .
+              </>
+            ) : null}
+          </p>
+        )}
+
+        {isPaidPlan(plan) && role === "owner" ? (
+          <form action="/api/stripe/portal" method="post" className="mt-5">
+            <Button type="submit" variant="quiet">
+              Manage billing
+            </Button>
+            <p className="field-hint">
+              Change your card, see invoices, or cancel. Opens Stripe.
+            </p>
+          </form>
+        ) : null}
+      </Card>
 
       {/* Upgrade path. Trial / Free see Standard + Pro; a Standard gym sees
           Pro only. A paid Pro gym sees nothing here. */}
@@ -311,12 +317,11 @@ export default async function BillingPage(
             ))
           )}
 
-          <p className="text-[0.875rem] text-stone">
-            On Pro: if casdey does not recover more than it costs in your first
-            month, you do not pay. Tell us and we refund you.
-          </p>
+          {guaranteeSection}
         </div>
-      ) : null}
+      ) : (
+        guaranteeSection
+      )}
     </div>
   );
 }
@@ -385,8 +390,9 @@ function TierBlock({
 }
 
 function PlanPill({ plan }: { plan: string }) {
-  // plan is planLabel(effectivePlan(...)): "Free week" | "Standard" | "Pro" | "Free".
-  if (plan === "Standard" || plan === "Pro" || plan === "Free week") {
+  // plan is planLabel(effectivePlan(...)): "Free week of Pro" | "Standard" |
+  // "Pro" | "Free".
+  if (plan === "Standard" || plan === "Pro" || plan === "Free week of Pro") {
     return <Pill tone="teal">{plan}</Pill>;
   }
   return <Pill>Free</Pill>;

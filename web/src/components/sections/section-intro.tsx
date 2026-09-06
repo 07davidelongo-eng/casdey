@@ -17,11 +17,16 @@ export function SectionIntro({
   children: ReactNode;
 }) {
   return (
-    <div className="max-w-[46ch]">
-      <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-balance">
+    // The measure belongs to the paragraph, not to the heading. Capping both
+    // at 46ch broke a 60-character title across two lines in the middle of a
+    // phrase while the rest of the row sat empty, and text-balance then made
+    // that break look deliberate. A heading is read in one glance and can run
+    // the width of the section; body text cannot.
+    <div>
+      <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-pretty">
         {title}
       </h2>
-      <p className="mt-5 text-[1.0625rem] leading-relaxed text-graphite text-pretty">
+      <p className="mt-5 max-w-[46ch] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
         {children}
       </p>
     </div>
