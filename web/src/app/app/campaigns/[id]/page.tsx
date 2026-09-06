@@ -5,6 +5,7 @@ import { requireGym } from "@/lib/dal";
 import { CampaignKindPill, CampaignPill } from "@/components/app/campaign-pill";
 import { CampaignControls } from "./controls";
 import { TestSendForm } from "./test-send-form";
+import { PersonalisedPreview } from "./personalised-preview";
 import { WhatsAppTestForm } from "./whatsapp-test-form";
 import {
   Card,
@@ -142,11 +143,18 @@ export default async function CampaignPage(
             </pre>
           </div>
           <p className="field-hint">
-            Merge fields are filled in per member, and the unsubscribe line is
-            added to every message.
+            {campaign.personalise
+              ? "This is the message casdey works from. Each member gets their own version of it, and the unsubscribe line is added to every one."
+              : "Merge fields are filled in per member, and the unsubscribe line is added to every message."}
           </p>
         </Card>
       )}
+
+      {campaign.personalise && !isWhatsApp ? (
+        <div className="mt-6">
+          <PersonalisedPreview campaignId={campaign.id} />
+        </div>
+      ) : null}
 
       <div className="mt-6">
         {isWhatsApp ? (

@@ -24,8 +24,12 @@ import { bookingUrl, emailProvider, unsubscribeUrl } from "@/lib/messaging";
 import { sendingIdentity } from "@/lib/email/identity";
 import { composeBody, contextFor, renderTemplate } from "@/lib/template";
 import { ensureTestMember } from "@/lib/self-test";
-import { isCancellationReason } from "@/lib/cancellation";
+import {
+  isCancellationReason,
+  type CancellationReason,
+} from "@/lib/cancellation";
 import { parseFollowUps, type FollowUp } from "@/lib/follow-ups";
+import { isPersonalisationConfigured, personalise } from "@/lib/personalise";
 import type { CampaignKind, Channel } from "@/lib/types";
 
 export type CampaignState = { error: string | null };
@@ -50,6 +54,11 @@ const CreateSchema = z.object({
     .string()
     .refine(isLanguageCode, "Pick a language casdey supports.")
     .default("en"),
+  // Absent from the form data when the box is unticked, which is how an HTML
+  // checkbox reports "off".
+  personalise: z
+    .union([z.literal("on"), z.null(), z.undefined()])
+    .transform((v) => v === "on"),
   // Arrives as a JSON string from the form. Parsed rather than trusted:
   // parseFollowUps drops anything malformed instead of queueing a message
   // with an empty body against a member's name.
@@ -85,6 +94,7 @@ export async function createCampaignAction(
     subject: formData.get("subject"),
     body: formData.get("body"),
     language: formData.get("language") ?? "en",
+    personalise: formData.get("personalise"),
     followUps: formData.get("followUps") ?? undefined,
   });
 
@@ -125,6 +135,7 @@ export async function createCampaignAction(
       body: parsed.data.body,
       language: parsed.data.language,
       follow_ups: parsed.data.followUps,
+      personalise: parsed.data.personalise,
       status: "draft",
       audience: audienceSnapshot(gym, audience.length, { kind, reasonFilter }),
     })
@@ -705,4 +716,109 @@ export async function setCampaignStatusAction(
 
   revalidatePath("/app", "layout");
   return { error: null };
+}
+
+export type PreviewState = {
+  error: string | null;
+  samples: { name: string; body: string; personalised: boolean }[];
+};
+
+/**
+ * Three real messages, written against three real members, before anything
+ * goes out in the gym's name.
+ *
+ * Real members and not invented ones, for the same reason the editor's live
+ * preview uses a real member: an imaginary "John Smith who left six months ago
+ * over price" hides exactly the cases worth catching, a member with no first
+ * name, one who has been gone four years, one whose reason nobody recorded.
+ *
+ * Nothing is stored. This is a look, not a decision, and re-running it gives
+ * different words, which is itself worth seeing before approving 200 of them.
+ */
+export async function previewPersonalisedAction(
+  _previous: PreviewState,
+  formData: FormData,
+): Promise<PreviewState> {
+  const { gym } = await requireActiveGym();
+
+  const campaignId = String(formData.get("campaignId") ?? "");
+  const client = supabaseAdmin();
+
+  const { data: campaign } = await client
+    .from("campaigns")
+    .select("id, body, kind, personalise")
+    .eq("id", campaignId)
+    .eq("gym_id", gym.id)
+    .maybeSingle();
+
+  if (!campaign) return { error: "That campaign no longer exists.", samples: [] };
+
+  if (!isPersonalisationConfigured()) {
+    return {
+      error:
+        "Individual writing is not switched on for this deployment, so every member would get your template as written.",
+      samples: [],
+    };
+  }
+
+  // Whoever is actually queued for this campaign, first three. Not a random
+  // sample of the gym's list: these are people who will receive it.
+  const { data: queued } = await client
+    .from("campaign_messages")
+    .select("member_id, step")
+    .eq("campaign_id", campaign.id)
+    .eq("status", "queued")
+    .order("send_after", { ascending: true })
+    .limit(3);
+
+  const memberIds = (queued ?? []).map((row) => row.member_id as string);
+  if (memberIds.length === 0) {
+    return { error: "Nobody is queued for this campaign yet.", samples: [] };
+  }
+
+  const { data: members } = await client
+    .from("members")
+    .select("id, first_name, last_name, last_visit_at, cancellation_reason, booking_token")
+    .in("id", memberIds);
+
+  const samples: PreviewState["samples"] = [];
+
+  for (const member of (members ?? []) as {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    last_visit_at: string | null;
+    cancellation_reason: CancellationReason | null;
+    booking_token: string;
+  }[]) {
+    const context = contextFor(
+      {
+        first_name: member.first_name,
+        last_visit_at: member.last_visit_at,
+        cancellation_reason: member.cancellation_reason,
+      },
+      gym,
+      new Date(),
+      gym.booking_enabled ? bookingUrl(member.booking_token) : null,
+    );
+
+    const written = await personalise({
+      gymName: gym.name,
+      template: campaign.body as string,
+      context,
+      step: 1,
+    });
+
+    samples.push({
+      name:
+        [member.first_name, member.last_name].filter(Boolean).join(" ") ||
+        "A member with no name on file",
+      // The fallback is not hidden. If the model refused or failed, the gym is
+      // shown the message that would actually be sent, which is the template.
+      body: written ?? renderTemplate(campaign.body as string, context),
+      personalised: written !== null,
+    });
+  }
+
+  return { error: null, samples };
 }

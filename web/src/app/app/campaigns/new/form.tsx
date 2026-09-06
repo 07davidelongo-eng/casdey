@@ -100,6 +100,7 @@ export function CampaignForm({
     defaultFollowUps("win_back"),
   );
   const [followUpsTouched, setFollowUpsTouched] = useState(false);
+  const [personalise, setPersonalise] = useState(true);
 
   const isWhatsApp = channel === "whatsapp";
 
@@ -433,6 +434,35 @@ export function CampaignForm({
                 </ul>
               </div>
             </div>
+          </Card>
+
+          <Card>
+            <CardTitle>Who writes it</CardTitle>
+            <p className="mt-1 mb-4 text-[0.875rem] leading-relaxed text-stone">
+              Your message above is what every member gets. casdey can instead
+              write each one for the member it is going to, from the same
+              message and the same facts: their name, how long they have been
+              away, why they left if you recorded it, and your offer word for
+              word.
+            </p>
+
+            <label className="flex items-start gap-2.5 text-[0.9375rem] text-ink">
+              <input
+                type="checkbox"
+                name="personalise"
+                checked={personalise}
+                onChange={(event) => setPersonalise(event.target.checked)}
+                disabled={pending}
+                className="mt-0.5 h-4 w-4 accent-[var(--teal)]"
+              />
+              <span>
+                Write each message individually
+                <span className="mt-1 block text-[0.875rem] text-stone">
+                  You will see real examples, written against members from your
+                  own list, before you approve anything.
+                </span>
+              </span>
+            </label>
           </Card>
 
           <Card>

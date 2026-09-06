@@ -1,5 +1,6 @@
 import type { OfferInputs } from "./offers/types";
 import type { OfferVariants } from "./offers/variants";
+import type { FollowUp } from "./follow-ups";
 
 import type { CancellationReason } from "./cancellation";
 import type { BillingPeriod } from "./services";
@@ -249,6 +250,12 @@ export type Campaign = {
   /** Frozen Twilio Content SID for a WhatsApp campaign; null for email. */
   whatsapp_template_name: string | null;
   language: string;
+  /** Write each message for the member it is going to, instead of sending one
+   *  template to everyone. See src/lib/personalise.ts. */
+  personalise: boolean;
+  /** Follow-up steps, in order. Empty means the campaign sends once.
+   *  See src/lib/follow-ups.ts. */
+  follow_ups: FollowUp[];
   audience: AudienceSnapshot;
   approved_at: string | null;
   approved_by: string | null;

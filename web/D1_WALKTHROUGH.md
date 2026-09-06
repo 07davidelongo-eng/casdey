@@ -68,7 +68,7 @@ page. Verbatim below.
 | 5 | Profit or nothing guarantee needs far more weight | billing + pricing | S | done |
 | 6 | Pricing Q&A needs per question dropdowns, moved below its heading | pricing | S | done |
 | 7 | Site copy must lead with the value proposition | landing | M | done |
-| 8 | How it works must show contact, follow up, personalisation, booking. Build the missing ones | landing + product | L | part done |
+| 8 | How it works must show contact, follow up, personalisation, booking. Build the missing ones | landing + product | L | done |
 | 9 | Side by side title and description reads badly in two sections | landing | S | done |
 | 10 | Contact page with @casdey.co and the email addresses | site | S | done |
 | 11 | Lapsed rules: days as well as months, "came at most" optional | settings | M | done |
@@ -167,3 +167,29 @@ would go.
 So it is genuinely blocked on the same Vercel Pro decision that is already
 deferred (hourly crons, longer functions), rather than on the code. Worth
 pairing with the Resend Pro trigger in `SAAS_V1_PLAN.md` G1a.
+
+---
+
+## #8 personalisation: built, and one thing to buy
+
+Shipped after the section above was written, so that section's conclusion is
+superseded. The throughput problem it describes is real but does not bite yet:
+at Resend's free ceiling casdey can send about 25 product emails a day, and 25
+personalised messages fit inside the send job's 50-second budget comfortably.
+It becomes a problem on the same day Resend Pro lifts that ceiling, and Vercel
+Pro solves it, so the two upgrades belong together at the first real customer.
+
+**A separate thing was found while proving it works: the Anthropic account has
+no credit balance.** A live call answers:
+
+    400 invalid_request_error
+    "Your credit balance is too low to access the Anthropic API."
+
+The key in Vercel is valid and the request is well formed. There is simply no
+money behind it. This is a prepaid top-up, not a subscription.
+
+It affects more than personalisation: the WhatsApp AI reply loop (Track E1)
+calls the same API with the same key, so it has never been able to answer a
+member either. Nothing breaks loudly in either case, which is why it went
+unnoticed. Personalisation falls back to the gym's template and the message
+still goes out; the WhatsApp loop logs the failure and stays quiet.

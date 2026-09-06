@@ -7,6 +7,7 @@ import { sendingIdentity } from "./email/identity";
 import { capabilities } from "./plan";
 import { isProviderThrottled } from "./send-throttle";
 import { nextStep, parseFollowUps, type FollowUp } from "./follow-ups";
+import { personalise } from "./personalise";
 import type { Gym } from "./types";
 
 /**
@@ -84,6 +85,7 @@ type CampaignRow = {
   body: string;
   approved_at: string | null;
   follow_ups: FollowUp[] | null;
+  personalise: boolean;
 };
 
 export async function drainQueue(
@@ -210,7 +212,7 @@ export async function drainQueue(
         async () => {
           const { data: row } = await client
             .from("campaigns")
-            .select("status, subject, body, approved_at, follow_ups")
+            .select("status, subject, body, approved_at, follow_ups, personalise")
             .eq("id", message.campaign_id)
             .maybeSingle();
           return row as CampaignRow | null;
@@ -317,12 +319,29 @@ export async function drainQueue(
               body: campaign.body,
             });
 
+      // Written for this one member, when the gym asked for that. Skipped
+      // near the end of a run rather than allowed to overrun it: the point of
+      // the budget is that messages leave, and the template is a perfectly
+      // good message. Null for any reason at all falls back silently.
+      const timeForModel = clock() + 15_000 < deadline;
+      const personalisedBody =
+        campaign.personalise && timeForModel
+          ? await personalise({
+              gymName: gym.name,
+              template: written.body,
+              context,
+              step: message.step,
+            })
+          : null;
+
       try {
         await provider.send({
           to: message.to_email,
           subject: renderTemplate(written.subject, context),
           text: composeBody({
-            body: written.body,
+            // Already finished prose when it came from the model; composeBody
+            // still renders it, which is a no-op on text with no placeholders.
+            body: personalisedBody ?? written.body,
             context,
             unsubscribeUrl: unsubscribeUrl(message.unsubscribe_token),
             replyTo: gym.reply_to_email,
@@ -341,6 +360,9 @@ export async function drainQueue(
             status: "sent",
             sent_at: now,
             attempts: message.attempts + 1,
+            // The only record of what this member actually read: the same
+            // prompt does not produce the same words twice.
+            personalised_body: personalisedBody,
           })
           .eq("id", message.id);
 
