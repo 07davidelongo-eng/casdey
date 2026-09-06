@@ -54,6 +54,16 @@ export function PersonalisedPreview({ campaignId }: { campaignId: string }) {
         </div>
       ) : null}
 
+      {state.fallbackReason ? (
+        <div className="mt-4">
+          <Notice tone="warn">
+            {state.fallbackReason === "not_configured"
+              ? "Writing each message individually is not switched on for this deployment, so every member gets your draft exactly as it stands."
+              : "casdey could not reach the writer just now, so these are your draft as it stands. The campaign still sends, and it will write individually again as soon as the writer is back."}
+          </Notice>
+        </div>
+      ) : null}
+
       {state.samples.length > 0 ? (
         <div className="mt-5 space-y-4">
           {state.samples.map((sample, index) => (

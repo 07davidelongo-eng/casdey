@@ -748,6 +748,14 @@ export async function setCampaignStatusAction(
 export type PreviewState = {
   error: string | null;
   samples: { name: string; body: string; personalised: boolean }[];
+  /**
+   * Why nothing came back personalised, when nothing did.
+   *
+   * "your template, unchanged" on three rows in a row is ambiguous: it looks
+   * like a choice the model made about those members rather than casdey never
+   * having reached it. This says which.
+   */
+  fallbackReason?: "not_configured" | "unavailable" | null;
 };
 
 /**
@@ -848,7 +856,18 @@ export async function previewPersonalisedAction(
     });
   }
 
-  return { error: null, samples };
+  const nonePersonalised =
+    samples.length > 0 && samples.every((sample) => !sample.personalised);
+
+  return {
+    error: null,
+    samples,
+    fallbackReason: !nonePersonalised
+      ? null
+      : isPersonalisationConfigured()
+        ? "unavailable"
+        : "not_configured",
+  };
 }
 
 const UpdateSchema = z.object({

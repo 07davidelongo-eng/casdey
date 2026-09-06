@@ -137,9 +137,13 @@ start.
 - Seen, batch 2: Overview, Import, Campaigns including creating one, Settings
   Services, Billing and Data and privacy, the Offer page again, the new
   Contact page, the landing page again.
-- Not seen yet, or not commented on: Members and a member's own page, the
-  booking flow a member actually sees, Settings Booking, Sending and WhatsApp,
-  sign up, password reset, `/waitlist`, `/privacy`, the processing terms.
+- Seen, batch 3: Settings again (Gym, Services, Data and privacy), the Offer
+  page again, Campaigns including trying to approve and test one, Import
+  again, Overview again, Members.
+- Not seen yet, or not commented on: a member's own page, the booking flow a
+  member actually sees, the new Calendar page, Settings Booking, Sending and
+  WhatsApp, sign up, password reset, `/waitlist`, `/privacy`, the processing
+  terms.
 
 ---
 
@@ -542,3 +546,111 @@ description, and the campaign list. Verbatim below.
 > #50: This is going to be a cool feature edition, and I think that in the sidebar menu, I would like to have, like, a calendar thing, which is basically, um, like, I think that you either have, like, a built in calendar by Kasde or you can even, like, have a integration of your own Google Calendar in that page. Like, you basically see the same thing that you would see in your own Google Calendar. Yeah. Like, I think that it would be a cool thing to have
 >
 > I guess this is the end of the batch three of the changes to make and do the same stuff that I ask you with the with the previous one. Okay? So, like, the message with the list and what I need to check, etcetera.
+
+---
+
+## Batch 3 status board
+
+| # | One line | Area | Size | Status |
+|---|----------|------|------|--------|
+| 41 | The "charged" control is confusing; defaults plus a custom option | settings | M | done |
+| 42 | No "Saved." message on gym settings | settings | S | done |
+| 43 | Audit search box should say it searches when, too | settings | XS | done |
+| 44 | "Check in after" description cramped into a narrow column | settings | XS | done |
+| 45 | Ask before deleting anything, permanently | app wide | M | done |
+| 46 | Offer page: full-width lede, many offers, reasons folded in and fully editable, offers pickable per reason, collapsible | offer | XL | done |
+| 47 | Save for later; personalisation; samples and test send both failing; a way into a draft; imports above integrations; ten a page; integrations with real links | campaigns + import | XL | done |
+| 48 | Charts on the overview; and the campaign could not send at all | overview + campaigns | L | done |
+| 49 | The offer code is nowhere to be found | members | XS | done |
+| 50 | A calendar in the sidebar | app | L | done |
+
+---
+
+## Claude's notes, batch 3
+
+Written by Claude, not Davide.
+
+**Three of these were one bug of mine each, and they are the real content of
+this batch.**
+
+**The campaign could not send, be tested, or be sampled (#47, #48).** All three
+were the same line. Approving a campaign upserts into `campaign_messages`
+`ON CONFLICT (campaign_id, member_id)`, and the unique index on that table has
+been `(campaign_id, member_id, step)` since follow-ups shipped in batch 1.
+Postgres does not treat a partial conflict target as a narrower match, it
+answers 42P10 and refuses the statement, so every approve and every test send
+failed, and the samples then found an empty queue and said so. Proved against
+the live index before and after fixing: the old target is rejected, the new one
+is accepted, in a transaction that was rolled back.
+
+**Saved offers and custom reasons never appeared (#46).** Migrations 0029 and
+0031 created their tables, enabled row level security, added a select policy,
+and granted the roles nothing at all. RLS decides which rows a role may see;
+the grant decides whether it may touch the table in the first place, and
+without it Postgres refuses before a policy is ever consulted. Every other
+table in the schema is granted in 0002, which is why nothing else showed it.
+So two features that shipped last session looked, from the outside, exactly
+like features that had never been built. Fixed in 0032.
+
+That is also the honest answer to "you didn't really listen": the offer library
+and the custom reasons were built and were unreachable. What was genuinely not
+done as asked is that casdey's six reasons were left immutable, and #46 is
+right that they should not have been. They are now rows the gym owns.
+
+**The "Saved." message (#42)** was a regression from batch 2's own fix. Keying
+the settings form on its persisted values re-mounted it whenever a save changed
+anything, and a re-mount takes `useActionState`'s result with it. The form now
+adjusts its own state when new props arrive, which is React's answer to derived
+state going stale, and the action's result survives.
+
+---
+
+## #47, the personalisation question, answered
+
+Davide asked where the personalisation he asked for actually is, and offered to
+drop the idea if it is not workable. It is workable, it is built, and it is not
+running. Those are three separate things and the answer is the third.
+
+`personalise()` sends the gym's own draft plus that member's facts to Claude and
+gets a message written for them, with guardrails: the offer must survive word
+for word or the result is rejected, and every failure falls back to the gym's
+template so a campaign still sends. That is all in
+`src/lib/personalise.ts` and it runs on every send when the box is ticked,
+which it is by default.
+
+**The Anthropic account it calls has no credit balance.** Every call returns 400
+and every message falls back to the template, which is exactly the "it is just
+swapping the first name" that Davide is seeing. It is a prepaid top-up, not a
+subscription, and it was flagged at the end of batch 1 as still open.
+
+What changed here is that the fallback is no longer silent. Asking for three
+samples now says whether casdey could not reach the writer or was never
+configured to, rather than labelling three identical messages "your template,
+unchanged" and leaving the gym to guess why.
+
+So: nothing to decide, and nothing to rebuild. Top up the Anthropic account and
+the personalisation Davide asked for starts happening on the next send.
+
+---
+
+## #46, what was built and the one thing deliberately left out
+
+Reasons are now rows the gym owns, casdey's six included, seeded once per gym
+and then theirs: rename, reword, delete, add. The keys never change during
+seeding, which is what makes it safe for members recorded months ago. Deleting
+a reason leaves those members tagged with it and falls back to casdey's general
+wording, so a settings change never rewrites a member's history and a raw key
+can never reach an inbox.
+
+Reasons and their offers are one section now rather than two cards, each reason
+collapsing like a service, and each carrying either one of the gym's saved
+offers or its own wording. An offer can be pointed at a reason from either
+side: from the reason, or from the offer itself.
+
+**Weighted split testing was not built** (the "50% this one, 20% that one"
+idea). It was offered as a fallback in case multiple offers were impossible,
+and they were not: a gym can hold as many offers as it likes and switch between
+them. Splitting traffic is only worth having when the result can be read back,
+and the number that would decide a winner is recovered revenue per offer, which
+needs sends that have actually gone out. It belongs after the first real
+campaign, not before it.
