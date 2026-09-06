@@ -87,7 +87,7 @@ function Marker({ step }: { step: SetupStep }) {
     return (
       <span
         aria-label="done"
-        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal text-white"
+        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-bright text-deep"
       >
         <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" aria-hidden="true">
           <path

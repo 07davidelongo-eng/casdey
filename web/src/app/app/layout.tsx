@@ -7,6 +7,7 @@ import { getGymContext } from "@/lib/dal";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { SupportWidget } from "@/components/app/support-widget";
 import { UnsavedChangesGuard } from "@/components/app/unsaved-changes";
+import { ThemeToggle, THEME_SCRIPT } from "@/components/app/theme-toggle";
 
 import "@/styles/product.css";
 
@@ -39,11 +40,22 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
+      {/* Runs as the browser parses it, before anything below paints, so a
+          gym owner who chose dark never gets a chalk-white flash first.
+          Inline and tiny for the same reason: a fetched script is already
+          too late. */}
+      <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+
       <aside className="app-sidebar on-deep flex shrink-0 flex-col gap-6 px-4 py-4 md:w-60 md:px-5 md:py-7">
         <div className="flex items-center justify-between md:block">
           <Link href="/app" className="inline-block text-ink">
             <Logo className="text-[1.5rem]" />
           </Link>
+          {/* The sidebar footer that carries the full switch is desktop only,
+              so on a phone this is the only way to reach it. */}
+          <div className="md:hidden">
+            <ThemeToggle compact />
+          </div>
         </div>
 
         <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:flex-1 md:overflow-visible md:px-0">
@@ -58,7 +70,11 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
             <p className="literal truncate text-[0.75rem] text-sea/80">
               {context.session.email}
             </p>
-            <form action="/auth/signout" method="post" className="mt-3">
+            <div className="mt-3 -mx-2.5">
+              <ThemeToggle />
+            </div>
+
+            <form action="/auth/signout" method="post" className="mt-1">
               <button
                 type="submit"
                 className="app-nav-link -mx-3 w-[calc(100%+1.5rem)] text-left"

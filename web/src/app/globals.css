@@ -95,6 +95,60 @@
     0 32px 64px rgba(21, 21, 15, 0.07);
 }
 
+/*
+  Dark mode, for the product only.
+
+  v4 commits the marketing site to a light appearance on purpose, and that
+  stands: a landing page is read once, in daylight, and it is an argument
+  rather than a workplace. The app is the opposite. A gym owner has it open at
+  six in the morning and again at ten at night, and a full-width chalk page at
+  either hour is a torch in the face.
+
+  This is not a second palette. It is the same remap `.on-deep` already
+  performs for the one inverted band on the marketing page, promoted to the
+  root, so every component keeps reaching the same token names and none of
+  them had to learn anything. Struck Gold is tuned for contrast on Chalk and
+  goes muddy here, so the primary becomes the luminous value, exactly as it
+  does inside `.on-deep`.
+
+  Applied by data-theme on <html>, set from localStorage before first paint by
+  the script in the app layout, and never by prefers-color-scheme alone: this
+  is a switch the gym owner asked for, so it answers to them rather than to
+  whatever their laptop decided at sunset.
+*/
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #16160f;
+  --white: #1f1f18;
+  --mist: #26261e;
+  --ash: #34342a;
+  --stone: #8e8a7c;
+  --graphite: #c9c5b7;
+  --ink: #f4f2ea;
+
+  /* The inverted plane is now the whole page, so the band that used to be the
+     exception has to lift off it rather than sink into it. */
+  --deep: #0f0f0a;
+  --deep-raised: #1f1f18;
+  --deep-line: #34342a;
+
+  --teal: #d4af37;
+  --teal-hover: #f0cd7d;
+  --teal-bright: #d4af37;
+  --shallow: #2a2418;
+
+  --amber: #e0a34a;
+  --danger: #e2836f;
+  --danger-soft: #e2836f;
+
+  /* A shadow is light that failed to arrive, and on a dark ground there was
+     never much of it to block. Depth comes from the raised surface being
+     lighter than the page, so these only need to keep an edge. */
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.45), 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
 @theme inline {
   --color-paper: var(--paper);
   --color-white: var(--white);
