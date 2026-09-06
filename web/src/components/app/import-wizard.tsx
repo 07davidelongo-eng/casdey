@@ -28,6 +28,10 @@ type Summary = {
   imported: number;
   updated: number;
   skipped: number;
+  /** Members casdey had written to whose visits have since moved on: they came
+   *  back, and this import is where casdey found out. See
+   *  src/lib/ingestion/returns.ts. */
+  returned: number;
   total: number;
   issues: RowIssue[];
 };
@@ -160,6 +164,19 @@ export function ImportWizard() {
           <Figure label="Updated" value={summary.updated} />
           <Figure label="Skipped" value={summary.skipped} />
         </dl>
+
+        {/* The one number in here that is a result rather than an accounting
+            of the file, so it gets its own line instead of a fifth tile. */}
+        {summary.returned > 0 ? (
+          <div className="mt-5 rounded-xl border border-ash bg-mist/60 p-4">
+            <p className="text-[0.9375rem] text-ink">
+              <span className="literal font-medium">{summary.returned}</span>{" "}
+              {summary.returned === 1 ? "member" : "members"} casdey wrote to
+              {summary.returned === 1 ? " has" : " have"} been in since. Your
+              own visit dates say so, and they now count as returned.
+            </p>
+          </div>
+        ) : null}
 
         {summary.issues.length > 0 ? (
           <details className="mt-6">

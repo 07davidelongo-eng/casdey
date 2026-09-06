@@ -1,6 +1,7 @@
 import { monthsSince } from "./lapse";
 import { REASON_LABELS } from "./cancellation";
 import { offerForMember, parseVariants } from "./offers/variants";
+import { offerCode } from "./offer-code";
 import type { Member, Gym } from "./types";
 
 /**
@@ -69,6 +70,12 @@ export type TemplateContext = {
    * never rewrites what someone was already sent.
    */
   offer: string | null;
+  /**
+   * The code the member quotes to claim the offer, or null when there is no
+   * offer to claim. Powers {{offer_code}}. See src/lib/offer-code.ts for why
+   * it is derived from the booking token rather than stored.
+   */
+  offerCode: string | null;
 };
 
 type Placeholder =
@@ -77,7 +84,8 @@ type Placeholder =
   | "months_away"
   | "booking_link"
   | "reason"
-  | "offer";
+  | "offer"
+  | "offer_code";
 
 export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
   {
@@ -99,6 +107,10 @@ export const PLACEHOLDER_HELP: { token: string; means: string }[] = [
     token: "{{offer}}",
     means: "the win-back offer you built, with its deadline as a real date",
   },
+  {
+    token: "{{offer_code}}",
+    means: "the code they quote at the desk to claim it (only when you have an offer)",
+  },
 ];
 
 export function renderTemplate(
@@ -106,7 +118,7 @@ export function renderTemplate(
   context: TemplateContext,
 ): string {
   const rendered = template.replace(
-    /\{\{\s*(first_name|gym|months_away|booking_link|reason|offer)\s*\}\}/g,
+    /\{\{\s*(first_name|gym|months_away|booking_link|reason|offer_code|offer)\s*\}\}/g,
     (_match, token: Placeholder) => {
       if (token === "first_name") {
         // "Hi ," is worse than a slightly generic greeting.
@@ -119,6 +131,9 @@ export function renderTemplate(
       // offer should send a clean message, not one with a hole where an offer
       // was meant to be.
       if (token === "offer") return context.offer ?? "";
+      // Same reasoning as offer: no offer means no code, and an empty line is
+      // better than the word "null" in a message signed by the gym.
+      if (token === "offer_code") return context.offerCode ?? "";
       return context.monthsAway === null
         ? "some time"
         : String(context.monthsAway);
@@ -139,7 +154,14 @@ export function contextFor(
   gym: Pick<Gym, "name" | "offer_text" | "offer_variants">,
   now: Date = new Date(),
   bookingUrl: string | null = null,
+  bookingToken: string | null = null,
 ): TemplateContext {
+  const offer = offerForMember(
+    parseVariants(gym.offer_variants),
+    gym.offer_text,
+    member.cancellation_reason,
+  );
+
   return {
     firstName: member.first_name,
     gymName: gym.name,
@@ -147,11 +169,10 @@ export function contextFor(
     bookingUrl,
     // The offer written for why THIS member left, falling back to the gym's
     // general one. See src/lib/offers/variants.ts.
-    offer: offerForMember(
-      parseVariants(gym.offer_variants),
-      gym.offer_text,
-      member.cancellation_reason,
-    ),
+    offer,
+    // A code with no offer behind it is a code for nothing, so the two stand
+    // or fall together.
+    offerCode: offer && bookingToken ? offerCode(bookingToken) : null,
     reason: member.cancellation_reason
       ? REASON_LABELS[member.cancellation_reason]
       : null,

@@ -10,6 +10,7 @@ function context(overrides: Partial<TemplateContext> = {}): TemplateContext {
     bookingUrl: null,
     reason: null,
     offer: null,
+    offerCode: null,
     ...overrides,
   };
 }

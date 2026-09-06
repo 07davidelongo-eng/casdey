@@ -8,6 +8,7 @@ import { recordAudit } from "@/lib/audit";
 import { decodeCsv, headerOffset, normalizeRow } from "@/lib/ingestion/csv";
 import { applyImportCap } from "@/lib/ingestion/cap";
 import { recordImportEvents, upsertMembers } from "@/lib/ingestion/upsert";
+import { detectReturnsFromVisits } from "@/lib/ingestion/returns";
 import { capabilities, planLabel } from "@/lib/plan";
 import type {
   ColumnMapping,
@@ -258,6 +259,19 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   await recordImportEvents(gym.id, run.id as string, result.newMemberIds);
 
+  // The fresh visit dates are now in the table, so this is the moment casdey
+  // can see who came back. Never allowed to fail the import: the members are
+  // already written, and an error here is a missed count, not lost data.
+  let returned = 0;
+  try {
+    returned = (await detectReturnsFromVisits(gym.id)).returned;
+  } catch (error) {
+    console.error(
+      "[import] return sweep failed",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
   // Records the row-by-row fallback could not write are real, actionable
   // failures (usually a shared email), not silent drops. Put them where the
   // gym already looks for problems.
@@ -308,6 +322,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       imported: result.imported,
       updated: result.updated,
       skipped: totalSkipped,
+      returned,
     },
   });
 
@@ -316,6 +331,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     imported: result.imported,
     updated: result.updated,
     skipped: totalSkipped,
+    returned,
     total: rows.length,
     issues,
   });

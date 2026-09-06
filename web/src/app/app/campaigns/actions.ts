@@ -356,6 +356,7 @@ export async function sendTestAction(
     gym,
     new Date(),
     gym.booking_enabled ? bookingUrl(member.booking_token) : null,
+    member.booking_token,
   );
 
   try {
@@ -823,6 +824,7 @@ export async function previewPersonalisedAction(
       gym,
       new Date(),
       gym.booking_enabled ? bookingUrl(member.booking_token) : null,
+      member.booking_token,
     );
 
     const written = await personalise({
@@ -844,4 +846,156 @@ export async function previewPersonalisedAction(
   }
 
   return { error: null, samples };
+}
+
+const UpdateSchema = z.object({
+  name: z.string().trim().min(2, "Give the campaign a name.").max(120),
+  subject: z.string().trim().min(3, "Write a subject line.").max(200),
+  body: z
+    .string()
+    .trim()
+    .min(20, "The message is too short to send to a member.")
+    .max(5000),
+  language: z
+    .string()
+    .refine(isLanguageCode, "Pick a language casdey supports.")
+    .default("en"),
+  personalise: z
+    .union([z.literal("on"), z.null(), z.undefined()])
+    .transform((v) => v === "on"),
+  followUps: z
+    .string()
+    .optional()
+    .transform((raw) => {
+      if (!raw) return [] as FollowUp[];
+      try {
+        return parseFollowUps(JSON.parse(raw));
+      } catch {
+        return [] as FollowUp[];
+      }
+    }),
+});
+
+/**
+ * Change a campaign that has not gone anywhere yet.
+ *
+ * Drafts only, and the `.eq("status", "draft")` in the update is the real
+ * guard rather than the check above it: between reading the page and pressing
+ * save, somebody else in the gym may have approved it, and a message already
+ * queued against a member's name must not be rewritten underneath them.
+ *
+ * What cannot be edited here is deliberate. The kind, the channel and the
+ * audience were decided when the campaign was created and the audience count
+ * was frozen onto the row at that moment. Letting those change would leave the
+ * snapshot describing a campaign that no longer exists, so changing them means
+ * a new campaign, which costs nothing.
+ */
+export async function updateCampaignAction(
+  _previous: CampaignState,
+  formData: FormData,
+): Promise<CampaignState> {
+  const { gym, session } = await requireActiveGym();
+  const campaignId = String(formData.get("campaignId") ?? "");
+
+  const parsed = UpdateSchema.safeParse({
+    name: formData.get("name"),
+    subject: formData.get("subject"),
+    body: formData.get("body"),
+    language: formData.get("language") ?? "en",
+    personalise: formData.get("personalise"),
+    followUps: formData.get("followUps") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  }
+
+  const { data, error } = await supabaseAdmin()
+    .from("campaigns")
+    .update({
+      name: parsed.data.name,
+      subject: parsed.data.subject,
+      body: parsed.data.body,
+      language: parsed.data.language,
+      personalise: parsed.data.personalise,
+      follow_ups: parsed.data.followUps,
+    })
+    .eq("id", campaignId)
+    .eq("gym_id", gym.id)
+    .eq("status", "draft")
+    .select("id");
+
+  if (error) {
+    console.error("[campaign] update failed", error.message);
+    return { error: "We could not save that. Try again." };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      error:
+        "This campaign is no longer a draft, so it cannot be edited. Somebody may have approved it while you were writing.",
+    };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "campaign.updated",
+    target: campaignId,
+    meta: { personalise: parsed.data.personalise },
+  });
+
+  revalidatePath("/app", "layout");
+  redirect(`/app/campaigns/${campaignId}`);
+}
+
+/**
+ * Delete a draft.
+ *
+ * Drafts only, and that limit is the point rather than a missing feature. A
+ * campaign that has sent anything is the record of what casdey said in this
+ * gym's name and, on Pro, part of what a guarantee claim is judged against.
+ * That history is not the gym's to erase and not casdey's either. A campaign
+ * mid-flight is cancelled instead, which stops the unsent messages and keeps
+ * what already went.
+ */
+export async function deleteCampaignAction(
+  _previous: CampaignState,
+  formData: FormData,
+): Promise<CampaignState> {
+  const { gym, session } = await requireActiveGym();
+  const campaignId = String(formData.get("campaignId") ?? "");
+
+  const { data, error } = await supabaseAdmin()
+    .from("campaigns")
+    .delete()
+    .eq("id", campaignId)
+    .eq("gym_id", gym.id)
+    .eq("status", "draft")
+    .select("id, name");
+
+  if (error) {
+    console.error("[campaign] delete failed", error.message);
+    return { error: "We could not delete that. Try again." };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      error:
+        "Only a draft can be deleted. A campaign that has started sending can be cancelled, which stops whatever has not gone yet.",
+    };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "campaign.deleted",
+    target: campaignId,
+    meta: { name: data[0].name },
+  });
+
+  revalidatePath("/app", "layout");
+  redirect("/app/campaigns");
 }

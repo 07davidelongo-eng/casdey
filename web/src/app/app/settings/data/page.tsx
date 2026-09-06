@@ -37,6 +37,8 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   "members.purged": "All member data deleted",
   "members.exported": "Member data exported",
   "campaign.created": "Campaign created",
+  "campaign.updated": "Campaign edited",
+  "campaign.deleted": "Draft campaign deleted",
   "campaign.test_sent": "Sent a test of a campaign to yourself",
   "campaign.approved": "Campaign approved and started",
   "campaign.paused": "Campaign paused",

@@ -3,18 +3,11 @@
 import { useActionState, useId, useMemo, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
-import {
-  DEFAULT_AT_RISK_BODY,
-  DEFAULT_AT_RISK_SUBJECT,
-  DEFAULT_BODY,
-  DEFAULT_SUBJECT,
-  PLACEHOLDER_HELP,
-  composeBody,
-  renderTemplate,
-} from "@/lib/template";
+import { MessageEditor } from "@/components/app/message-editor";
+import { composeBody, renderTemplate } from "@/lib/template";
+import { defaultFollowUpsFor, defaultMessage } from "@/lib/templates-i18n";
 import { monthsSince } from "@/lib/lapse";
 import {
-  defaultFollowUps,
   MAX_FOLLOW_UPS,
   MAX_FOLLOW_UP_DAYS,
   MIN_FOLLOW_UP_DAYS,
@@ -31,6 +24,9 @@ type Sample = {
   first_name: string | null;
   last_visit_at: string | null;
   cancellation_reason: string | null;
+  /** Computed server-side: offerCode() hashes the booking token, and the
+   *  browser has no business holding either. */
+  offer_code: string | null;
 } | null;
 
 /**
@@ -97,32 +93,48 @@ export function CampaignForm({
   const [kind, setKind] = useState<CampaignKind>("win_back");
   const [reasonFilter, setReasonFilter] = useState("");
   const anyReasonRecorded = Object.values(reasonCounts).some((n) => n > 0);
-  const [subject, setSubject] = useState(DEFAULT_SUBJECT);
-  const [body, setBody] = useState(DEFAULT_BODY);
+  const [subject, setSubject] = useState(
+    () => defaultMessage(defaultLanguage, "win_back").subject,
+  );
+  const [body, setBody] = useState(
+    () => defaultMessage(defaultLanguage, "win_back").body,
+  );
   const [subjectTouched, setSubjectTouched] = useState(false);
   const [bodyTouched, setBodyTouched] = useState(false);
   const [language, setLanguage] = useState(defaultLanguage);
   const [followUps, setFollowUps] = useState<FollowUp[]>(() =>
-    defaultFollowUps("win_back"),
+    defaultFollowUpsFor(defaultLanguage, "win_back"),
   );
   const [followUpsTouched, setFollowUpsTouched] = useState(false);
   const [personalise, setPersonalise] = useState(true);
 
   const isWhatsApp = channel === "whatsapp";
 
+  /**
+   * casdey's suggestion follows whichever kind and language are selected, right
+   * up until the gym edits a field, and from then on that field is theirs. One
+   * function for both, because the rule is the same and having it in two places
+   * is how the language selector came to change the campaign's language without
+   * changing a word of the draft underneath it.
+   */
+  function applyDefaults(nextKind: CampaignKind, nextLanguage: string) {
+    const message = defaultMessage(nextLanguage, nextKind);
+    if (!subjectTouched) setSubject(message.subject);
+    if (!bodyTouched) setBody(message.body);
+    if (!followUpsTouched) {
+      setFollowUps(defaultFollowUpsFor(nextLanguage, nextKind));
+    }
+  }
+
   function selectKind(next: CampaignKind) {
     setKind(next);
-    // Same rule the subject and body follow: casdey's suggestion moves with
-    // the kind of campaign until the gym edits it, and then it is theirs.
-    if (!followUpsTouched) setFollowUps(defaultFollowUps(next));
-    if (next === "at_risk") {
-      setReasonFilter("");
-      if (!subjectTouched) setSubject(DEFAULT_AT_RISK_SUBJECT);
-      if (!bodyTouched) setBody(DEFAULT_AT_RISK_BODY);
-    } else {
-      if (!subjectTouched) setSubject(DEFAULT_SUBJECT);
-      if (!bodyTouched) setBody(DEFAULT_BODY);
-    }
+    if (next === "at_risk") setReasonFilter("");
+    applyDefaults(next, language);
+  }
+
+  function selectLanguage(next: string) {
+    setLanguage(next);
+    applyDefaults(effectiveKind, next);
   }
 
   function updateFollowUp(index: number, patch: Partial<FollowUp>) {
@@ -140,7 +152,7 @@ export function CampaignForm({
   function addFollowUp() {
     setFollowUpsTouched(true);
     setFollowUps((steps) => {
-      const suggested = defaultFollowUps(kind)[steps.length];
+      const suggested = defaultFollowUpsFor(language, kind)[steps.length];
       return [
         ...steps,
         suggested ?? {
@@ -169,6 +181,9 @@ export function CampaignForm({
             ?.label ?? null)
         : null,
       offer: offerText,
+      // No offer, no code. Matches contextFor() in src/lib/template.ts, so the
+      // preview cannot promise a code the real send would not include.
+      offerCode: offerText ? (sample?.offer_code ?? null) : null,
     }),
     [sample, gymName, sampleBookingUrl, offerText],
   );
@@ -375,7 +390,7 @@ export function CampaignForm({
               <select
                 id={`${id}-language`}
                 value={language}
-                onChange={(event) => setLanguage(event.target.value)}
+                onChange={(event) => selectLanguage(event.target.value)}
                 disabled={pending}
                 className="field"
               >
@@ -393,10 +408,12 @@ export function CampaignForm({
           </Card>
 
           <Card>
-            <CardTitle>The message</CardTitle>
+            <CardTitle>The message casdey will send</CardTitle>
             <p className="mt-1 mb-5 text-[0.875rem] text-stone">
-              Plain text, because that is what a note from a gym looks like and
-              it is what stays out of the promotions tab.
+              This is written for you and ready to go. Change it if you want to,
+              or leave it alone. It is plain text because that is what a note
+              from a gym looks like, and it is what stays out of the promotions
+              tab.
             </p>
 
             <div className="mb-5">
@@ -422,42 +439,28 @@ export function CampaignForm({
               <label htmlFor={`${id}-body`} className="field-label">
                 Message
               </label>
-              <textarea
+              <MessageEditor
                 id={`${id}-body`}
                 name="body"
                 required
-                rows={12}
-                maxLength={5000}
                 disabled={pending}
-                className="field font-[family-name:var(--font-inter)] leading-relaxed"
                 value={body}
-                onChange={(event) => {
+                onChange={(next) => {
                   setBodyTouched(true);
-                  setBody(event.target.value);
+                  setBody(next);
                 }}
               />
-              <div className="field-hint">
-                <p className="mb-1">These fill themselves in:</p>
-                <ul className="space-y-0.5">
-                  {PLACEHOLDER_HELP.map((help) => (
-                    <li key={help.token}>
-                      <code className="literal text-graphite">{help.token}</code>{" "}
-                      {help.means}
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
           </Card>
 
           <Card>
-            <CardTitle>Who writes it</CardTitle>
+            <CardTitle>One message, or one each</CardTitle>
             <p className="mt-1 mb-4 text-[0.875rem] leading-relaxed text-stone">
-              Your message above is what every member gets. casdey can instead
-              write each one for the member it is going to, from the same
-              message and the same facts: their name, how long they have been
-              away, why they left if you recorded it, and your offer word for
-              word.
+              Leave this on and casdey writes every member their own message,
+              from the draft above and the facts it holds about them: their
+              name, how long they have been away, why they left where you
+              recorded it, and your offer word for word. Turn it off and every
+              member gets the draft above exactly as it stands.
             </p>
 
             <label className="flex items-start gap-2.5 text-[0.9375rem] text-ink">
@@ -551,16 +554,12 @@ export function CampaignForm({
                     updateFollowUp(index, { subject: event.target.value })
                   }
                 />
-                <textarea
-                  aria-label={`Follow-up ${index + 1} message`}
+                <MessageEditor
                   rows={7}
-                  maxLength={5000}
+                  showLegend={false}
                   disabled={pending}
-                  className="field font-[family-name:var(--font-inter)] leading-relaxed"
                   value={step.body}
-                  onChange={(event) =>
-                    updateFollowUp(index, { body: event.target.value })
-                  }
+                  onChange={(next) => updateFollowUp(index, { body: next })}
                 />
               </div>
             ))}

@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import type { CampaignStatus, Channel } from "@/lib/types";
 import {
   approveCampaignAction,
+  deleteCampaignAction,
   setCampaignStatusAction,
   type CampaignState,
 } from "../actions";
@@ -34,9 +36,14 @@ export function CampaignControls({
     setCampaignStatusAction,
     INITIAL,
   );
+  const [deleteState, remove, removing] = useActionState(
+    deleteCampaignAction,
+    INITIAL,
+  );
   const [confirming, setConfirming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  const error = approveState.error ?? statusState.error;
+  const error = approveState.error ?? statusState.error ?? deleteState.error;
   const days = Math.ceil(audienceCount / Math.max(1, dailyCap));
 
   if (status === "draft") {
@@ -95,6 +102,51 @@ export function CampaignControls({
             </Button>
           </form>
         )}
+
+        {/* A draft is the one state where changing your mind costs nothing,
+            so both ways out live here: edit it, or throw it away. Deleting is
+            offered only for drafts on purpose, see deleteCampaignAction. */}
+        <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-ash pt-4">
+          {!isWhatsApp ? (
+            <Link
+              href={`/app/campaigns/${campaignId}/edit`}
+              className="text-[0.875rem] text-teal underline underline-offset-4"
+            >
+              Edit the message
+            </Link>
+          ) : null}
+
+          {!confirmingDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
+            >
+              Delete this draft
+            </button>
+          ) : (
+            <form action={remove} className="flex flex-wrap items-center gap-3">
+              <input type="hidden" name="campaignId" value={campaignId} />
+              <span className="text-[0.875rem] text-graphite">
+                Delete it? Nothing has been sent, so nothing is lost.
+              </span>
+              <button
+                type="submit"
+                disabled={removing}
+                className="text-[0.875rem] font-medium text-[var(--danger)] underline underline-offset-4"
+              >
+                {removing ? "Deleting..." : "Yes, delete"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(false)}
+                className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
+              >
+                Keep it
+              </button>
+            </form>
+          )}
+        </div>
 
         {error ? (
           <p role="alert" className="notice notice-error mt-4">

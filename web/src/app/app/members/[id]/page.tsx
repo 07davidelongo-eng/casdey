@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { requireGym } from "@/lib/dal";
 import { isLapsed, monthsSince, ruleFor } from "@/lib/lapse";
+import { offerCode } from "@/lib/offer-code";
 import { MemberTimeline } from "@/components/app/member-timeline";
 import { MemberActions } from "./actions-ui";
 import { WhatsAppConversationCard } from "./whatsapp-conversation";
@@ -135,6 +136,14 @@ export default async function MemberPage(
           <Detail
             label="Visits on record"
             value={String(member.visit_count)}
+            literal
+          />
+          {/* What this member quotes at the desk to claim their offer. Shown
+              here so whoever is standing at reception can check it against the
+              person in front of them, which is the whole point of it. */}
+          <Detail
+            label="Offer code"
+            value={offerCode(member.booking_token)}
             literal
           />
         </dl>

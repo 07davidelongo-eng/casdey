@@ -26,6 +26,8 @@ export type AuditAction =
   | "members.purged"
   | "members.exported"
   | "campaign.created"
+  | "campaign.updated"
+  | "campaign.deleted"
   | "campaign.test_sent"
   | "campaign.approved"
   | "campaign.paused"

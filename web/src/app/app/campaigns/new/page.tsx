@@ -7,6 +7,7 @@ import {
   buildWhatsAppAudience,
 } from "@/lib/campaigns";
 import { bookingUrl, emailProvider } from "@/lib/messaging";
+import { offerCode } from "@/lib/offer-code";
 import { languageForCountry } from "@/lib/languages";
 import { supabaseAdmin } from "@/lib/supabase";
 import { PageHeader, Notice, ButtonLink } from "@/components/app/ui";
@@ -93,6 +94,7 @@ export default async function NewCampaignPage() {
                     first_name: winBackAudience[0].first_name,
                     last_visit_at: winBackAudience[0].last_visit_at,
                     cancellation_reason: winBackSampleRow?.cancellation_reason ?? null,
+                    offer_code: offerCode(winBackAudience[0].booking_token),
                   }
                 : null
             }
@@ -102,6 +104,7 @@ export default async function NewCampaignPage() {
                     first_name: atRiskAudience[0].first_name,
                     last_visit_at: atRiskAudience[0].last_visit_at,
                     cancellation_reason: null,
+                    offer_code: offerCode(atRiskAudience[0].booking_token),
                   }
                 : null
             }

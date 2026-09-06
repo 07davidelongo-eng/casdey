@@ -12,6 +12,8 @@ import { buildIcs } from "@/lib/calendar/ics";
 import { gymOpenSlots, CalendarUnavailableError } from "@/lib/calendar/gym-slots";
 import { calendarFor } from "@/lib/calendar/provider";
 import { isExclusive, slotShape } from "@/lib/services";
+import { offerCode } from "@/lib/offer-code";
+import { offerForMember, parseVariants } from "@/lib/offers/variants";
 import type { Gym, Service } from "@/lib/types";
 
 export type BookState = {
@@ -60,7 +62,11 @@ export async function bookSlotAction(
 
   const { data: member } = await client
     .from("members")
-    .select("id, gym_id, first_name, last_name, email")
+    // cancellation_reason picks the offer this member was actually shown, and
+    // the token is what the offer code is derived from. See #39.
+    .select(
+      "id, gym_id, first_name, last_name, email, cancellation_reason, booking_token",
+    )
     .eq("booking_token", token)
     .maybeSingle();
 
@@ -159,12 +165,24 @@ export async function bookSlotAction(
     };
   }
 
+  // What this member was promised, captured now rather than looked up later:
+  // the gym can rewrite its offer tomorrow, and this booking has to keep
+  // saying what it said today. Same reasoning as value_minor above.
+  const promisedOffer = offerForMember(
+    parseVariants(gym.offer_variants),
+    gym.offer_text,
+    member.cancellation_reason,
+  );
+  const code = promisedOffer ? offerCode(member.booking_token) : null;
+
   const { data: booking, error: insertError } = await client
     .from("bookings")
     .insert({
       gym_id: gym.id,
       member_id: member.id,
       service_id: serviceId,
+      offer_code: code,
+      offer_text: promisedOffer,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       status: "booked",
@@ -210,9 +228,21 @@ export async function bookSlotAction(
       const summary = serviceName
         ? `${serviceName} with ${memberLabel(member)}`
         : `Booking with ${memberLabel(member)}`;
+      // The offer goes in the diary entry, because the diary is what the gym
+      // actually reads at the door. A code nobody can see when the member is
+      // standing there is a code that does not work.
+      const description = promisedOffer
+        ? [
+            "Booked automatically by casdey.",
+            "",
+            `Offer code: ${code}`,
+            `Promised: ${promisedOffer}`,
+          ].join("\n")
+        : "Booked automatically by casdey.";
+
       const { eventId } = await calendar.createEvent({
         summary,
-        description: "Booked automatically by casdey.",
+        description,
         start: startAt,
         end: endAt,
         attendeeEmail: member.email,

@@ -12,6 +12,7 @@ const BASE: PersonaliseInput = {
     bookingUrl: null,
     reason: null,
     offer: null,
+    offerCode: null,
   },
   step: 1,
 };

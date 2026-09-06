@@ -304,6 +304,7 @@ export async function drainQueue(
         gym,
         new Date(),
         gym.booking_enabled ? bookingUrl(member.booking_token) : null,
+        member.booking_token,
       );
 
       const identity = sendingIdentity(gym);
