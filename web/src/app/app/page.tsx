@@ -1,18 +1,15 @@
 import Link from "next/link";
 
 import { requireGym } from "@/lib/dal";
-import { gymStats, recoveredBreakdown } from "@/lib/stats";
+import { gymStats } from "@/lib/stats";
+import { hasPricedServices, recoveredRevenue } from "@/lib/revenue";
 import {
   atRiskRuleFor,
   describeRule,
   monthsSince,
   ruleFor,
 } from "@/lib/lapse";
-import {
-  estimatedRecoveredMinor,
-  formatMoney,
-  gymCurrency,
-} from "@/lib/money";
+import { formatMoney, gymCurrency } from "@/lib/money";
 import { buildSetupState } from "@/lib/setup";
 import { calendarConnectionView } from "@/lib/calendar/provider";
 import { isGoogleCalendarConfigured } from "@/lib/calendar/google";
@@ -39,6 +36,10 @@ export default async function DashboardPage(props: PageProps<"/app">) {
   const { gym, session } = await requireGym();
 
   const rule = ruleFor(gym);
+  const [recovered, priced] = await Promise.all([
+    recoveredRevenue(session.supabase, gym.id),
+    hasPricedServices(session.supabase, gym.id),
+  ]);
   const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
 
   // The first-run checklist. Derived from state the gym already has, so it
@@ -54,7 +55,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
 
   const setup = buildSetupState({
     memberCount: stats.members,
-    bookingValueSet: gym.booking_value_minor !== null,
+    servicesPriced: priced,
     ruleDescription: describeRule(ruleFor(gym)),
     offerChosen: Boolean(gym.offer_text),
     sendingConfigured: isSendingConfigured(),
@@ -81,12 +82,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
 
   const returned = (returnedRows?.[0] ?? null) as Member | null;
 
-  const breakdown = await recoveredBreakdown(session.supabase, gym.id);
   const currency = gymCurrency(gym);
-  const recoveredMinor = estimatedRecoveredMinor(
-    stats.returned,
-    gym.booking_value_minor,
-  );
 
   if (stats.members === 0) {
     return (
@@ -183,53 +179,59 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         />
       </div>
 
-      {recoveredMinor !== null ? (
+      {priced ? (
         <Card className="mt-6">
-          <p className="label text-stone">Estimated revenue recovered</p>
+          <p className="label text-stone">Revenue recovered</p>
           <p className="literal mt-2 text-[2.5rem] leading-none font-medium text-[color-mix(in_srgb,var(--amber)_62%,var(--ink))]">
-            {formatMoney(recoveredMinor, currency)}
+            {formatMoney(recovered.totalMinor, currency)}
           </p>
           <p className="mt-3 max-w-xl text-[0.8125rem] text-stone">
-            {stats.returned} {stats.returned === 1 ? "member" : "members"}{" "}
-            returned, valued at your typical{" "}
-            {formatMoney(gym.booking_value_minor ?? 0, currency)} a
-            recovered booking. An estimate, not amounts casdey has billed.
+            {recovered.bookings - recovered.unpriced}{" "}
+            {recovered.bookings - recovered.unpriced === 1
+              ? "booking"
+              : "bookings"}{" "}
+            casdey won back, each one at the price of the service it was for.
+            Not an average, and not a number casdey has billed.
           </p>
 
-          {/* What the money is made of, from real bookings rather than from
-              the typical-value setting above. Thirty monthly memberships and
-              thirty single sessions are the same headline and completely
-              different businesses. */}
-          {breakdown.recurringMinor > 0 || breakdown.oneOffMinor > 0 ? (
+          {/* What the money is made of. Thirty monthly memberships and thirty
+              single sessions are the same total and completely different
+              businesses. */}
+          {recovered.recurringMinor > 0 || recovered.oneOffMinor > 0 ? (
             <div className="mt-4 border-t border-ash pt-4">
               <p className="text-[0.875rem] text-graphite">
-                Of what members actually booked,{" "}
                 <span className="literal text-ink">
-                  {formatMoney(breakdown.recurringMinor, currency)}
+                  {formatMoney(recovered.recurringMinor, currency)}
                 </span>{" "}
-                is recurring and{" "}
+                of it is recurring and{" "}
                 <span className="literal text-ink">
-                  {formatMoney(breakdown.oneOffMinor, currency)}
+                  {formatMoney(recovered.oneOffMinor, currency)}
                 </span>{" "}
                 is one off.
               </p>
-              {breakdown.annualisedRecurringMinor > breakdown.recurringMinor ? (
+              {recovered.annualisedRecurringMinor > recovered.recurringMinor ? (
                 <p className="mt-1 text-[0.8125rem] text-stone">
-                  The recurring half is worth about{" "}
-                  {formatMoney(breakdown.annualisedRecurringMinor, currency)} over
-                  a year if those members stay, which is the number worth
-                  comparing against what casdey costs.
-                </p>
-              ) : null}
-              {breakdown.unclassified > 0 ? (
-                <p className="mt-1 text-[0.8125rem] text-stone">
-                  {breakdown.unclassified}{" "}
-                  {breakdown.unclassified === 1 ? "booking" : "bookings"} had no
-                  service picked, so {breakdown.unclassified === 1 ? "it is" : "they are"}{" "}
-                  not counted in that split.
+                  The recurring part is worth about{" "}
+                  {formatMoney(recovered.annualisedRecurringMinor, currency)} over
+                  a year if those members stay, which is the figure worth
+                  holding against what casdey costs.
                 </p>
               ) : null}
             </div>
+          ) : null}
+
+          {/* Said out loud rather than quietly depressing the total. A gym
+              seeing a number lower than it expected deserves to know why. */}
+          {recovered.unpriced > 0 ? (
+            <p className="mt-3 text-[0.8125rem] text-stone">
+              {recovered.unpriced}{" "}
+              {recovered.unpriced === 1 ? "booking has" : "bookings have"} no
+              service on{" "}
+              {recovered.unpriced === 1 ? "it" : "them"}, so casdey cannot say
+              what {recovered.unpriced === 1 ? "it was" : "they were"} worth and
+              {recovered.unpriced === 1 ? " it is" : " they are"} left out of
+              this total.
+            </p>
           ) : null}
         </Card>
       ) : (
@@ -237,13 +239,13 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           <div>
             <CardTitle>See the money, not just the count</CardTitle>
             <p className="text-[0.9375rem] text-graphite">
-              Tell casdey what a returning member is typically worth and the
-              dashboard shows the revenue you have recovered, not only how many
-              came back.
+              Add what you sell and what it costs. casdey then values every
+              booking it wins back at the price of the service it was for, and
+              those are the same prices your members read when they book.
             </p>
           </div>
-          <ButtonLink href="/app/settings" variant="quiet">
-            Set booking value
+          <ButtonLink href="/app/settings/services" variant="quiet">
+            Add your services
           </ButtonLink>
         </Card>
       )}

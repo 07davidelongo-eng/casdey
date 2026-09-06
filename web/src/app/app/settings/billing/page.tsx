@@ -240,13 +240,13 @@ export default async function BillingPage(
               <ul className="mt-3 space-y-2 border-t border-ash/55 pt-3">
                 {guaranteeLedger.map((row) => (
                   <li
-                    key={row.memberId}
+                    key={row.bookingId}
                     className="flex flex-wrap items-baseline justify-between gap-2 text-[0.8125rem]"
                   >
                     <span className="text-graphite">
-                      {row.memberName} returned{" "}
+                      {row.memberName}, {row.serviceName}{" "}
                       <span className="literal text-stone">
-                        {formatDate(row.returnedAt)}
+                        {formatDate(row.bookedAt)}
                       </span>
                     </span>
                     <span className="literal text-ink">
@@ -256,12 +256,9 @@ export default async function BillingPage(
                 ))}
               </ul>
               <p className="mt-3 text-[0.75rem] text-stone">
-                Each return counts at your typical booking value of{" "}
-                {formatMoney(
-                  guaranteeLedger[guaranteeLedger.length - 1].valueMinor,
-                  guaranteeCurrency,
-                )}{" "}
-                (Settings). Running total{" "}
+                Every booking counts at the price of the service it was for,
+                taken from Settings → Services at the moment it was booked.
+                Total{" "}
                 {formatMoney(
                   guaranteeLedger[guaranteeLedger.length - 1]
                     .runningTotalMinor,

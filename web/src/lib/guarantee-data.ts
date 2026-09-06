@@ -9,7 +9,7 @@ import {
   type GuaranteeStatus,
   type GuaranteeWindow,
 } from "./guarantee";
-import { estimatedRecoveredMinor } from "./money";
+import { hasPricedServices, recoveredRevenue } from "./revenue";
 import type { GuaranteeClaim, Gym } from "./types";
 
 /**
@@ -26,7 +26,7 @@ export async function loadGuaranteeStatus(
   supabase: SupabaseClient,
   gym: Pick<
     Gym,
-    "id" | "premium_started_at" | "booking_value_minor"
+    "id" | "premium_started_at"
   >,
   now: Date = new Date(),
 ): Promise<GuaranteeStatus> {
@@ -105,19 +105,15 @@ export async function loadGuaranteeStatus(
   // one: never count anything past "now", and never past the window either.
   const countedThrough = now < window.end ? now : window.end;
 
-  const [{ count: returned }, { data: paidRows }] = await Promise.all([
-    supabase
-      .from("members")
-      .select("id", { count: "exact", head: true })
-      .eq("gym_id", gym.id)
-      .eq("status", "returned")
-      // The self-test synthetic member (src/lib/self-test.ts) can now book
-      // itself through the same self-serve flow a real member uses, and it
-      // must never count toward the guarantee any more than it counts toward
-      // the dashboard's own "returned" stat (src/lib/stats.ts).
-      .eq("is_test", false)
-      .gte("returned_at", window.start.toISOString())
-      .lte("returned_at", countedThrough.toISOString()),
+  const [recovered, priced, { data: paidRows }] = await Promise.all([
+    // What was really booked in the window, each booking at the price of the
+    // service it was for. See src/lib/revenue.ts for why this replaced a flat
+    // per-member figure the gym typed in.
+    recoveredRevenue(supabase, gym.id, {
+      from: window.start,
+      to: countedThrough,
+    }),
+    hasPricedServices(supabase, gym.id),
     // Read from premium_started_at so the payment that unlocked Premium (which
     // lands before the first campaign is approved) is in scope, then narrow to
     // the window's own billing period with paymentsFundingWindow() below. The
@@ -136,18 +132,13 @@ export async function loadGuaranteeStatus(
     window.start,
   ).reduce((sum, row) => sum + row.amount_minor, 0);
 
-  // Same formula the dashboard uses (see ./money.ts), so the number on the
-  // billing page and the number a claim is judged against can never drift
-  // apart. When the gym has never set a value there is no honest revenue
-  // figure: it still reads as zero here, but revenueEstimable=false below means
-  // a shortfall routes to review rather than an automatic self-serve refund, so
-  // an unset value can no longer be used to claw back a full window for free.
-  const revenueEstimable =
-    gym.booking_value_minor != null &&
-    gym.booking_value_minor > 0;
-  const revenueRecoveredMinor =
-    estimatedRecoveredMinor(returned ?? 0, gym.booking_value_minor) ??
-    0;
+  // Same function the dashboard uses, so the number on the billing page and
+  // the number a claim is judged against cannot drift apart. A gym that has
+  // never priced a service reads as zero here for reasons that have nothing
+  // to do with whether casdey worked, so revenueEstimable=false routes a
+  // shortfall to review rather than to an automatic self-serve refund.
+  const revenueEstimable = priced;
+  const revenueRecoveredMinor = recovered.totalMinor;
 
   return guaranteeStatus({
     premiumStartedAt: gym.premium_started_at,
@@ -161,9 +152,10 @@ export async function loadGuaranteeStatus(
 }
 
 export type GuaranteeLedgerRow = {
-  memberId: string;
+  bookingId: string;
   memberName: string;
-  returnedAt: string;
+  serviceName: string;
+  bookedAt: string;
   valueMinor: number;
   runningTotalMinor: number;
 };
@@ -171,49 +163,71 @@ export type GuaranteeLedgerRow = {
 /**
  * The line-by-line breakdown behind a single "revenue recovered" figure.
  *
- * Deliberately reuses the exact same query loadGuaranteeStatus counts from
- * (same gym_id/status/is_test/window filters) and the exact same per-member
- * value (the gym's flat typical booking value, never a real booking's own
- * price) that ./money.ts's estimatedRecoveredMinor multiplies by. That is
- * what makes summing this list's rows structurally unable to disagree with
- * the headline number: there is no second formula here to drift out of sync
- * with the first one. A richer version that valued each member by their
- * actual booking (when one exists) would be a real change to what "revenue
- * recovered" means, not just a display, and needs its own decision before
- * being built, see the wiki competitive-research backlog.
+ * One row per booking, not per member, because that is now what the headline
+ * number is made of: Marco on a 50 euro membership and Sara on a 20 euro yoga
+ * class are two different lines, and adding them up has to land exactly on
+ * the figure the claim is judged against.
+ *
+ * Same filters and the same per-booking value recoveredRevenue() uses, so
+ * summing this list cannot disagree with the total. A booking with no service
+ * on it is left out of both, and the gym is told separately how many of those
+ * there are rather than being shown an unexplained gap.
  */
 export async function loadGuaranteeLedger(
   supabase: SupabaseClient,
-  gym: Pick<Gym, "id" | "booking_value_minor">,
+  gym: Pick<Gym, "id">,
   window: GuaranteeWindow,
   countedThrough: Date,
 ): Promise<GuaranteeLedgerRow[]> {
-  const value = gym.booking_value_minor;
-  if (!value || value <= 0) return [];
-
   const { data } = await supabase
-    .from("members")
-    .select("id, first_name, last_name, returned_at")
+    .from("bookings")
+    .select(
+      "id, created_at, value_minor, members!inner(first_name, last_name, is_test), services(name)",
+    )
     .eq("gym_id", gym.id)
-    .eq("status", "returned")
-    .eq("is_test", false)
-    .gte("returned_at", window.start.toISOString())
-    .lte("returned_at", countedThrough.toISOString())
-    .order("returned_at", { ascending: true });
+    .in("status", ["booked", "completed"])
+    // The self-test synthetic member (src/lib/self-test.ts) books through the
+    // same self-serve flow a real member uses, and must never count toward
+    // the guarantee.
+    .eq("members.is_test", false)
+    .gte("created_at", window.start.toISOString())
+    .lte("created_at", countedThrough.toISOString())
+    .order("created_at", { ascending: true });
+
+  type Row = {
+    id: string;
+    created_at: string;
+    value_minor: number | null;
+    members: { first_name: string | null; last_name: string | null } | { first_name: string | null; last_name: string | null }[] | null;
+    services: { name: string } | { name: string }[] | null;
+  };
+
+  const one = <T,>(value: T | T[] | null): T | null =>
+    Array.isArray(value) ? (value[0] ?? null) : value;
 
   let running = 0;
-  return (data ?? []).map((row) => {
+  const rows: GuaranteeLedgerRow[] = [];
+
+  for (const row of (data ?? []) as unknown as Row[]) {
+    const service = one(row.services);
+    const value = row.value_minor ?? 0;
+    if (!service || value <= 0) continue;
+
+    const member = one(row.members);
     running += value;
-    return {
-      memberId: row.id as string,
+    rows.push({
+      bookingId: row.id,
       memberName:
-        [row.first_name, row.last_name].filter(Boolean).join(" ").trim() ||
+        [member?.first_name, member?.last_name].filter(Boolean).join(" ").trim() ||
         "Member",
-      returnedAt: row.returned_at as string,
+      serviceName: service.name,
+      bookedAt: row.created_at,
       valueMinor: value,
       runningTotalMinor: running,
-    };
-  });
+    });
+  }
+
+  return rows;
 }
 
 /**
@@ -227,7 +241,7 @@ export async function loadGuaranteeLedger(
  */
 export async function loadGuaranteeLedgerForStatus(
   supabase: SupabaseClient,
-  gym: Pick<Gym, "id" | "booking_value_minor">,
+  gym: Pick<Gym, "id">,
   status: GuaranteeStatus,
   now: Date = new Date(),
 ): Promise<GuaranteeLedgerRow[]> {

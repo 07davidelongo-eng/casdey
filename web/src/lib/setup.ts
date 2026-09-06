@@ -4,7 +4,7 @@
  * Self-serve onboarding lives or dies on a gym owner knowing what to do next.
  * The product has all the pieces but before this they were scattered across the
  * dashboard and Settings with no single "you are not done yet" spine, and
- * several of them (booking value, calendar, the offer, per-gym sending) had
+ * several of them (services, calendar, the offer, per-gym sending) had
  * nothing pointing at them at all: a feature nobody is told about may as well
  * not be built.
  *
@@ -48,7 +48,9 @@ export type SetupState = {
 
 export type SetupInput = {
   memberCount: number;
-  bookingValueSet: boolean;
+  /** The gym has priced at least one service. What casdey values a recovered
+   *  member by, and what members read when they book. */
+  servicesPriced: boolean;
   /** The lapse rule as a sentence, from describeRule() in src/lib/lapse.ts.
    *  Passed in rather than rebuilt here, so the setup list, the dashboard and
    *  the members page cannot end up describing three different rules. */
@@ -95,11 +97,11 @@ export function buildSetupState(input: SetupInput): SetupState {
     },
     {
       key: "value",
-      title: "Set what a return is worth",
-      body: "Tell casdey the typical value of a recovered member. It powers the revenue estimate and the profit-or-nothing guarantee.",
-      href: "/app/settings",
-      cta: "Set booking value",
-      done: input.bookingValueSet,
+      title: "Price what you sell",
+      body: "Your memberships, classes and packs, and what each costs. Members read these when they book, and casdey values every booking it recovers at the price of the service it was for.",
+      href: "/app/settings/services",
+      cta: "Add your services",
+      done: input.servicesPriced,
       optional: false,
       unavailable: false,
     },

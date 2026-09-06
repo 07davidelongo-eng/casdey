@@ -45,19 +45,3 @@ export function currencySymbol(currency: Currency): string {
   return currency === "gbp" ? "£" : "€";
 }
 
-/**
- * The revenue estimate: members returned times the gym's typical
- * recovered-booking value. Null when there is no value to multiply by, so
- * callers show a prompt to set one rather than a confident "£0".
- *
- * Deliberately an estimate, not billed amounts: casdey does not yet know the
- * exact membership or class each returning member bought, so it values them all
- * at the gym's own typical figure and says so wherever the number appears.
- */
-export function estimatedRecoveredMinor(
-  returned: number,
-  bookingValueMinor: number | null,
-): number | null {
-  if (!bookingValueMinor || bookingValueMinor <= 0) return null;
-  return returned * bookingValueMinor;
-}

@@ -4,7 +4,6 @@ import { useActionState, useId, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import type { Gym } from "@/lib/types";
-import { currencySymbol, gymCurrency } from "@/lib/money";
 import { saveSettingsAction, type SettingsState } from "./actions";
 
 const INITIAL: SettingsState = { error: null, saved: false };
@@ -29,12 +28,6 @@ export function SettingsForm({
     String(gym.lapsed_after_days ?? gym.lapsed_after_months),
   );
   const [capVisits, setCapVisits] = useState(gym.max_visits != null);
-
-  const symbol = currencySymbol(gymCurrency(gym));
-  const bookingValue =
-    gym.booking_value_minor != null
-      ? String(gym.booking_value_minor / 100)
-      : "";
 
   return (
     <form action={action} data-unsaved-guard className="space-y-6">
@@ -208,43 +201,6 @@ export function SettingsForm({
             than the lapse window above. The visit limit does not apply here:
             a regular who goes quiet is worth checking on however many times
             they have been in.
-          </p>
-        </div>
-      </Card>
-
-      <Card>
-        <CardTitle>What a returning member is worth</CardTitle>
-        <p className="mb-5 text-[0.875rem] text-stone">
-          The typical value of one recovered booking. casdey multiplies it
-          by the members it books back in to estimate the revenue on your
-          dashboard, and it is what the profit-or-nothing guarantee is measured
-          against. An average is fine, you can change it whenever.
-        </p>
-
-        <div className="max-w-[16rem]">
-          <label htmlFor={`${id}-value`} className="field-label">
-            Value of a recovered booking
-          </label>
-          <div className="flex items-center gap-3">
-            <span className="literal text-[1.0625rem] text-graphite">
-              {symbol}
-            </span>
-            <input
-              id={`${id}-value`}
-              name="bookingValue"
-              type="number"
-              min={0}
-              max={1000000}
-              step="0.01"
-              inputMode="decimal"
-              defaultValue={bookingValue}
-              placeholder="120"
-              disabled={disabled}
-              className="field literal"
-            />
-          </div>
-          <p className="field-hint">
-            Leave it blank if you would rather not estimate revenue yet.
           </p>
         </div>
       </Card>

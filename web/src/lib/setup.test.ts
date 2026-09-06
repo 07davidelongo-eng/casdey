@@ -4,7 +4,7 @@ import { buildSetupState, type SetupInput } from "./setup";
 
 const base: SetupInput = {
   memberCount: 0,
-  bookingValueSet: false,
+  servicesPriced: false,
   ruleDescription: "no visit for 6 months, and at most 2 visits on record",
   offerChosen: false,
   sendingConfigured: true,
@@ -35,7 +35,7 @@ describe("buildSetupState", () => {
     const state = buildSetupState({
       ...base,
       memberCount: 12,
-      bookingValueSet: true,
+      servicesPriced: true,
       offerChosen: true,
       hasApprovedCampaign: true,
       calendarConnected: false,
@@ -50,7 +50,7 @@ describe("buildSetupState", () => {
     const withoutOffer = buildSetupState({
       ...base,
       memberCount: 12,
-      bookingValueSet: true,
+      servicesPriced: true,
       hasApprovedCampaign: true,
     });
     // A win-back message with nothing to come back for recovers nobody, and on

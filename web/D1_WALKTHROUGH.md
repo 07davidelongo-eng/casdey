@@ -72,8 +72,8 @@ page. Verbatim below.
 | 9 | Side by side title and description reads badly in two sections | landing | S | done |
 | 10 | Contact page with @casdey.co and the email addresses | site | S | done |
 | 11 | Lapsed rules: days as well as months, "came at most" optional | settings | M | done |
-| 12 | Guard against gyms overstating their numbers, guarantee exposure | product | L | needs decision |
-| 13 | "What a returning member is worth" duplicates Service prices | settings | M | needs decision |
+| 12 | Guard against gyms overstating their numbers, guarantee exposure | product | L | done |
+| 13 | "What a returning member is worth" duplicates Service prices | settings | M | done |
 | 14 | Services: one off vs recurring, and recurring split in the overview | settings + overview | M | done |
 | 15 | Slot shape belongs per service, plus capacity. Rebuild the page | settings + booking | L | done |
 | 16 | Unsaved changes warning on navigation | app wide | M | done |
@@ -193,3 +193,47 @@ calls the same API with the same key, so it has never been able to answer a
 member either. Nothing breaks loudly in either case, which is why it went
 unnoticed. Personalisation falls back to the gym's template and the message
 still goes out; the WhatsApp loop logs the failure and stays quiet.
+
+---
+
+## #12 and #13, answered
+
+Davide's decision, 2026-09-06: derive the value from the Services page, and
+delete the typed field. And, explicitly, **no average**. Each booking counts at
+the price of the service it was actually for, and they add up: a member back on
+a 50 euro membership plus a member back for one 20 euro class is 70 euros.
+
+His reasoning is the part worth keeping, because it is what makes this
+self-policing rather than merely tidier:
+
+> they also have to know that it is these very services that gets displayed in
+> the messages sent to the customers... so they shouldn't lie because they
+> would be lying to their customers too
+
+That is exactly right, and it is why service prices can carry a guarantee where
+a private settings field never could. The number casdey is held to and the
+number a member reads on the booking page are now the same number.
+
+**What changed.** `gyms.booking_value_minor` is unread (deprecated in
+migration 0027, not dropped, because production shares this database).
+Recovered revenue, on both the dashboard and the guarantee, is the sum of
+`bookings.value_minor`, each frozen at booking time from the service booked.
+The guarantee ledger is one row per booking, so adding the rows up lands
+exactly on the figure a claim is judged against.
+
+**Two consequences worth knowing.**
+
+A booking with no service picked is worth zero rather than being guessed at,
+and the count of those is shown rather than quietly depressing the total.
+
+A member marked returned by staff who never booked anything through casdey now
+contributes nothing to the figure. That is the honest reading of "value each
+booking at its own price", and it is a real change: gyms whose members reply by
+email and get booked by hand will see a lower number than they might expect.
+The fix is for those bookings to go through casdey, which is also what the
+product is for.
+
+The old guard against an unset value is kept and redefined: a gym that has
+never priced a single service reads as zero for reasons that have nothing to do
+with whether casdey worked, so a shortfall there routes to review rather than
+to an automatic self-serve refund.

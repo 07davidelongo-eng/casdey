@@ -47,16 +47,6 @@ const Schema = z.object({
     .int()
     .min(1)
     .max(1000, "A thousand a day is the ceiling."),
-  // Entered in major units (whole pounds/euros and pence/cents), blank allowed.
-  // "" means "not set" and is stored as null, not zero.
-  bookingValue: z
-    .string()
-    .trim()
-    .transform((v) => (v === "" ? null : Number(v)))
-    .refine(
-      (v) => v === null || (Number.isFinite(v) && v >= 0 && v <= 1_000_000),
-      "Enter the value as a number, like 120.",
-    ),
 })
   .refine(
     (value) =>
@@ -112,7 +102,6 @@ export async function saveSettingsAction(
     maxVisits: formData.get("maxVisits"),
     atRiskAfterDays: formData.get("atRiskAfterDays"),
     dailySendCap: formData.get("dailySendCap"),
-    bookingValue: formData.get("bookingValue"),
   });
 
   if (!parsed.success) {
@@ -123,12 +112,6 @@ export async function saveSettingsAction(
   }
 
   const value = parsed.data;
-
-  // Kept in minor units in the database; entered in whole currency in the form.
-  const bookingValueMinor =
-    value.bookingValue === null
-      ? null
-      : Math.round(value.bookingValue * 100);
 
   // Both window columns are always written. lapsed_after_days is the one the
   // app reads when it is set (see ruleFor() in src/lib/lapse.ts), and
@@ -152,7 +135,6 @@ export async function saveSettingsAction(
       max_visits: value.capVisits ? value.maxVisits : null,
       at_risk_after_days: value.atRiskAfterDays,
       daily_send_cap: value.dailySendCap,
-      booking_value_minor: bookingValueMinor,
     })
     .eq("id", gym.id);
 

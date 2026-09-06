@@ -146,10 +146,18 @@ export function ServicesForm({
       <Card>
         <CardTitle>What you sell</CardTitle>
         <p className="text-[0.875rem] leading-relaxed text-stone">
-          Every membership, class, pack and session you offer. casdey values
-          your quiet list against these, names them in messages, and books
-          members into the ones you mark bookable. Adding one costs nothing and
-          you can retire it later without losing its history.
+          Every membership, class, pack and session you offer. Adding one costs
+          nothing and you can retire it later without losing its history.
+        </p>
+        <p className="mt-3 text-[0.875rem] leading-relaxed text-stone">
+          <strong className="text-ink">These prices do two jobs.</strong> Your
+          members read them when they pick a time to book, and casdey values
+          every booking it wins back at the price of the service it was for.
+          That is the number on your dashboard and the one the
+          profit-or-nothing guarantee is measured against. There is no separate
+          figure to set, and no average: a member back on a 50 euro membership
+          and a member back for one 20 euro class add up to 70 euros, because
+          that is what they are.
         </p>
       </Card>
 

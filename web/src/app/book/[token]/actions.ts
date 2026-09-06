@@ -137,9 +137,10 @@ export async function bookSlotAction(
   const endAt = new Date(startAt.getTime() + shape.slotMinutes * 60_000);
   const exclusive = isExclusive(service);
 
-  const valueMinor: number | null = service
-    ? service.price_minor
-    : gym.booking_value_minor;
+  // No service picked means casdey does not know what this was worth, and a
+  // guess would end up inside a number the guarantee is judged against. Null,
+  // and the gym is told how many of these there are. See src/lib/revenue.ts.
+  const valueMinor: number | null = service?.price_minor ?? null;
   const serviceName: string | null = service?.name ?? null;
 
   // A place in a class, picked as the lowest number nobody holds. The unique
