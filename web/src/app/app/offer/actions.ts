@@ -8,7 +8,12 @@ import { recordAudit } from "@/lib/audit";
 import { OFFERS } from "@/lib/offers/library";
 import { deadlineFrom, renderOffer } from "@/lib/offers/select";
 import type { OfferInputs } from "@/lib/offers/types";
-import { CANCELLATION_REASONS } from "@/lib/cancellation";
+import {
+  CANCELLATION_REASONS,
+  isCancellationReason,
+  REASON_KEY_PATTERN,
+  reasonKeyFrom,
+} from "@/lib/cancellation";
 
 export type OfferState = { error: string | null; message: string | null };
 
@@ -74,6 +79,13 @@ export async function chooseOfferAction(
     console.error("[offer] save failed", error.message);
     return { error: "We could not save that. Try again.", message: null };
   }
+
+  await rememberOffer(gym.id, {
+    name: offer.name,
+    body: text,
+    expiresAt,
+    libraryId: offer.id,
+  });
 
   await recordAudit({
     gymId: gym.id,
@@ -171,6 +183,15 @@ export async function writeOwnOfferAction(
     return { error: "We could not save that. Try again.", message: null };
   }
 
+  await rememberOffer(gym.id, {
+    // Named from its own first words, so a list of six offers is readable
+    // without asking the gym to name each one as it writes it.
+    name: text.length > 42 ? `${text.slice(0, 42).trim()}...` : text,
+    body: text,
+    expiresAt,
+    libraryId: null,
+  });
+
   await recordAudit({
     gymId: gym.id,
     actorId: session.userId,
@@ -238,4 +259,260 @@ export async function saveOfferVariantsAction(
         ? "Saved. Members you have a reason on file for get the offer written for it."
         : "Saved. Everyone gets your general offer.",
   };
+}
+
+/**
+ * The gym's saved offers.
+ *
+ * Every offer a gym commits to, whether picked from the library or written
+ * from scratch, is kept here as well as being put in use. Choosing a new one
+ * used to overwrite the old one with no way back, which made trying a
+ * different angle a decision to destroy the previous wording.
+ *
+ * Saved on the way through rather than by an explicit "save" button, because
+ * an offer a gym thought was worth sending is worth keeping, and asking them
+ * to press a second button to keep their own work is how work gets lost.
+ */
+export async function rememberOffer(
+  gymId: string,
+  offer: { name: string; body: string; expiresAt: Date | null; libraryId: string | null },
+): Promise<void> {
+  const client = supabaseAdmin();
+
+  // Saving the identical wording twice adds nothing and clutters the list.
+  const { data: existing } = await client
+    .from("gym_offers")
+    .select("id")
+    .eq("gym_id", gymId)
+    .eq("body", offer.body)
+    .limit(1);
+
+  if (existing && existing.length > 0) return;
+
+  const { error } = await client.from("gym_offers").insert({
+    gym_id: gymId,
+    name: offer.name,
+    body: offer.body,
+    expires_at: offer.expiresAt ? offer.expiresAt.toISOString().slice(0, 10) : null,
+    library_id: offer.libraryId,
+  });
+
+  // Never fatal. The offer the gym just chose is already saved on the gym row,
+  // which is what actually sends; failing to file a copy must not look like a
+  // failure to save the offer.
+  if (error) console.error("[offer] library save failed", error.message);
+}
+
+/** Put a saved offer back into use as the gym's general offer. */
+export async function useSavedOfferAction(
+  _previous: OfferState,
+  formData: FormData,
+): Promise<OfferState> {
+  const { gym, session } = await requireOwner();
+  const id = String(formData.get("offerId") ?? "");
+
+  const client = supabaseAdmin();
+  const { data: saved } = await client
+    .from("gym_offers")
+    .select("id, name, body, expires_at, library_id")
+    .eq("id", id)
+    .eq("gym_id", gym.id)
+    .maybeSingle();
+
+  if (!saved) {
+    return { error: "That offer is no longer in your list.", message: null };
+  }
+
+  const { error } = await client
+    .from("gyms")
+    .update({
+      offer_id: saved.library_id,
+      offer_text: saved.body,
+      offer_expires_at: saved.expires_at,
+      offer_chosen_at: new Date().toISOString(),
+    })
+    .eq("id", gym.id);
+
+  if (error) {
+    console.error("[offer] use saved failed", error.message);
+    return { error: "We could not switch to that offer. Try again.", message: null };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "offer.chosen",
+    meta: { from: "library", savedOfferId: saved.id },
+  });
+
+  revalidatePath("/app/offer");
+  revalidatePath("/app/campaigns/new");
+  return { error: null, message: `"${saved.name}" is now your general offer.` };
+}
+
+/**
+ * Delete a saved offer.
+ *
+ * Deleting the one currently in use is allowed and does NOT stop it being
+ * sent: gyms.offer_text is a copy, not a reference, for exactly the reason
+ * this whole file keeps repeating, which is that a member promised something
+ * keeps being promised it. So this removes it from the list and says plainly
+ * that the offer still in use has not changed.
+ */
+export async function deleteSavedOfferAction(
+  _previous: OfferState,
+  formData: FormData,
+): Promise<OfferState> {
+  const { gym, session } = await requireOwner();
+  const id = String(formData.get("offerId") ?? "");
+
+  const client = supabaseAdmin();
+  const { data, error } = await client
+    .from("gym_offers")
+    .delete()
+    .eq("id", id)
+    .eq("gym_id", gym.id)
+    .select("id, name, body");
+
+  if (error) {
+    console.error("[offer] delete failed", error.message);
+    return { error: "We could not delete that. Try again.", message: null };
+  }
+
+  if (!data || data.length === 0) {
+    return { error: "That offer is no longer in your list.", message: null };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "offer.cleared",
+    meta: { deletedSavedOffer: data[0].name },
+  });
+
+  const stillInUse = data[0].body === gym.offer_text;
+
+  revalidatePath("/app/offer");
+  return {
+    error: null,
+    message: stillInUse
+      ? "Deleted from your list. It is still your general offer, and members already promised it keep it."
+      : "Offer deleted.",
+  };
+}
+
+/**
+ * A gym's own reasons for members leaving (#33).
+ *
+ * casdey's six are a guess at what a gym hears at the front desk. A gym that
+ * knows its members leave because a creche closed, or because shifts changed,
+ * needs to be able to say so, because "Something else" is a bucket no offer can
+ * be written for.
+ *
+ * Saved as a whole list rather than row by row, same as the offer variants: a
+ * gym editing three of them at once presses save once.
+ */
+export async function saveReasonsAction(
+  _previous: OfferState,
+  formData: FormData,
+): Promise<OfferState> {
+  const { gym, session } = await requireOwner();
+
+  let rows: { key: string; label: string; phrase: string }[] = [];
+  try {
+    const raw = JSON.parse(String(formData.get("reasons") ?? "[]"));
+    if (!Array.isArray(raw)) throw new Error("not a list");
+    rows = raw
+      .map((row) => ({
+        key: String(row?.key ?? "").trim(),
+        label: String(row?.label ?? "").trim(),
+        phrase: String(row?.phrase ?? "").trim(),
+      }))
+      .filter((row) => row.label.length > 0);
+  } catch {
+    return { error: "We could not read that. Try again.", message: null };
+  }
+
+  for (const row of rows) {
+    if (!row.key) row.key = reasonKeyFrom(row.label);
+    if (!REASON_KEY_PATTERN.test(row.key)) {
+      return {
+        error: `"${row.label}" needs at least a couple of letters casdey can turn into a name.`,
+        message: null,
+      };
+    }
+    if (row.label.length > 60) {
+      return { error: "Keep a reason under 60 characters.", message: null };
+    }
+    // The phrase is what a member reads, so it cannot be left to chance. Where
+    // the gym has not written one, build a serviceable sentence from the label
+    // rather than refusing to save.
+    if (!row.phrase) row.phrase = row.label.toLowerCase();
+    if (row.phrase.length > 80) {
+      return { error: "Keep the member-facing wording under 80 characters.", message: null };
+    }
+    if (isCancellationReason(row.key)) {
+      return {
+        error: `"${row.label}" is already one of casdey's own reasons. Give yours a different name.`,
+        message: null,
+      };
+    }
+  }
+
+  const keys = rows.map((r) => r.key);
+  if (new Set(keys).size !== keys.length) {
+    return { error: "Two of those reasons come out with the same name.", message: null };
+  }
+
+  const client = supabaseAdmin();
+
+  // Anything the gym removed from the list. Members already tagged with it keep
+  // the tag: deleting the reason must not quietly rewrite a member's history,
+  // and phraseForReason falls back to the gentle catch-all so nothing broken
+  // ever reaches a member.
+  const { data: existing } = await client
+    .from("cancellation_reasons")
+    .select("id, key")
+    .eq("gym_id", gym.id);
+
+  const gone = (existing ?? [])
+    .filter((row) => !keys.includes(row.key as string))
+    .map((row) => row.id as string);
+
+  if (gone.length > 0) {
+    await client.from("cancellation_reasons").delete().in("id", gone);
+  }
+
+  if (rows.length > 0) {
+    const { error } = await client.from("cancellation_reasons").upsert(
+      rows.map((row, index) => ({
+        gym_id: gym.id,
+        key: row.key,
+        label: row.label,
+        phrase: row.phrase,
+        position: index,
+      })),
+      { onConflict: "gym_id,key" },
+    );
+
+    if (error) {
+      console.error("[reasons] save failed", error.message);
+      return { error: "We could not save those. Try again.", message: null };
+    }
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "gym.updated",
+    meta: { reasons: rows.length, removed: gone.length },
+  });
+
+  revalidatePath("/app/offer");
+  revalidatePath("/app/members", "layout");
+  revalidatePath("/app/campaigns/new");
+  return { error: null, message: "Your reasons are saved." };
 }

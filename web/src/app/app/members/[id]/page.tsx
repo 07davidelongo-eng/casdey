@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireGym } from "@/lib/dal";
 import { isLapsed, monthsSince, ruleFor } from "@/lib/lapse";
 import { offerCode } from "@/lib/offer-code";
+import { gymReasons } from "@/lib/reasons";
 import { MemberTimeline } from "@/components/app/member-timeline";
 import { MemberActions } from "./actions-ui";
 import { WhatsAppConversationCard } from "./whatsapp-conversation";
@@ -67,6 +68,10 @@ export default async function MemberPage(
 
   if (!data) notFound();
   const member = data as Member;
+
+  // The picker has to offer this gym's own reasons too (#33), and the label
+  // shown above it has to be able to name one that was added last week.
+  const reasons = await gymReasons(gym.id);
 
   const { data: eventRows } = await session.supabase
     .from("member_events")
@@ -171,6 +176,7 @@ export default async function MemberPage(
           name={memberName(member)}
           alreadyReturned={member.status === "returned"}
           cancellationReason={member.cancellation_reason}
+          reasons={reasons}
         />
       </div>
 

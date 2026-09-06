@@ -1,5 +1,9 @@
 import { monthsSince } from "./lapse";
-import { REASON_LABELS } from "./cancellation";
+import {
+  phraseForReason,
+  resolveReasons,
+  type ResolvedReason,
+} from "./cancellation";
 import { offerForMember, parseVariants } from "./offers/variants";
 import { offerCode } from "./offer-code";
 import type { Member, Gym } from "./types";
@@ -155,6 +159,13 @@ export function contextFor(
   now: Date = new Date(),
   bookingUrl: string | null = null,
   bookingToken: string | null = null,
+  /**
+   * The gym's reasons, its own included (#33). Defaulted to the six built-ins
+   * so every existing caller keeps working, and so a code path that forgets to
+   * pass them degrades to the gentle catch-all phrase rather than printing a
+   * raw key like "shift_work" into somebody's inbox.
+   */
+  reasons: ResolvedReason[] = resolveReasons([]),
 ): TemplateContext {
   const offer = offerForMember(
     parseVariants(gym.offer_variants),
@@ -173,9 +184,7 @@ export function contextFor(
     // A code with no offer behind it is a code for nothing, so the two stand
     // or fall together.
     offerCode: offer && bookingToken ? offerCode(bookingToken) : null,
-    reason: member.cancellation_reason
-      ? REASON_LABELS[member.cancellation_reason]
-      : null,
+    reason: phraseForReason(reasons, member.cancellation_reason),
   };
 }
 

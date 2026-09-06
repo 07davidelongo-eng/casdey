@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { requireGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
-import { isCancellationReason } from "@/lib/cancellation";
+import { isKnownReason } from "@/lib/cancellation";
+import { gymReasons } from "@/lib/reasons";
 
 export type MemberActionState = { error: string | null };
 
@@ -27,7 +28,11 @@ export async function markCancelledAction(
   const memberId = String(formData.get("memberId") ?? "");
   const reason = formData.get("reason");
   if (!memberId) return { error: "Missing member." };
-  if (!isCancellationReason(reason)) {
+  // Checked against the gym's full list, not just casdey's six: since #33 a
+  // gym can add its own, and validating against the built-ins would reject
+  // the reason it just created.
+  const reasons = await gymReasons(gym.id);
+  if (!isKnownReason(reasons, reason)) {
     return { error: "Pick a reason before saving." };
   }
 

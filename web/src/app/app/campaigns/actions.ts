@@ -8,6 +8,7 @@ import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { atRiskRuleFor, ruleFor } from "@/lib/lapse";
+import { gymReasons } from "@/lib/reasons";
 import {
   audienceSnapshot,
   buildAtRiskAudience,
@@ -357,6 +358,7 @@ export async function sendTestAction(
     new Date(),
     gym.booking_enabled ? bookingUrl(member.booking_token) : null,
     member.booking_token,
+    await gymReasons(gym.id),
   );
 
   try {

@@ -49,6 +49,35 @@ export function periodSuffix(period: BillingPeriod): string {
   );
 }
 
+/** The singular unit, for saying "every 5 months" rather than "every 5 monthly". */
+const PERIOD_UNIT: Record<BillingPeriod, string> = {
+  one_off: "",
+  weekly: "week",
+  fortnightly: "2 weeks",
+  monthly: "month",
+  quarterly: "quarter",
+  biannual: "6 months",
+  annual: "year",
+};
+
+/**
+ * How this price reads to a person, at whatever rhythm it is actually charged.
+ *
+ * Interval 1 keeps the phrasing a gym would use out loud ("a month"), because
+ * "every 1 month" is how software talks and not how anyone else does. Anything
+ * above 1 says the number, which is the whole point of having it.
+ */
+export function periodLabel(
+  period: BillingPeriod,
+  interval: number = 1,
+): string {
+  if (period === "one_off") return "";
+  if (interval <= 1) return periodSuffix(period);
+  return `every ${interval} ${PERIOD_UNIT[period]}${
+    PERIOD_UNIT[period].endsWith("s") ? "" : "s"
+  }`;
+}
+
 export function isRecurring(period: BillingPeriod): boolean {
   return period !== "one_off";
 }
@@ -76,8 +105,15 @@ const PER_YEAR: Record<BillingPeriod, number> = {
 export function annualisedMinor(service: {
   price_minor: number;
   billing_period: BillingPeriod;
+  billing_interval?: number | null;
 }): number {
-  return service.price_minor * PER_YEAR[service.billing_period];
+  // Charged every 5 months means 12/5 times a year, not 12. Rounded, because a
+  // fraction of a cent in an estimate that is already labelled an estimate is
+  // false precision, and the figure feeds a display, never a refund.
+  const interval = Math.max(1, service.billing_interval ?? 1);
+  return Math.round(
+    (service.price_minor * PER_YEAR[service.billing_period]) / interval,
+  );
 }
 
 /**

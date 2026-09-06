@@ -45,6 +45,12 @@ const Row = z.object({
     .int()
     .min(1, "A service needs at least one place.")
     .max(500, "Five hundred places is the most casdey will hold in one slot."),
+  billingInterval: z
+    .number()
+    .int()
+    .min(1, "Charge at least once per period.")
+    .max(52, "Fifty two periods is the longest gap casdey will hold.")
+    .default(1),
 });
 
 const Schema = z
@@ -92,6 +98,9 @@ export async function saveServices(
     description: row.description || null,
     price_minor: Math.round(row.price * 100),
     billing_period: row.billingPeriod,
+    // A one-off is charged once, so an interval on it would be meaningless
+    // and is normalised away rather than stored to confuse a later reader.
+    billing_interval: row.billingPeriod === "one_off" ? 1 : row.billingInterval,
     active: row.active,
     bookable: row.bookable,
     // Only meaningful on a bookable service. Clearing them when the switch is

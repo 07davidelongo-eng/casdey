@@ -20,6 +20,7 @@ export type AuditAction =
   | "gym.services_updated"
   | "processing.agreed"
   | "members.imported"
+  | "import.undone"
   | "member.deleted"
   | "member.return_undone"
   | "member.cancelled"

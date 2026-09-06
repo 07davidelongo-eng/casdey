@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { Button, Card, CardTitle, Notice, Pill } from "@/components/app/ui";
-import { REASON_OPTIONS } from "@/lib/cancellation";
+import type { ResolvedReason } from "@/lib/cancellation";
 import type { OfferVariants } from "@/lib/offers/variants";
 import { saveOfferVariantsAction, type OfferState } from "./actions";
 
@@ -23,10 +23,13 @@ const INITIAL: OfferState = { error: null, message: null };
  * than after.
  */
 export function OfferVariantsForm({
+  reasons,
   variants,
   reasonCounts,
   hasDefault,
 }: {
+  /** casdey's six plus whatever this gym added (#33). */
+  reasons: ResolvedReason[];
   variants: OfferVariants;
   reasonCounts: Record<string, number>;
   hasDefault: boolean;
@@ -75,7 +78,7 @@ export function OfferVariantsForm({
       ) : null}
 
       <form action={action} className="space-y-5">
-        {REASON_OPTIONS.map((option) => {
+        {reasons.map((option) => {
           const count = reasonCounts[option.value] ?? 0;
           return (
             <div key={option.value}>

@@ -13,7 +13,7 @@ import {
   MIN_FOLLOW_UP_DAYS,
   type FollowUp,
 } from "@/lib/follow-ups";
-import { REASON_OPTIONS } from "@/lib/cancellation";
+import type { ResolvedReason } from "@/lib/cancellation";
 import { LANGUAGES } from "@/lib/languages";
 import { createCampaignAction, type CampaignState } from "../actions";
 import type { CampaignKind, Channel } from "@/lib/types";
@@ -59,6 +59,7 @@ export function CampaignForm({
   whatsAppTemplateSet,
   offerText,
   reasonCounts,
+  reasons,
 }: {
   gymName: string;
   replyTo: string;
@@ -85,6 +86,8 @@ export function CampaignForm({
    *  counts on the reason filter, so a gym is never offered a choice that
    *  can only build an empty audience. */
   reasonCounts: Record<string, number>;
+  /** casdey's six plus this gym's own (#33). */
+  reasons: ResolvedReason[];
 }) {
   const id = useId();
   const [state, action, pending] = useActionState(createCampaignAction, INITIAL);
@@ -177,7 +180,7 @@ export function CampaignForm({
       monthsAway: monthsSince(sample?.last_visit_at ?? null),
       bookingUrl: sampleBookingUrl,
       reason: sample?.cancellation_reason
-        ? (REASON_OPTIONS.find((o) => o.value === sample.cancellation_reason)
+        ? (reasons.find((o) => o.value === sample.cancellation_reason)
             ?.label ?? null)
         : null,
       offer: offerText,
@@ -185,7 +188,7 @@ export function CampaignForm({
       // preview cannot promise a code the real send would not include.
       offerCode: offerText ? (sample?.offer_code ?? null) : null,
     }),
-    [sample, gymName, sampleBookingUrl, offerText],
+    [sample, gymName, sampleBookingUrl, offerText, reasons],
   );
 
   const audienceCount = isWhatsApp
@@ -317,7 +320,7 @@ export function CampaignForm({
                 className="field"
               >
                 <option value="">Any reason</option>
-                {REASON_OPTIONS.map((option) => {
+                {reasons.map((option) => {
                   const count = reasonCounts[option.value] ?? 0;
                   return (
                     <option

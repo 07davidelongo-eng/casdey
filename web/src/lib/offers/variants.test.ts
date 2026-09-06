@@ -19,8 +19,18 @@ describe("parseVariants", () => {
     expect(parseVariants("half price")).toEqual({});
   });
 
-  it("drops a reason casdey does not recognise", () => {
-    expect(parseVariants({ vibes: PRICE })).toEqual({});
+  it("keeps an offer written for a reason the gym invented", () => {
+    // Changed by #33. This used to drop anything outside casdey's six, which
+    // would now silently discard the offer a gym wrote for its own reason.
+    expect(parseVariants({ childcare: PRICE })).toEqual({ childcare: PRICE });
+  });
+
+  it("still drops a key no reason could ever have", () => {
+    // The shape rule is the one the database enforces, so a malformed blob
+    // cannot introduce a key nothing else in the app would recognise.
+    expect(parseVariants({ "Vibes!": PRICE })).toEqual({});
+    expect(parseVariants({ "": PRICE })).toEqual({});
+    expect(parseVariants({ A: PRICE })).toEqual({});
   });
 
   it("drops an empty offer rather than promising a member nothing", () => {

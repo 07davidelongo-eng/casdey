@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireGym } from "@/lib/dal";
 import type { AuditAction } from "@/lib/audit";
+import { FilteredTable } from "@/components/app/filtered-table";
 import { Card, CardTitle, formatDate } from "@/components/app/ui";
 import { PurgeForm } from "./purge-form";
 
@@ -30,6 +31,7 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   "gym.updated": "Settings changed",
   "gym.services_updated": "Service prices changed",
   "processing.agreed": "Data protection terms accepted",
+  "import.undone": "Import undone",
   "members.imported": "Members imported",
   "member.deleted": "A member was erased",
   "member.return_undone": "A member's return was undone",
@@ -76,6 +78,19 @@ export default async function DataSettingsPage() {
     .select("id", { count: "exact", head: true })
     .eq("gym_id", gym.id)
     .eq("is_test", false);
+
+  const auditGroups = [
+    ...new Map(
+      entries.map((entry) => [
+        entry.action as string,
+        {
+          value: entry.action as string,
+          label:
+            ACTION_LABEL[entry.action as AuditAction] ?? (entry.action as string),
+        },
+      ]),
+    ).values(),
+  ].sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <div className="max-w-[42rem] space-y-6">
@@ -164,34 +179,46 @@ export default async function DataSettingsPage() {
           cannot be edited or deleted, including by us.
         </p>
 
+        {/* Only the actions this gym has actually performed, so the filter
+            never offers a category that would empty the table. */}
         {entries.length === 0 ? (
           <Card>
             <p className="text-[0.9375rem] text-graphite">Nothing recorded yet.</p>
           </Card>
         ) : (
-          <Card className="!p-0 overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>What</th>
-                  <th>Who</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="literal text-[0.8125rem] whitespace-nowrap">
+          <Card>
+            {/* Append-only and kept for two years, so it is only ever longer
+                than it was. Searchable by what happened and by who, because
+                "who deleted that member" is the question this log exists to
+                answer and scrolling is not an answer. */}
+            <FilteredTable
+              columns={["When", "What", "Who"]}
+              searchPlaceholder="Search what happened, or who"
+              groupLabel="Action"
+              groups={auditGroups}
+              emptyMessage="Nothing matches that."
+              rows={entries.map((entry) => {
+                const label =
+                  ACTION_LABEL[entry.action as AuditAction] ?? entry.action;
+                return {
+                  id: entry.id as string,
+                  group: entry.action as string,
+                  haystack: `${label} ${entry.actor_email ?? "the member"} ${formatDate(entry.created_at)}`,
+                  cells: [
+                    <span
+                      key="when"
+                      className="literal text-[0.8125rem] whitespace-nowrap"
+                    >
                       {formatDate(entry.created_at)}
-                    </td>
-                    <td>{ACTION_LABEL[entry.action as AuditAction] ?? entry.action}</td>
-                    <td className="literal text-[0.8125rem]">
+                    </span>,
+                    label,
+                    <span key="who" className="literal text-[0.8125rem]">
                       {entry.actor_email ?? "the member"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>,
+                  ],
+                };
+              })}
+            />
           </Card>
         )}
       </section>

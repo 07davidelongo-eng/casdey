@@ -7,7 +7,7 @@ import { currencySymbol } from "@/lib/money";
 import {
   BILLING_PERIOD_OPTIONS,
   isRecurring,
-  periodSuffix,
+  periodLabel,
   type BillingPeriod,
 } from "@/lib/services";
 import type { Currency } from "@/lib/countries";
@@ -41,6 +41,8 @@ type Row = {
   duration: string;
   buffer: string;
   capacity: string;
+  /** How many periods between charges. "5" with monthly is every 5 months. */
+  billingInterval: string;
 };
 
 function toRow(service: Service): Row {
@@ -51,6 +53,7 @@ function toRow(service: Service): Row {
     description: service.description ?? "",
     price: String(service.price_minor / 100),
     billingPeriod: service.billing_period,
+    billingInterval: String(service.billing_interval ?? 1),
     active: service.active,
     bookable: service.bookable,
     duration: service.duration_minutes == null ? "" : String(service.duration_minutes),
@@ -72,6 +75,7 @@ function blankRow(): Row {
     duration: "",
     buffer: "",
     capacity: "1",
+    billingInterval: "1",
   };
 }
 
@@ -96,6 +100,14 @@ export function ServicesForm({
   });
   const [pending, startTransition] = useTransition();
   const disabled = readOnly || pending;
+  /**
+   * Which service is open. One at a time, and null means all closed.
+   *
+   * A single open row rather than a set: the point of collapsing them was to
+   * stop a long page, and letting every one be opened at once rebuilds the
+   * page that was the problem.
+   */
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   function update(key: string, patch: Partial<Row>) {
     setRows((current) =>
@@ -110,7 +122,11 @@ export function ServicesForm({
   }
 
   function add() {
-    setRows((current) => [...current, blankRow()]);
+    const row = blankRow();
+    setRows((current) => [...current, row]);
+    // A new row has no name and no price, so collapsed it would read
+    // "Service 4 / No price yet" and lead nowhere. Open what was just added.
+    setExpanded(row.key);
     setState({ error: null, saved: false });
   }
 
@@ -132,6 +148,7 @@ export function ServicesForm({
       durationMinutes: row.duration.trim() === "" ? null : Number(row.duration),
       bufferMinutes: row.buffer.trim() === "" ? null : Number(row.buffer),
       capacity: Number(row.capacity || 1),
+      billingInterval: Number(row.billingInterval || 1),
     }));
 
     startTransition(async () => {
@@ -163,8 +180,70 @@ export function ServicesForm({
 
       {rows.map((row, index) => {
         const recurring = isRecurring(row.billingPeriod);
+        const open = expanded === row.key;
+        const priceLine = row.price
+          ? `${symbol}${row.price}${recurring ? " " + periodLabel(row.billingPeriod, Number(row.billingInterval) || 1) : ""}`
+          : "No price yet";
         return (
           <Card key={row.key}>
+            {/* Collapsed by default, because a gym with twenty services should
+                not have to scroll past nineteen of them to reach the twentieth.
+                The summary line carries what somebody is scanning for, which is
+                the name and the price, so the list stays useful closed. */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setExpanded(open ? null : row.key)}
+                aria-expanded={open}
+                className="flex flex-1 items-center gap-3 text-left"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                  className={`h-4 w-4 shrink-0 text-stone transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+                >
+                  <path
+                    d="M7 4l6 6-6 6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[0.9375rem] font-medium text-ink">
+                    {row.name || `Service ${index + 1}`}
+                  </span>
+                  <span className="literal block text-[0.8125rem] text-stone">
+                    {priceLine}
+                    {row.bookable ? " · bookable" : ""}
+                    {!row.active ? " · retired" : ""}
+                  </span>
+                </span>
+              </button>
+              {!open ? (
+                <button
+                  type="button"
+                  onClick={() => remove(row.key)}
+                  disabled={disabled}
+                  aria-label={`Remove ${row.name || `service ${index + 1}`}`}
+                  className="shrink-0 text-stone transition-colors duration-200 hover:text-ink disabled:opacity-40"
+                >
+                  <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden="true">
+                    <path
+                      d="M6 6l8 8M14 6l-8 8"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+
+            {open ? (
+            <div className="mt-5 border-t border-ash pt-5">
             <div className="mb-4 flex items-start gap-3">
               <div className="flex-1">
                 <label className="field-label" htmlFor={`${row.key}-name`}>
@@ -262,9 +341,32 @@ export function ServicesForm({
                     </option>
                   ))}
                 </select>
+                {recurring ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[0.875rem] text-stone">every</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={52}
+                      step={1}
+                      value={row.billingInterval}
+                      onChange={(e) =>
+                        update(row.key, { billingInterval: e.target.value })
+                      }
+                      disabled={disabled}
+                      aria-label="How many periods between charges"
+                      className="field literal w-20"
+                    />
+                    <span className="text-[0.875rem] text-stone">
+                      {Number(row.billingInterval) === 1
+                        ? "period, the usual"
+                        : "of those"}
+                    </span>
+                  </div>
+                ) : null}
                 <p className="field-hint">
                   {recurring
-                    ? `Reads as ${symbol}${row.price || "0"} ${periodSuffix(row.billingPeriod)}, and counts as recurring revenue.`
+                    ? `Reads as ${symbol}${row.price || "0"} ${periodLabel(row.billingPeriod, Number(row.billingInterval) || 1)}, and counts as recurring revenue.`
                     : "A pack or a single session. Charged once."}
                 </p>
               </div>
@@ -285,6 +387,13 @@ export function ServicesForm({
               </label>
 
               {row.bookable ? (
+                <>
+                <p className="mt-3 text-[0.875rem] leading-relaxed text-stone">
+                  These three decide what a member is offered when they open
+                  their booking link: how long a slot for this is,
+                  how much of your diary it takes after it ends, and how many
+                  people can be in the same one.
+                </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-3">
                   <div>
                     <label
@@ -311,7 +420,9 @@ export function ServicesForm({
                       <span className="text-[0.9375rem] text-graphite">min</span>
                     </div>
                     <p className="field-hint">
-                      Blank uses your {gymDefaults.slotMinutes} minute default.
+                      How long one of these takes, so casdey offers slots that
+                      length. Blank uses your {gymDefaults.slotMinutes} minute
+                      default.
                     </p>
                   </div>
 
@@ -337,7 +448,8 @@ export function ServicesForm({
                       <span className="text-[0.9375rem] text-graphite">min</span>
                     </div>
                     <p className="field-hint">
-                      Cleaning down, resetting the room.
+                      Dead time after it ends, for cleaning down or resetting
+                      the room. casdey will not offer anyone a slot inside it.
                     </p>
                   </div>
 
@@ -363,11 +475,12 @@ export function ServicesForm({
                     />
                     <p className="field-hint">
                       {Number(row.capacity) > 1
-                        ? "A class. Members share the slot and it fills up."
-                        : "One at a time. Blocks your whole diary for its length."}
+                        ? `A class: up to ${row.capacity} members book the same time, and it stops being offered once full.`
+                        : "One at a time. Blocks your whole diary for its length, so nobody else is offered it."}
                     </p>
                   </div>
                 </div>
+                </>
               ) : null}
             </div>
 
@@ -386,6 +499,8 @@ export function ServicesForm({
                 <Pill>Retired, kept for past bookings</Pill>
               ) : null}
             </div>
+            </div>
+            ) : null}
           </Card>
         );
       })}

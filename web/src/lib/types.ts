@@ -289,6 +289,9 @@ export type Service = {
   description: string | null;
   price_minor: number;
   billing_period: BillingPeriod;
+  /** How many billing_periods between charges. 1 unless the gym charges on an
+   *  unusual rhythm, e.g. monthly with interval 5 for every five months. */
+  billing_interval: number;
   /** Retired without deleting it, so past bookings keep their history. */
   active: boolean;
   /** Members can pick this when booking. */

@@ -2,6 +2,8 @@ import "server-only";
 
 import { supabaseAdmin } from "./supabase";
 import { bookingUrl, emailProvider, unsubscribeUrl } from "./messaging";
+import { gymReasons } from "./reasons";
+import type { ResolvedReason } from "./cancellation";
 import { composeBody, contextFor, renderTemplate } from "./template";
 import { sendingIdentity } from "./email/identity";
 import { capabilities } from "./plan";
@@ -110,6 +112,9 @@ export async function drainQueue(
 
   // Cached per run: a batch is usually one or two gyms and one campaign.
   const gyms = new Map<string, Gym | null>();
+  // Cached per drain like the gym itself: one query per gym, not one per
+  // message. See src/lib/reasons.ts.
+  const reasonsByGym = new Map<string, ResolvedReason[]>();
   const campaigns = new Map<string, CampaignRow | null>();
   const sentToday = new Map<string, number>();
   // Gyms that have hit their daily ceiling. Kept so their remaining rows are
@@ -199,6 +204,10 @@ export async function drainQueue(
           .maybeSingle();
         return (row as Gym) ?? null;
       });
+
+      const reasons = await cached(reasonsByGym, message.gym_id, () =>
+        gymReasons(message.gym_id),
+      );
 
       if (!gym || !capabilities(gym).canSendCampaigns) {
         await hold(message.id, "Plan does not allow sending");
@@ -305,6 +314,7 @@ export async function drainQueue(
         new Date(),
         gym.booking_enabled ? bookingUrl(member.booking_token) : null,
         member.booking_token,
+        reasons,
       );
 
       const identity = sendingIdentity(gym);

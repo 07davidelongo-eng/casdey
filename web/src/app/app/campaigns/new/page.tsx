@@ -8,6 +8,7 @@ import {
 } from "@/lib/campaigns";
 import { bookingUrl, emailProvider } from "@/lib/messaging";
 import { offerCode } from "@/lib/offer-code";
+import { gymReasons } from "@/lib/reasons";
 import { languageForCountry } from "@/lib/languages";
 import { supabaseAdmin } from "@/lib/supabase";
 import { PageHeader, Notice, ButtonLink } from "@/components/app/ui";
@@ -25,6 +26,10 @@ export default async function NewCampaignPage() {
       buildWhatsAppAudience(gym.id, ruleFor(gym)),
       audienceReasonCounts(gym.id),
     ]);
+
+  // casdey's six plus this gym's own (#33), so the filter offers the reasons
+  // the gym actually records rather than only the built-in ones.
+  const reasons = await gymReasons(gym.id);
   const provider = emailProvider();
 
   // The lean AudienceMember shape doesn't carry cancellation_reason (see
@@ -121,6 +126,7 @@ export default async function NewCampaignPage() {
             offerText={gym.offer_text}
             defaultLanguage={languageForCountry(gym.country)}
             reasonCounts={reasonCounts}
+            reasons={reasons}
           />
         </>
       )}

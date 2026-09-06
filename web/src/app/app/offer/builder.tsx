@@ -80,6 +80,16 @@ export function OfferBuilder({
   current: { id: string | null; text: string | null; expiresAt: string | null };
 }) {
   const [step, setStep] = useState(0);
+  /**
+   * Whether the gym has asked to build a new offer despite already having one.
+   *
+   * This exists because "Build a different offer" did nothing at all. It reset
+   * the answers and the step, which is precisely the state that renders the
+   * current-offer card, so the button rebuilt the screen it was on. The
+   * condition needed something the reset could not clear, and an explicit
+   * intent is that something.
+   */
+  const [rebuilding, setRebuilding] = useState(false);
   /** The offer the gym picked, held while they edit its wording. */
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
@@ -148,13 +158,14 @@ export function OfferBuilder({
     );
   }
 
-  if (current.text && step === 0 && answers.gymType === null) {
+  if (current.text && !rebuilding && step === 0 && answers.gymType === null) {
     return (
       <CurrentOffer
         current={current}
         onRebuild={() => {
           setAnswers(EMPTY);
           setStep(0);
+          setRebuilding(true);
         }}
         onEdit={() => current.id && setChosenId(current.id)}
       />
@@ -204,16 +215,31 @@ export function OfferBuilder({
           </Card>
         ))}
 
-        <button
-          type="button"
-          className="text-[0.875rem] text-teal underline"
-          onClick={() => {
-            setAnswers(EMPTY);
-            setStep(0);
-          }}
-        >
-          Start again
-        </button>
+        <div className="flex flex-wrap gap-4">
+          <button
+            type="button"
+            className="text-[0.875rem] text-teal underline"
+            onClick={() => {
+              setAnswers(EMPTY);
+              setStep(0);
+            }}
+          >
+            Start again
+          </button>
+          {current.text ? (
+            <button
+              type="button"
+              className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
+              onClick={() => {
+                setAnswers(EMPTY);
+                setStep(0);
+                setRebuilding(false);
+              }}
+            >
+              Keep the offer I have
+            </button>
+          ) : null}
+        </div>
       </div>
     );
   }

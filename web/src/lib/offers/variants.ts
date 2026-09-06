@@ -1,4 +1,4 @@
-import { CANCELLATION_REASONS, type CancellationReason } from "../cancellation";
+import { REASON_KEY_PATTERN, type CancellationReason } from "../cancellation";
 import type { LapseReason } from "./types";
 
 /**
@@ -23,7 +23,13 @@ export type OfferVariant = {
   offerId: string | null;
 };
 
-export type OfferVariants = Partial<Record<CancellationReason, OfferVariant>>;
+/**
+ * Keyed by reason. Not by CancellationReason any more: since #33 a gym can add
+ * its own reasons, and a variant map that only understood the six built-ins
+ * would silently drop the offer written for the reason the gym cared enough to
+ * invent.
+ */
+export type OfferVariants = Record<string, OfferVariant>;
 
 /** jsonb, so it is not to be trusted to have any particular shape. */
 export function parseVariants(value: unknown): OfferVariants {
@@ -31,7 +37,11 @@ export function parseVariants(value: unknown): OfferVariants {
   const source = value as Record<string, unknown>;
   const out: OfferVariants = {};
 
-  for (const reason of CANCELLATION_REASONS) {
+  // Read whatever keys are there, rather than looking for a fixed six. Guarded
+  // by the same shape rule the database enforces, so a malformed jsonb blob
+  // cannot introduce a key nothing else in the app would recognise.
+  for (const reason of Object.keys(source)) {
+    if (!REASON_KEY_PATTERN.test(reason)) continue;
     const raw = source[reason];
     if (!raw || typeof raw !== "object") continue;
     const entry = raw as Record<string, unknown>;
@@ -61,7 +71,7 @@ export function parseVariants(value: unknown): OfferVariants {
 export function offerForMember(
   variants: OfferVariants,
   fallback: string | null,
-  reason: CancellationReason | null,
+  reason: string | null,
 ): string | null {
   if (reason && variants[reason]) return variants[reason].text;
   return fallback ?? null;

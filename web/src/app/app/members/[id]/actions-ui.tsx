@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { Button, Card, CardTitle } from "@/components/app/ui";
-import { REASON_OPTIONS, type CancellationReason } from "@/lib/cancellation";
+import type { ResolvedReason } from "@/lib/cancellation";
 import {
   deleteMemberAction,
   markCancelledAction,
@@ -19,11 +19,14 @@ export function MemberActions({
   name,
   alreadyReturned,
   cancellationReason,
+  reasons,
 }: {
   memberId: string;
   name: string;
   alreadyReturned: boolean;
-  cancellationReason: CancellationReason | null;
+  cancellationReason: string | null;
+  /** casdey's six plus this gym's own (#33), resolved server-side. */
+  reasons: ResolvedReason[];
 }) {
   const [returnState, returnAction, returning] = useActionState(
     markReturnedAction,
@@ -98,7 +101,7 @@ export function MemberActions({
           <>
             <p className="text-[0.9375rem] text-graphite">
               Recorded:{" "}
-              {REASON_OPTIONS.find((option) => option.value === cancellationReason)
+              {reasons.find((option) => option.value === cancellationReason)
                 ?.label ?? cancellationReason}
             </p>
             <Button
@@ -122,7 +125,7 @@ export function MemberActions({
               <option value="" disabled>
                 Pick a reason
               </option>
-              {REASON_OPTIONS.map((option) => (
+              {reasons.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
