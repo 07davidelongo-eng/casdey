@@ -1,7 +1,7 @@
 import { monthsSince } from "./lapse";
 import {
+  DEFAULT_REASONS,
   phraseForReason,
-  resolveReasons,
   type ResolvedReason,
 } from "./cancellation";
 import { offerForMember, parseVariants } from "./offers/variants";
@@ -165,7 +165,7 @@ export function contextFor(
    * pass them degrades to the gentle catch-all phrase rather than printing a
    * raw key like "shift_work" into somebody's inbox.
    */
-  reasons: ResolvedReason[] = resolveReasons([]),
+  reasons: ResolvedReason[] = DEFAULT_REASONS,
 ): TemplateContext {
   const offer = offerForMember(
     parseVariants(gym.offer_variants),

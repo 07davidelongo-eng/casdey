@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 
+import { ConfirmButton } from "@/components/app/confirm-button";
+
 import { Button, Card, CardTitle } from "@/components/app/ui";
 import type { CampaignStatus, Channel } from "@/lib/types";
 import {
@@ -41,7 +43,6 @@ export function CampaignControls({
     INITIAL,
   );
   const [confirming, setConfirming] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const error = approveState.error ?? statusState.error ?? deleteState.error;
   const days = Math.ceil(audienceCount / Math.max(1, dailyCap));
@@ -116,36 +117,18 @@ export function CampaignControls({
             </Link>
           ) : null}
 
-          {!confirmingDelete ? (
-            <button
-              type="button"
-              onClick={() => setConfirmingDelete(true)}
-              className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
-            >
-              Delete this draft
-            </button>
-          ) : (
-            <form action={remove} className="flex flex-wrap items-center gap-3">
-              <input type="hidden" name="campaignId" value={campaignId} />
-              <span className="text-[0.875rem] text-graphite">
-                Delete it? Nothing has been sent, so nothing is lost.
-              </span>
-              <button
-                type="submit"
-                disabled={removing}
-                className="text-[0.875rem] font-medium text-[var(--danger)] underline underline-offset-4"
-              >
-                {removing ? "Deleting..." : "Yes, delete"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmingDelete(false)}
-                className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
-              >
-                Keep it
-              </button>
-            </form>
-          )}
+          <form id="delete-campaign" action={remove} className="contents">
+            <input type="hidden" name="campaignId" value={campaignId} />
+          </form>
+          <ConfirmButton
+            disabled={removing}
+            formId="delete-campaign"
+            title="Delete this draft?"
+            body="Nothing has been sent from it, so nothing reaches a member either way. The draft and its follow-ups go for good."
+            className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
+          >
+            Delete this draft
+          </ConfirmButton>
         </div>
 
         {error ? (

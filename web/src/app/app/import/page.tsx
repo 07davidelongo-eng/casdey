@@ -27,25 +27,74 @@ export const metadata = { title: "Import members" };
  *     on and can never hand over the members who already lapsed, which is the
  *     entire list casdey needs. CSV is not a stopgap there, it is the only way.
  */
-const INTEGRATIONS: { name: string; status: string }[] = [
+type Integration = {
+  name: string;
+  /** Where it stands with casdey, in one line. */
+  status: string;
+  /** What the gym can do about it right now. */
+  state: "request" | "csv";
+  /** The vendor's own page for getting the export or the credentials. Their
+   *  documentation, not casdey's: it stays right when they change their UI,
+   *  and it is what a gym owner will recognise. */
+  href: string;
+  hrefLabel: string;
+};
+
+const INTEGRATIONS: Integration[] = [
   {
     name: mindbodySource.label,
     status:
-      "Has an API, but casdey needs Mindbody's approval as a partner and each studio has to switch it on. Not connected yet.",
+      "A direct sync is possible but needs Mindbody to approve casdey as a partner and you to switch it on for your studio. Ask us and we will start it.",
+    state: "request",
+    href: "https://support.mindbodyonline.com/s/article/Exporting-client-data",
+    hrefLabel: "How to export your clients",
   },
   {
     name: "TeamUp",
     status:
-      "Gives you your own API key from your TeamUp settings, free. The most likely first sync casdey builds.",
+      "TeamUp gives you your own API key from your dashboard, at no cost, so this is the sync casdey can build fastest. Ask us and it moves to the front.",
+    state: "request",
+    href: "https://support.goteamup.com/en/articles/1794325-exporting-your-data",
+    hrefLabel: "How to export your customers",
+  },
+  {
+    name: "Glofox",
+    status:
+      "No self-serve API for member lists. Export from Glofox and casdey reads it.",
+    state: "csv",
+    href: "https://support.glofox.com/hc/en-us/sections/360002216procedure",
+    hrefLabel: "Glofox support",
   },
   {
     name: "LegitFit",
     status:
-      "Publishes no API, and its Zapier app can only report bookings from now on, never your existing members. CSV is the way in.",
+      "Publishes no API, and its Zapier app can only report bookings from now on, never the members who already lapsed. The export is the only way in.",
+    state: "csv",
+    href: "https://help.legitfit.com/",
+    hrefLabel: "LegitFit help centre",
   },
   {
-    name: "Glofox, Wodify, PushPress and the rest",
-    status: "CSV export. It works today and casdey reads all of them.",
+    name: "PushPress",
+    status: "Export your members and casdey reads it.",
+    state: "csv",
+    href: "https://help.pushpress.com/",
+    hrefLabel: "PushPress help centre",
+  },
+  {
+    name: "Wodify",
+    status:
+      "Its API covers workouts rather than membership, so the member list comes from an export.",
+    state: "csv",
+    href: "https://help.wodify.com/hc/en-us",
+    hrefLabel: "Wodify help centre",
+  },
+  {
+    name: "ABC Fitness, Zen Planner, Virtuagym and the rest",
+    status:
+      "casdey reads any CSV with a name, an email address and a last visit date. Nothing else is required.",
+    state: "csv",
+    href: "/contact",
+    hrefLabel: "Tell us what you use",
   },
 ];
 
@@ -81,13 +130,15 @@ export default async function ImportPage() {
         <ImportWizard />
       )}
 
+      <PastImports runs={runs} canUndo={role === "owner"} />
+
       <section className="mt-10">
         <h2 className="display mb-1 text-[1.25rem]">Where else it can come from</h2>
-        <p className="mb-4 max-w-[46rem] text-[0.9375rem] text-graphite">
-          A direct sync would mean no exporting each month. Whether that is
-          possible depends entirely on your software, and the honest answer
-          differs by platform, so here is where each one stands rather than a
-          promise that covers none of them.
+        <p className="mb-4 max-w-[52rem] text-[0.9375rem] text-graphite">
+          A direct sync means never exporting again. Whether one is possible
+          depends on your software, so here is where each stands and how to get
+          your list out today. Nothing here is switched on yet: where it says
+          sync on request, ask us and we will build that one next.
         </p>
         <Card className="!p-0 overflow-x-auto">
           <table className="data-table">
@@ -95,13 +146,45 @@ export default async function ImportPage() {
               <tr>
                 <th>Software</th>
                 <th>Where it stands</th>
+                <th>Getting your list out</th>
               </tr>
             </thead>
             <tbody>
               {INTEGRATIONS.map((row) => (
                 <tr key={row.name}>
-                  <td className="font-medium text-ink">{row.name}</td>
-                  <td>{row.status}</td>
+                  <td className="font-medium whitespace-nowrap text-ink">
+                    {row.name}
+                  </td>
+                  <td>
+                    <span className="mb-1 block">
+                      <span
+                        className={
+                          row.state === "request"
+                            ? "pill pill-teal"
+                            : "pill pill-quiet"
+                        }
+                      >
+                        {row.state === "request"
+                          ? "Sync on request"
+                          : "CSV export"}
+                      </span>
+                    </span>
+                    {row.status}
+                  </td>
+                  <td>
+                    <a
+                      href={row.href}
+                      target={row.href.startsWith("http") ? "_blank" : undefined}
+                      rel={
+                        row.href.startsWith("http")
+                          ? "noreferrer noopener"
+                          : undefined
+                      }
+                      className="whitespace-nowrap text-teal underline underline-offset-4"
+                    >
+                      {row.hrefLabel}
+                    </a>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -114,7 +197,6 @@ export default async function ImportPage() {
         </p>
       </section>
 
-      <PastImports runs={runs} canUndo={role === "owner"} />
     </>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 
 import { Card, Notice, formatDate } from "@/components/app/ui";
 import { FilteredTable } from "@/components/app/filtered-table";
+import { ConfirmButton } from "@/components/app/confirm-button";
 import { undoImportAction, type UndoImportState } from "./actions";
 
 const INITIAL: UndoImportState = { error: null, message: null };
@@ -36,7 +37,6 @@ export function PastImports({
   canUndo: boolean;
 }) {
   const [state, undo, undoing] = useActionState(undoImportAction, INITIAL);
-  const [confirming, setConfirming] = useState<string | null>(null);
 
   if (runs.length === 0) return null;
 
@@ -100,37 +100,37 @@ export function PastImports({
                   <span key="undo" className="text-[0.8125rem] text-stone">
                     added nobody
                   </span>
-                ) : confirming === run.id ? (
-                  <form
-                    key="undo"
-                    action={undo}
-                    className="flex items-center gap-2 whitespace-nowrap"
-                  >
-                    <input type="hidden" name="importId" value={run.id} />
-                    <button
-                      type="submit"
-                      disabled={undoing}
-                      className="text-[0.8125rem] font-medium text-[var(--danger)] underline underline-offset-4"
-                    >
-                      Yes, undo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirming(null)}
-                      className="text-[0.8125rem] text-stone underline underline-offset-4 hover:text-ink"
-                    >
-                      No
-                    </button>
-                  </form>
                 ) : (
-                  <button
-                    key="undo"
-                    type="button"
-                    onClick={() => setConfirming(run.id)}
-                    className="text-[0.8125rem] whitespace-nowrap text-stone underline underline-offset-4 hover:text-ink"
-                  >
-                    Undo
-                  </button>
+                  <span key="undo" className="whitespace-nowrap">
+                    <form
+                      id={`undo-${run.id}`}
+                      action={undo}
+                      className="contents"
+                    >
+                      <input type="hidden" name="importId" value={run.id} />
+                    </form>
+                    <ConfirmButton
+                      disabled={undoing}
+                      formId={`undo-${run.id}`}
+                      confirmLabel="Undo this import"
+                      title="Undo this import?"
+                      body={
+                        <>
+                          casdey removes the{" "}
+                          <strong>{run.imported_count}</strong>{" "}
+                          {run.imported_count === 1 ? "member" : "members"} this
+                          file added, and only the ones nothing has happened to
+                          yet: anyone casdey has written to, who came back, or
+                          who has a booking stays. It cannot put back what the
+                          import overwrote, so members it merely updated keep
+                          the values it wrote.
+                        </>
+                      }
+                      className="text-[0.8125rem] whitespace-nowrap text-stone underline underline-offset-4 hover:text-ink"
+                    >
+                      Undo
+                    </ConfirmButton>
+                  </span>
                 ),
               );
             }

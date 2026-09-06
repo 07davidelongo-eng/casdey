@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { Button, Card, CardTitle, Pill } from "@/components/app/ui";
+import { ConfirmButton } from "@/components/app/confirm-button";
 import { currencySymbol } from "@/lib/money";
 import {
   BILLING_PERIOD_OPTIONS,
@@ -180,6 +181,9 @@ export function ServicesForm({
 
       {rows.map((row, index) => {
         const recurring = isRecurring(row.billingPeriod);
+        // Anything other than "every one of these" is the custom case, which is
+        // exactly when the interval control earns its place on screen.
+        const custom = recurring && Number(row.billingInterval) > 1;
         const open = expanded === row.key;
         const priceLine = row.price
           ? `${symbol}${row.price}${recurring ? " " + periodLabel(row.billingPeriod, Number(row.billingInterval) || 1) : ""}`
@@ -223,11 +227,27 @@ export function ServicesForm({
                 </span>
               </button>
               {!open ? (
-                <button
-                  type="button"
-                  onClick={() => remove(row.key)}
+                <ConfirmButton
                   disabled={disabled}
-                  aria-label={`Remove ${row.name || `service ${index + 1}`}`}
+                  ariaLabel={`Remove ${row.name || `service ${index + 1}`}`}
+                  title={`Delete "${row.name || "this service"}"?`}
+                  body={
+                    <>
+                      It disappears from your prices and from the booking page.
+                      Bookings already taken for it keep the price they were
+                      made at, and casdey keeps counting them.
+                      {row.active ? (
+                        <>
+                          {" "}
+                          If you have simply stopped selling it, open the row
+                          and untick <strong>Still selling this</strong>
+                          {" "}instead: that keeps its history and hides it from
+                          members.
+                        </>
+                      ) : null}
+                    </>
+                  }
+                  onConfirm={() => remove(row.key)}
                   className="shrink-0 text-stone transition-colors duration-200 hover:text-ink disabled:opacity-40"
                 >
                   <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden="true">
@@ -238,7 +258,7 @@ export function ServicesForm({
                       strokeLinecap="round"
                     />
                   </svg>
-                </button>
+                </ConfirmButton>
               ) : null}
             </div>
 
@@ -321,17 +341,32 @@ export function ServicesForm({
               </div>
 
               <div>
+                {/* Defaults in the list, and "Something else" at the bottom for
+                    the studio billing every five months. The interval used to
+                    sit beside the dropdown at all times, which meant every gym
+                    read a control that almost none of them needed, and the two
+                    fields together did not obviously say one thing. */}
                 <label className="field-label" htmlFor={`${row.key}-period`}>
                   Charged
                 </label>
                 <select
                   id={`${row.key}-period`}
-                  value={row.billingPeriod}
-                  onChange={(e) =>
+                  value={custom ? "custom" : row.billingPeriod}
+                  onChange={(e) => {
+                    if (e.target.value === "custom") {
+                      // A sensible starting point that is already unusual
+                      // enough to be worth the control: every 2 months.
+                      update(row.key, {
+                        billingPeriod: "monthly",
+                        billingInterval: "2",
+                      });
+                      return;
+                    }
                     update(row.key, {
                       billingPeriod: e.target.value as BillingPeriod,
-                    })
-                  }
+                      billingInterval: "1",
+                    });
+                  }}
                   disabled={disabled}
                   className="field"
                 >
@@ -340,13 +375,15 @@ export function ServicesForm({
                       {option.label}
                     </option>
                   ))}
+                  <option value="custom">Something else...</option>
                 </select>
-                {recurring ? (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-[0.875rem] text-stone">every</span>
+
+                {custom ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-[0.9375rem] text-graphite">every</span>
                     <input
                       type="number"
-                      min={1}
+                      min={2}
                       max={52}
                       step={1}
                       value={row.billingInterval}
@@ -357,13 +394,24 @@ export function ServicesForm({
                       aria-label="How many periods between charges"
                       className="field literal w-20"
                     />
-                    <span className="text-[0.875rem] text-stone">
-                      {Number(row.billingInterval) === 1
-                        ? "period, the usual"
-                        : "of those"}
-                    </span>
+                    <select
+                      value={row.billingPeriod}
+                      onChange={(e) =>
+                        update(row.key, {
+                          billingPeriod: e.target.value as BillingPeriod,
+                        })
+                      }
+                      disabled={disabled}
+                      aria-label="Unit"
+                      className="field w-auto"
+                    >
+                      <option value="weekly">weeks</option>
+                      <option value="monthly">months</option>
+                      <option value="annual">years</option>
+                    </select>
                   </div>
                 ) : null}
+
                 <p className="field-hint">
                   {recurring
                     ? `Reads as ${symbol}${row.price || "0"} ${periodLabel(row.billingPeriod, Number(row.billingInterval) || 1)}, and counts as recurring revenue.`

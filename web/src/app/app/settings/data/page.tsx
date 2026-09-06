@@ -193,7 +193,7 @@ export default async function DataSettingsPage() {
                 answer and scrolling is not an answer. */}
             <FilteredTable
               columns={["When", "What", "Who"]}
-              searchPlaceholder="Search what happened, or who"
+              searchPlaceholder="Search what happened, who did it, or when"
               groupLabel="Action"
               groups={auditGroups}
               emptyMessage="Nothing matches that."

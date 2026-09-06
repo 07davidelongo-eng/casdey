@@ -338,6 +338,12 @@ export async function queueCampaign(options: {
       to_email: member.email,
       status: "queued",
       send_after: sendAfter.toISOString(),
+      // The opener. Follow-ups are steps 2 and 3 and are created only once the
+      // step before them has actually sent, in src/lib/follow-ups.ts. Written
+      // explicitly rather than left to the column default, because it is half
+      // of the conflict target below and a reader should not have to check the
+      // schema to see that.
+      step: 1,
     };
   });
 
@@ -351,7 +357,11 @@ export async function queueCampaign(options: {
       // A member already queued for this campaign is left alone rather than
       // duplicated, which is what makes re-running this safe.
       .upsert(slice, {
-        onConflict: "campaign_id,member_id",
+        // Must name every column of the unique index, which since follow-ups
+        // shipped is (campaign_id, member_id, step). Naming only the first two
+        // is not a narrower match, it is not a match at all: Postgres answers
+        // 42P10 and the whole approve fails, which is exactly what it did.
+        onConflict: "campaign_id,member_id,step",
         ignoreDuplicates: true,
       })
       .select("id");

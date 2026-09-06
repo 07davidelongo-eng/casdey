@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_REASONS,
   isCancellationReason,
   isKnownReason,
   labelForReason,
@@ -9,7 +10,7 @@ import {
   REASON_LABELS,
   REASON_OPTIONS,
   reasonKeyFrom,
-  resolveReasons,
+  type ResolvedReason,
 } from "./cancellation";
 
 describe("isCancellationReason", () => {
@@ -36,53 +37,43 @@ describe("REASON_LABELS", () => {
   });
 });
 
-describe("custom reasons (#33)", () => {
-  const custom = [
-    { key: "childcare", label: "Childcare fell through", phrase: "the childcare" },
-    { key: "shift_work", label: "Shifts changed", phrase: "your shifts changing" },
+describe("reasons a gym owns (#33, reworked by #46)", () => {
+  const reasons: ResolvedReason[] = [
+    { value: "price", label: "Too expensive", phrase: "the price" },
+    { value: "childcare", label: "Childcare fell through", phrase: "the childcare" },
   ];
 
-  it("keeps the six built-ins and appends the gym's own", () => {
-    const reasons = resolveReasons(custom);
-    expect(reasons.map((r) => r.value)).toEqual([
-      "price",
-      "relocation",
-      "dissatisfaction",
-      "health",
-      "no_time",
-      "childcare",
-      "shift_work",
-      "other",
-    ]);
+  it("ships six defaults to seed a new gym with", () => {
+    expect(DEFAULT_REASONS.map((r) => r.value)).toEqual(
+      REASON_OPTIONS.map((o) => o.value),
+    );
+    for (const reason of DEFAULT_REASONS) {
+      expect(reason.phrase.length).toBeGreaterThan(3);
+    }
   });
 
-  it("keeps 'Something else' last, because it is the fallback", () => {
-    expect(resolveReasons(custom).at(-1)?.value).toBe("other");
-    expect(resolveReasons([]).at(-1)?.value).toBe("other");
-  });
-
-  it("marks which ones a gym is allowed to delete", () => {
-    const reasons = resolveReasons(custom);
-    expect(reasons.find((r) => r.value === "price")?.builtIn).toBe(true);
-    expect(reasons.find((r) => r.value === "childcare")?.builtIn).toBe(false);
-  });
-
-  it("reads a custom reason back in the gym's own words", () => {
-    const reasons = resolveReasons(custom);
-    expect(phraseForReason(reasons, "childcare")).toBe("the childcare");
+  it("reads a reason back in whatever the gym now calls it", () => {
+    // 'price' is a default the gym has renamed. The key is untouched, so every
+    // member recorded against it months ago still resolves.
+    expect(labelForReason(reasons, "price")).toBe("Too expensive");
     expect(labelForReason(reasons, "childcare")).toBe("Childcare fell through");
   });
 
   it("never leaks a raw key into a member's message", () => {
-    // A reason deleted after members were tagged with it still has to render
-    // as something a person would say.
-    const reasons = resolveReasons([]);
+    // The path a deleted reason takes: the member keeps the tag, and casdey
+    // says something a person would say rather than "shift_work".
     expect(phraseForReason(reasons, "shift_work")).toBe(REASON_LABELS.other);
   });
 
   it("returns null when no reason is recorded", () => {
-    expect(phraseForReason(resolveReasons([]), null)).toBeNull();
-    expect(labelForReason(resolveReasons([]), null)).toBeNull();
+    expect(phraseForReason(reasons, null)).toBeNull();
+    expect(labelForReason(reasons, null)).toBeNull();
+  });
+
+  it("knows which reasons this gym can use", () => {
+    expect(isKnownReason(reasons, "childcare")).toBe(true);
+    expect(isKnownReason(reasons, "relocation")).toBe(false);
+    expect(isKnownReason(reasons, "nonsense")).toBe(false);
   });
 
   it("builds a usable key from what the gym typed", () => {
@@ -101,12 +92,5 @@ describe("custom reasons (#33)", () => {
     expect(REASON_KEY_PATTERN.test(reasonKeyFrom("Childcare"))).toBe(true);
     expect(REASON_KEY_PATTERN.test("Childcare")).toBe(false);
     expect(REASON_KEY_PATTERN.test("a")).toBe(false);
-  });
-
-  it("knows which reasons this gym can use", () => {
-    const reasons = resolveReasons(custom);
-    expect(isKnownReason(reasons, "childcare")).toBe(true);
-    expect(isKnownReason(reasons, "price")).toBe(true);
-    expect(isKnownReason(reasons, "nonsense")).toBe(false);
   });
 });

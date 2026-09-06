@@ -16,16 +16,11 @@ export default async function GymSettingsPage() {
         </Notice>
       ) : null}
 
-      {/* Keyed on the values the form draws itself from, so a save that
-          actually changes the lapse rule re-mounts the form against the new
-          server truth rather than leaving client state to be reconciled by
-          hand. See the reset note in form.tsx: this covers the successful
-          save, that covers the rejected one. */}
-      <SettingsForm
-        key={`${gym.lapsed_after_months}:${gym.lapsed_after_days}:${gym.max_visits}`}
-        gym={gym}
-        readOnly={role !== "owner"}
-      />
+      {/* Not keyed. Keying it here re-mounted the form on every save that
+          changed anything, which threw away the action's own result along with
+          it, so the gym pressed Save and saw nothing at all. The form syncs
+          itself to new props instead: see syncToGym in form.tsx. */}
+      <SettingsForm gym={gym} readOnly={role !== "owner"} />
 
       <p className="text-[0.875rem] text-stone">
         Registered in{" "}

@@ -35,6 +35,16 @@ export function IconOverview(props: IconProps) {
   );
 }
 
+/** The calendar: a month grid with the top rail of a wall planner. */
+export function IconCalendar(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 10h17M8 3.5v3M16 3.5v3" />
+    </Svg>
+  );
+}
+
 /** The offer: something held out, with a tag on it. */
 export function IconOffer(props: IconProps) {
   return (

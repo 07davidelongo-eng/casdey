@@ -33,6 +33,7 @@ export function FilteredTable({
   groups,
   searchPlaceholder,
   emptyMessage,
+  pageSize = 10,
 }: {
   columns: string[];
   rows: FilterableRow[];
@@ -42,9 +43,13 @@ export function FilteredTable({
   groups?: { value: string; label: string }[];
   searchPlaceholder: string;
   emptyMessage: string;
+  /** Rows on screen at once. Ten, because a list nobody can see the end of is
+   *  the same problem as a list nobody can search. */
+  pageSize?: number;
 }) {
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("");
+  const [page, setPage] = useState(0);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -55,13 +60,22 @@ export function FilteredTable({
     });
   }, [rows, query, group]);
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // Filtering down to fewer pages while sitting on page 5 would otherwise show
+  // an empty table rather than the results.
+  const current = Math.min(page, pageCount - 1);
+  const visible = filtered.slice(current * pageSize, (current + 1) * pageSize);
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           type="search"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setPage(0);
+          }}
           placeholder={searchPlaceholder}
           className="field max-w-[20rem]"
           aria-label={searchPlaceholder}
@@ -70,7 +84,10 @@ export function FilteredTable({
         {groupLabel && groups && groups.length > 0 ? (
           <select
             value={group}
-            onChange={(event) => setGroup(event.target.value)}
+            onChange={(event) => {
+              setGroup(event.target.value);
+              setPage(0);
+            }}
             aria-label={groupLabel}
             className="field w-auto"
           >
@@ -90,6 +107,7 @@ export function FilteredTable({
               onClick={() => {
                 setQuery("");
                 setGroup("");
+                setPage(0);
               }}
               className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
             >
@@ -115,7 +133,7 @@ export function FilteredTable({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => (
+              {visible.map((row) => (
                 <tr key={row.id}>
                   {row.cells.map((cell, index) => (
                     <td key={index}>{cell}</td>
@@ -126,6 +144,32 @@ export function FilteredTable({
           </table>
         </div>
       )}
+
+      {filtered.length > pageSize ? (
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setPage(current - 1)}
+            disabled={current === 0}
+            className="text-[0.875rem] text-teal underline underline-offset-4 disabled:text-stone disabled:no-underline disabled:opacity-50"
+          >
+            &larr; Newer
+          </button>
+          <span className="text-[0.875rem] text-stone">
+            {current * pageSize + 1} to{" "}
+            {Math.min((current + 1) * pageSize, filtered.length)} of{" "}
+            {filtered.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage(current + 1)}
+            disabled={current >= pageCount - 1}
+            className="text-[0.875rem] text-teal underline underline-offset-4 disabled:text-stone disabled:no-underline disabled:opacity-50"
+          >
+            Older &rarr;
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

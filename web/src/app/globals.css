@@ -381,3 +381,24 @@
   transform-origin: 50% 0%;
   transform: rotateX(calc(var(--tilt) * 9deg));
 }
+
+/* The delete confirmation (src/components/app/confirm-button.tsx).
+   A native <dialog> arrives unstyled and, more importantly, arrives with the
+   browser's own centring only once it is opened as a modal, so the sizing here
+   is deliberately minimal: a card in the top layer, and a backdrop dark enough
+   to say the page behind it is not currently the thing being used. */
+.confirm-dialog {
+  max-width: 30rem;
+  width: calc(100% - 2rem);
+  margin: auto;
+  border: 1px solid var(--ash);
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 1.5rem;
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.28);
+}
+
+.confirm-dialog::backdrop {
+  background: rgb(0 0 0 / 0.42);
+}

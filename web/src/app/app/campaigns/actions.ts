@@ -333,7 +333,8 @@ export async function sendTestAction(
         to_email: session.email,
         status: "queued",
       },
-      { onConflict: "campaign_id,member_id" },
+      // Same unique index as the real queue: (campaign_id, member_id, step).
+      { onConflict: "campaign_id,member_id,step" },
     )
     .select("id, unsubscribe_token")
     .single();

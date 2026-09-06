@@ -57,6 +57,7 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     offer_inputs: null,
 
     offer_chosen_at: null,
+    reasons_initialised_at: null,
 
     offer_variants: {},
     ...overrides,

@@ -186,6 +186,9 @@ export type Gym = {
    *  offer_text. See src/lib/offers/variants.ts. */
   offer_variants: OfferVariants;
   offer_chosen_at: string | null;
+  /** When casdey seeded this gym's cancellation_reasons. Set once, so a gym
+   *  that deletes them all keeps them deleted. See migration 0033. */
+  reasons_initialised_at: string | null;
 };
 
 export type SendingDomainStatus = "none" | "pending" | "verified" | "failed";

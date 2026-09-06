@@ -7,10 +7,9 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { OFFERS } from "@/lib/offers/library";
 import { deadlineFrom, renderOffer } from "@/lib/offers/select";
+import { parseVariants, type OfferVariants } from "@/lib/offers/variants";
 import type { OfferInputs } from "@/lib/offers/types";
 import {
-  CANCELLATION_REASONS,
-  isCancellationReason,
   REASON_KEY_PATTERN,
   reasonKeyFrom,
 } from "@/lib/cancellation";
@@ -219,17 +218,35 @@ export async function saveOfferVariantsAction(
 ): Promise<OfferState> {
   const { gym, session } = await requireOwner();
 
-  const variants: Record<string, { text: string; expiresAt: null; offerId: null }> = {};
-  for (const reason of CANCELLATION_REASONS) {
-    const text = String(formData.get(`variant-${reason}`) ?? "").trim();
+  // Read whichever variant fields the form actually sent, rather than looking
+  // for a fixed six. Since #46 the reasons are the gym's own rows and their
+  // keys are whatever the gym made, so a hardcoded list would silently discard
+  // the offer written for the reason the gym cared enough to invent.
+  const existing = parseVariants(gym.offer_variants);
+  const variants: OfferVariants = {};
+
+  for (const [field, raw] of formData.entries()) {
+    if (!field.startsWith("variant-")) continue;
+    const reason = field.slice("variant-".length);
+    if (!REASON_KEY_PATTERN.test(reason)) continue;
+
+    const text = String(raw ?? "").trim();
     if (!text) continue;
     if (text.length > 600) {
       return {
-        error: `The ${reason.replace("_", " ")} offer is longer than 600 characters.`,
+        error: `The offer for "${reason.replace(/_/g, " ")}" is longer than 600 characters.`,
         message: null,
       };
     }
-    variants[reason] = { text, expiresAt: null, offerId: null };
+
+    // An offer assigned from the gym's library carries a deadline and the
+    // library id it came from. Editing its wording here should not quietly
+    // strip either, so they survive as long as the text is untouched.
+    const previous = existing[reason];
+    variants[reason] =
+      previous && previous.text === text
+        ? previous
+        : { text, expiresAt: null, offerId: null };
   }
 
   const { error } = await supabaseAdmin()
@@ -404,15 +421,17 @@ export async function deleteSavedOfferAction(
 }
 
 /**
- * A gym's own reasons for members leaving (#33).
+ * The gym's reasons for members leaving (#33, opened up by #46).
  *
- * casdey's six are a guess at what a gym hears at the front desk. A gym that
- * knows its members leave because a creche closed, or because shifts changed,
- * needs to be able to say so, because "Something else" is a bucket no offer can
- * be written for.
+ * Every reason is a row the gym owns, casdey's original six included: they can
+ * be renamed, reworded, deleted, and new ones added. Saved as a whole list
+ * rather than row by row, because a gym tidying three of them presses save
+ * once.
  *
- * Saved as a whole list rather than row by row, same as the offer variants: a
- * gym editing three of them at once presses save once.
+ * Deleting one does not touch the members recorded against it. Their tag
+ * stays, and phraseForReason falls back to casdey's general wording, so a
+ * message never contains a raw key and a member's history is never rewritten
+ * by a settings change.
  */
 export async function saveReasonsAction(
   _previous: OfferState,
@@ -451,11 +470,8 @@ export async function saveReasonsAction(
     // rather than refusing to save.
     if (!row.phrase) row.phrase = row.label.toLowerCase();
     if (row.phrase.length > 80) {
-      return { error: "Keep the member-facing wording under 80 characters.", message: null };
-    }
-    if (isCancellationReason(row.key)) {
       return {
-        error: `"${row.label}" is already one of casdey's own reasons. Give yours a different name.`,
+        error: "Keep the member-facing wording under 80 characters.",
         message: null,
       };
     }
@@ -463,15 +479,14 @@ export async function saveReasonsAction(
 
   const keys = rows.map((r) => r.key);
   if (new Set(keys).size !== keys.length) {
-    return { error: "Two of those reasons come out with the same name.", message: null };
+    return {
+      error: "Two of those reasons come out with the same name.",
+      message: null,
+    };
   }
 
   const client = supabaseAdmin();
 
-  // Anything the gym removed from the list. Members already tagged with it keep
-  // the tag: deleting the reason must not quietly rewrite a member's history,
-  // and phraseForReason falls back to the gentle catch-all so nothing broken
-  // ever reaches a member.
   const { data: existing } = await client
     .from("cancellation_reasons")
     .select("id, key")
@@ -503,6 +518,15 @@ export async function saveReasonsAction(
     }
   }
 
+  // Deleting every last one is allowed, and has to stick. Without the marker
+  // the next page load would seed the six defaults straight back in.
+  if (!gym.reasons_initialised_at) {
+    await client
+      .from("gyms")
+      .update({ reasons_initialised_at: new Date().toISOString() })
+      .eq("id", gym.id);
+  }
+
   await recordAudit({
     gymId: gym.id,
     actorId: session.userId,
@@ -515,4 +539,81 @@ export async function saveReasonsAction(
   revalidatePath("/app/members", "layout");
   revalidatePath("/app/campaigns/new");
   return { error: null, message: "Your reasons are saved." };
+}
+
+/**
+ * Point a reason at one of the gym's saved offers (#46).
+ *
+ * The per-reason offers were freeform text boxes, so a gym that had already
+ * written the right offer had to copy it in by hand and keep the two copies in
+ * step forever. Now a reason can name a saved offer instead, and the text is
+ * taken from it at save time.
+ *
+ * Still stored as text on the variant rather than as a reference, deliberately
+ * and for the same reason every other offer copy is: editing an offer later
+ * must never rewrite what a member was already promised.
+ */
+export async function assignOfferToReasonAction(
+  _previous: OfferState,
+  formData: FormData,
+): Promise<OfferState> {
+  const { gym, session } = await requireOwner();
+  const reason = String(formData.get("reason") ?? "");
+  const offerId = String(formData.get("offerId") ?? "");
+
+  if (!REASON_KEY_PATTERN.test(reason)) {
+    return { error: "That is not a reason casdey knows.", message: null };
+  }
+
+  const client = supabaseAdmin();
+  const variants = parseVariants(gym.offer_variants);
+
+  if (!offerId) {
+    // Clearing it: those members go back to the general offer.
+    delete variants[reason];
+  } else {
+    const { data: saved } = await client
+      .from("gym_offers")
+      .select("id, body, expires_at, library_id")
+      .eq("id", offerId)
+      .eq("gym_id", gym.id)
+      .maybeSingle();
+
+    if (!saved) {
+      return { error: "That offer is no longer in your list.", message: null };
+    }
+
+    variants[reason] = {
+      text: saved.body as string,
+      expiresAt: (saved.expires_at as string | null) ?? null,
+      offerId: (saved.library_id as string | null) ?? null,
+    };
+  }
+
+  const { error } = await client
+    .from("gyms")
+    .update({ offer_variants: variants })
+    .eq("id", gym.id);
+
+  if (error) {
+    console.error("[offer] assign failed", error.message);
+    return { error: "We could not save that. Try again.", message: null };
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "offer.chosen",
+    meta: { reason, offerId: offerId || null },
+  });
+
+  revalidatePath("/app/offer");
+  revalidatePath("/app/campaigns/new");
+  return {
+    error: null,
+    message: offerId
+      ? "That reason now gets its own offer."
+      : "Cleared. Those members get your general offer.",
+  };
 }

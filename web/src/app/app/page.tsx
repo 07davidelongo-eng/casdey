@@ -11,6 +11,8 @@ import {
 } from "@/lib/lapse";
 import { formatMoney, gymCurrency } from "@/lib/money";
 import { buildSetupState } from "@/lib/setup";
+import { weeklyActivity } from "@/lib/dashboard";
+import { TrendChart } from "@/components/app/trend-chart";
 import { calendarConnectionView } from "@/lib/calendar/provider";
 import { isGoogleCalendarConfigured } from "@/lib/calendar/google";
 import { isCalendarKeyConfigured } from "@/lib/calendar/tokens";
@@ -41,6 +43,16 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     hasPricedServices(session.supabase, gym.id),
   ]);
   const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
+  // Twelve weeks of what casdey actually did (#48).
+  const weeks = await weeklyActivity(gym.id);
+  const totals = weeks.reduce(
+    (sum, week) => ({
+      sent: sum.sent + week.sent,
+      returned: sum.returned + week.returned,
+      revenueMinor: sum.revenueMinor + week.revenueMinor,
+    }),
+    { sent: 0, returned: 0, revenueMinor: 0 },
+  );
 
   // The first-run checklist. Derived from state the gym already has, so it
   // ticks itself off and disappears once setup is done, no flag to persist.
@@ -176,6 +188,52 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           hint="came back after we wrote"
         />
       </div>
+
+      {/* Three measures, three charts. One chart with all three would need a
+          second y-axis, which is the worst thing a chart can have, or it would
+          squash two of them flat against the baseline. */}
+      <section className="mt-6">
+        <h2 className="display mb-1 text-[1.25rem]">The last twelve weeks</h2>
+        <p className="mb-4 text-[0.9375rem] text-graphite">
+          {totals.sent === 0
+            ? "This fills in as soon as your first campaign goes out."
+            : "What casdey has done in your name, and what came back."}
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <TrendChart
+            title="Messages sent"
+            hero={String(totals.sent)}
+            caption="Every message casdey sent for you, including follow-ups."
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.sent,
+              display: `${week.sent} sent`,
+            }))}
+          />
+          <TrendChart
+            title="Members back"
+            tone="returned"
+            hero={String(totals.returned)}
+            caption="Booked through casdey, or seen again in a later import."
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.returned,
+              display: `${week.returned} back`,
+            }))}
+          />
+          <TrendChart
+            title="Revenue recovered"
+            tone="amber"
+            hero={formatMoney(totals.revenueMinor, currency)}
+            caption="Each booking at the price of the service it was for."
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.revenueMinor,
+              display: formatMoney(week.revenueMinor, currency),
+            }))}
+          />
+        </div>
+      </section>
 
       {priced ? (
         <Card className="mt-6">

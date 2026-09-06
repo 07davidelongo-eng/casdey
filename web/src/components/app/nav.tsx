@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { IconFind, IconMessage } from "@/components/marks/icons";
-import { IconOverview, IconSettings, IconUpload } from "./icons";
+import { IconCalendar, IconOverview, IconSettings, IconUpload } from "./icons";
 import { IconOffer } from "./icons";
 
 const LINKS = [
@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/app/import", label: "Import", Icon: IconUpload, exact: false },
   { href: "/app/offer", label: "Offer", Icon: IconOffer, exact: false },
   { href: "/app/campaigns", label: "Campaigns", Icon: IconMessage, exact: false },
+  { href: "/app/calendar", label: "Calendar", Icon: IconCalendar, exact: false },
   { href: "/app/settings", label: "Settings", Icon: IconSettings, exact: false },
 ] as const;
 

@@ -53,56 +53,28 @@ export const REASON_LABELS: Record<CancellationReason, string> = {
 };
 
 /**
- * A gym's own reason, added on top of the six above (#33).
+ * The six casdey starts a gym off with (#46).
  *
- * Stored in public.cancellation_reasons. The built-ins are deliberately NOT
- * rows in that table: keeping them in code means a gym that adds nothing gets
- * exactly the behaviour it had before, and there is no seeding step that could
- * half-fail and leave a gym with three of the six.
+ * Seed data now, not a fixed set. They are written into cancellation_reasons
+ * the first time a gym looks at its reasons, and from then on the gym owns
+ * them: rename, reword, delete. Keeping the keys identical to what 0013
+ * enumerated is what makes that safe, because members recorded months ago
+ * still point at the same rows.
  */
-export type CustomReason = {
-  key: string;
-  label: string;
-  /** How it reads inside {{reason}}, in the gym's own words. */
-  phrase: string;
-};
-
-/** A reason as everything downstream needs it, built-in or not. */
 export type ResolvedReason = {
   value: string;
   label: string;
+  /** How it reads inside {{reason}}, in a sentence, to the member who gave it. */
   phrase: string;
-  /** Built-ins cannot be deleted, only ignored. */
-  builtIn: boolean;
 };
 
-const BUILT_IN: ResolvedReason[] = REASON_OPTIONS.map((option) => ({
-  value: option.value,
-  label: option.label,
-  phrase: REASON_LABELS[option.value],
-  builtIn: true,
-}));
-
-/**
- * The full list a gym works with: the six built-ins, then its own.
- *
- * "Something else" stays last however many custom reasons there are, because
- * it is the fallback and a fallback in the middle of a list reads as an option
- * rather than as the end of one.
- */
-export function resolveReasons(custom: CustomReason[]): ResolvedReason[] {
-  const own = custom.map((reason) => ({
-    value: reason.key,
-    label: reason.label,
-    phrase: reason.phrase,
-    builtIn: false,
-  }));
-
-  const other = BUILT_IN.filter((r) => r.value === "other");
-  const rest = BUILT_IN.filter((r) => r.value !== "other");
-
-  return [...rest, ...own, ...other];
-}
+export const DEFAULT_REASONS: ResolvedReason[] = REASON_OPTIONS.map(
+  (option) => ({
+    value: option.value,
+    label: option.label,
+    phrase: REASON_LABELS[option.value],
+  }),
+);
 
 /** What staff see. Falls back to the raw key rather than showing nothing. */
 export function labelForReason(
@@ -118,16 +90,15 @@ export function labelForReason(
  *
  * Falls back to the gentle catch-all rather than to the raw key: a member must
  * never receive a sentence containing "since it was mostly about
- * shift_pattern".
+ * shift_pattern". This is the path a deleted reason takes, so it is not an
+ * edge case, it is the designed behaviour for one.
  */
 export function phraseForReason(
   reasons: ResolvedReason[],
   key: string | null,
 ): string | null {
   if (!key) return null;
-  return (
-    reasons.find((r) => r.value === key)?.phrase ?? REASON_LABELS.other
-  );
+  return reasons.find((r) => r.value === key)?.phrase ?? REASON_LABELS.other;
 }
 
 /** Whether this key is one this gym can actually use. */
@@ -149,7 +120,7 @@ export function reasonKeyFrom(label: string): string {
   const slug = label
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 39);

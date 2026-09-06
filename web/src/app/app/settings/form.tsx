@@ -49,6 +49,23 @@ export function SettingsForm({
     setCapVisits(gym.max_visits != null);
   }
 
+  /**
+   * And the same sync when a save lands, without re-mounting.
+   *
+   * A successful save sends new values down as props, and this state was
+   * derived from the old ones. Re-mounting the whole form would fix that and
+   * take the action's result with it, which is exactly what hid the "Saved."
+   * message. Adjusting state during render is React's own answer to a prop
+   * change that invalidates derived state: it runs before anything paints, so
+   * there is no flash of the stale value.
+   */
+  const persisted = `${gym.lapsed_after_months}:${gym.lapsed_after_days}:${gym.max_visits}`;
+  const [lastPersisted, setLastPersisted] = useState(persisted);
+  if (persisted !== lastPersisted) {
+    setLastPersisted(persisted);
+    syncToGym();
+  }
+
   return (
     <form
       action={action}
@@ -201,11 +218,14 @@ export function SettingsForm({
           </div>
         </div>
 
-        <div className="mt-5 max-w-[16rem]">
+        {/* The control stays narrow, the sentence does not. Capping the whole
+            block at 16rem stacked five lines of explanation into a column
+            beside an empty half of the card. */}
+        <div className="mt-5">
           <label htmlFor={`${id}-at-risk`} className="field-label">
             Check in after
           </label>
-          <div className="flex items-center gap-3">
+          <div className="flex max-w-[16rem] items-center gap-3">
             <input
               id={`${id}-at-risk`}
               name="atRiskAfterDays"

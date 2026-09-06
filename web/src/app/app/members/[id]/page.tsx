@@ -149,6 +149,7 @@ export default async function MemberPage(
           <Detail
             label="Offer code"
             value={offerCode(member.booking_token)}
+            hint="What they quote at the desk to claim your offer. Only theirs."
             literal
           />
         </dl>
@@ -217,10 +218,13 @@ export default async function MemberPage(
 function Detail({
   label,
   value,
+  hint,
   literal = false,
 }: {
   label: string;
   value: string;
+  /** One line under the value, for anything whose name does not explain it. */
+  hint?: string;
   literal?: boolean;
 }) {
   return (
@@ -231,6 +235,9 @@ function Detail({
       >
         {value}
       </dd>
+      {hint ? (
+        <dd className="mt-1 text-[0.75rem] text-stone">{hint}</dd>
+      ) : null}
     </div>
   );
 }
