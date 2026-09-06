@@ -310,23 +310,23 @@ below.
 | 21 | Contact page must not say there are two of us | site | S | done |
 | 22 | Landing titles break mid-phrase instead of filling the width | landing | S | done |
 | 23 | Visit ceiling unticks itself, then invents a validation error | settings | M | done |
-| 24 | Billing period needs to be arbitrary; booking numbers need explaining; currency must follow the country | settings | M | open |
-| 25 | Each service should collapse into its own dropdown | settings | M | open |
-| 26 | Many offers, one per reason, deletable | offer | L | open |
+| 24 | Billing period needs to be arbitrary; booking numbers need explaining; currency must follow the country | settings | M | done |
+| 25 | Each service should collapse into its own dropdown | settings | M | done |
+| 26 | Many offers, one per reason, deletable | offer | L | done |
 | 27 | The free week never says it is Pro | billing | S | done |
-| 28 | Filter and search on the audit log | settings | M | open |
+| 28 | Filter and search on the audit log | settings | M | done |
 | 29 | Sidebar stretches with the page instead of staying put | app chrome | S | done |
-| 30 | Same filter and search on past imports | import | M | open |
-| 31 | Direct integrations with gym platforms, not just CSV | product | XL | needs decision |
-| 32 | Edit and remove past imports; re-imports must not duplicate members | import | M | part answered, part open |
-| 33 | Custom reasons for leaving, and somewhere obvious to manage them | product | L | open |
-| 34 | Picking a language leaves the template in English | campaigns | M | open |
-| 35 | A real editor: bold, italic, and merge fields from a menu | campaigns | L | open |
-| 36 | The gym should not be the one writing the message | campaigns | M | open |
-| 37 | Cannot save a campaign; create, edit and remove them | campaigns | L | blocker done, rest open |
+| 30 | Same filter and search on past imports | import | M | done |
+| 31 | Direct integrations with gym platforms, not just CSV | product | XL | researched, V2, page made honest |
+| 32 | Edit and remove past imports; re-imports must not duplicate members | import | M | done |
+| 33 | Custom reasons for leaving, and somewhere obvious to manage them | product | L | done |
+| 34 | Picking a language leaves the template in English | campaigns | M | done |
+| 35 | A real editor: bold, italic, and merge fields from a menu | campaigns | L | done, minus bold/italic (see note) |
+| 36 | The gym should not be the one writing the message | campaigns | M | done |
+| 37 | Cannot save a campaign; create, edit and remove them | campaigns | L | done |
 | 38 | Dashboard above the setup checklist, not below | overview | S | done |
-| 39 | The offer has to actually work when a member uses it | product | XL | needs decision |
-| 40 | How casdey knows somebody actually came back | product | XL | needs decision |
+| 39 | The offer has to actually work when a member uses it | product | XL | done |
+| 40 | How casdey knows somebody actually came back | product | XL | done |
 
 ---
 
@@ -449,3 +449,64 @@ while contributing nothing to recovered revenue, because revenue is the sum of
 bookings and they never booked through casdey. That is not a contradiction, it
 is the #12 decision holding its line. It does mean the dashboard would need to
 say both numbers honestly rather than implying one explains the other.
+
+---
+
+## Batch 2, what was built and the two judgement calls inside it
+
+Written by Claude. Davide's instruction was to do what works and finish, so
+these are decisions taken rather than questions asked. Both are reversible.
+
+**#35, bold and italic were not built, and that is deliberate.** casdey sends
+plain text on purpose: a plain note reads as a note from a gym, and it stays out
+of the promotions tab that eats HTML marketing mail. Adding bold means sending
+HTML email, which trades the deliverability the whole product depends on for
+emphasis nobody has asked a gym for. The half of #35 that was unambiguously
+right, inserting merge fields from a menu instead of typing braces by hand,
+is built and is the half that was actually causing damage: a mistyped
+{{first_name}} does not fail loudly, it sends "Hi {{first_name}}," to a real
+member in the gym's name. If Davide still wants rich text, it is a decision
+about what casdey sends and worth taking on its own.
+
+**#31 was researched, and the answer is genuinely mixed rather than a flat no.**
+
+- **Mindbody** publishes a real, documented API. Reaching production means
+  Mindbody reviewing casdey as a partner, a card on file, metered per-call
+  billing, and an activation code each studio turns on itself. Buildable, and a
+  project rather than an afternoon.
+- **TeamUp** hands a gym its own API credentials from its own settings, free,
+  with nobody's approval. This one is genuinely easy.
+- **LegitFit**, which is what the engaged lead runs, publishes no API at all,
+  and its Zapier app is trigger-only, so it can report a booking made from now
+  on and can never hand over the members who already lapsed. That is the whole
+  list casdey needs.
+
+So it was not built, for a reason that is about evidence rather than effort:
+the exact request and response shapes cannot be verified without an account on
+each platform, no gym is using casdey yet to test against, and the one engaged
+lead's software has no API to connect to. Writing that code today would produce
+something that compiles, passes its own tests, and fails on first contact with
+a real API. What did ship is honesty: the import page now says where each
+platform stands instead of showing one "coming soon" that was true for none of
+them. TeamUp first, when a gym on TeamUp asks.
+
+**#39 and #40, what was actually built.**
+
+An offer is now claimable. Every member has a code derived from their booking
+token, available in a message as {{offer_code}}, shown on their page so the
+desk can check it, written into the calendar entry so it is visible at the door,
+and frozen onto the booking along with the exact wording they were promised.
+Derived rather than stored, and hashed rather than sliced, because an offer code
+is read aloud at a front desk and must not be reversible into a link that books
+on that member's behalf.
+
+A return is now detected from the gym's own data. Any member casdey wrote to
+whose last visit has since moved past the date casdey wrote came back, and the
+next import is where casdey finds out. Same-day visits are excluded: somebody
+already in the building when the message went out was not brought back by it,
+and a guarantee that counts them is one casdey cannot defend.
+
+The consequence flagged earlier still holds and is now real: a member can be
+counted as returned by the import while adding nothing to recovered revenue,
+because revenue is the sum of bookings and they never booked through casdey.
+That is the #12 decision holding its line, not a contradiction.
