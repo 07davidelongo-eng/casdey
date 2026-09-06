@@ -64,7 +64,7 @@ page. Verbatim below.
 | 1 | Google sign in reuses the last account, no account chooser | auth | S | done |
 | 2 | "Four screens, and your team touches one of them" is not understandable | landing | S | done |
 | 3 | Stray vertical scrollbar on the Settings tab strip | app chrome | XS | done |
-| 4 | Light/dark mode switch in the app | app | M | open |
+| 4 | Light/dark mode switch in the app | app | M | done |
 | 5 | Profit or nothing guarantee needs far more weight | billing + pricing | S | done |
 | 6 | Pricing Q&A needs per question dropdowns, moved below its heading | pricing | S | done |
 | 7 | Site copy must lead with the value proposition | landing | M | done |
@@ -74,11 +74,11 @@ page. Verbatim below.
 | 11 | Lapsed rules: days as well as months, "came at most" optional | settings | M | done |
 | 12 | Guard against gyms overstating their numbers, guarantee exposure | product | L | needs decision |
 | 13 | "What a returning member is worth" duplicates Service prices | settings | M | needs decision |
-| 14 | Services: one off vs recurring, and recurring split in the overview | settings + overview | M | open |
-| 15 | Slot shape belongs per service, plus capacity. Rebuild the page | settings + booking | L | open |
+| 14 | Services: one off vs recurring, and recurring split in the overview | settings + overview | M | done |
+| 15 | Slot shape belongs per service, plus capacity. Rebuild the page | settings + booking | L | done |
 | 16 | Unsaved changes warning on navigation | app wide | M | done |
 | 17 | Import button collides with the text in the campaigns empty state | app | XS | done |
-| 18 | Offer page: manual offer, clearer scope, per member reasons and tailored offers, broken save button | offer | L | part done |
+| 18 | Offer page: manual offer, clearer scope, per member reasons and tailored offers, broken save button | offer | L | done |
 
 Sizes are rough: XS is minutes, S under an hour, M a session's slice, L its own
 piece of work with decisions inside it.
@@ -138,3 +138,32 @@ start.
   booking flow a member actually sees, Settings tabs for Service prices,
   Booking, Sending, WhatsApp, Billing, Data and privacy, sign up, password
   reset, `/waitlist`, `/privacy`, the processing terms.
+
+---
+
+## What is left, and why
+
+**#8, the personalisation half, is the only buildable item still open, and it
+has an infrastructure conflict Davide should decide on.**
+
+Follow-ups shipped. Per-member merge fields already existed and now carry the
+reason-specific offer too, so a message says the member's name, how long they
+have been away, why they left where casdey knows it, and an offer written for
+that reason. What Davide asked for beyond that is a message genuinely written
+for each ex-member, which means an LLM call per member.
+
+The cost is not the problem: Haiku is roughly a twentieth of a cent a message,
+and `ANTHROPIC_API_KEY` is already in Vercel. The problem is where the call
+would go.
+
+- At send time, inside `drainQueue()`. That loop has a 50-second budget on
+  Vercel Hobby's 60-second ceiling, and one cron run per day. Adding a
+  one-to-two second call per message cuts a run from ~200 messages to ~30.
+- At queue time, inside the approve action. A 200-member campaign becomes a
+  200-second request, which no serverless request survives.
+- In a background job, which is the right answer and needs a queue casdey does
+  not have.
+
+So it is genuinely blocked on the same Vercel Pro decision that is already
+deferred (hourly crons, longer functions), rather than on the code. Worth
+pairing with the Resend Pro trigger in `SAAS_V1_PLAN.md` G1a.
