@@ -14,7 +14,8 @@
     "check:resend": "node scripts/resend-check.mjs",
     "check:stripe": "node scripts/stripe-check.mjs",
     "setup:stripe": "node scripts/stripe-setup.mjs",
-    "check:stripe:prod": "node scripts/stripe-check-prod.mjs"
+    "check:stripe:prod": "node scripts/stripe-check-prod.mjs",
+    "doc:push": "node scripts/google-doc.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
