@@ -17,9 +17,11 @@ import { renderTemplate, type TemplateContext } from "./template";
  *      message and the handful of facts casdey actually holds, and told that
  *      anything else does not exist. A message that invents a class time or a
  *      price is worse than no message at all, because the member turns up.
- *   2. The offer is reproduced word for word. It is a promise about money,
- *      the gym wrote it deliberately, and a paraphrase of "two free weeks" is
- *      a different offer.
+ *   2. The gym's offer is reproduced word for word when the gym put it in the
+ *      message, and does not appear at all when it did not. It is a promise
+ *      about money: a paraphrase of "two free weeks" is a different offer, and
+ *      an offer added to a message that never carried one is a discount the
+ *      gym never agreed to give.
  *   3. Failure is never fatal. Anything at all going wrong returns null and
  *      the caller sends the template instead. A member getting the ordinary
  *      message is a non-event; a member getting nothing because a model was
@@ -69,6 +71,24 @@ Hard rules:
 - Reply with the message itself and nothing else. No preamble, no explanation, no quotes around it.`;
 }
 
+/**
+ * Whether the gym actually put its offer in THIS message.
+ *
+ * The offer lives on the gym row, not on the campaign, so it outlives the
+ * campaign that introduced it. A gym that ran a discount in March and writes a
+ * plain "how are you getting on?" check-in in September is not offering
+ * anything, and the member must not be told otherwise: an offer is a promise
+ * about money, and casdey only relays the promises the gym actually made.
+ *
+ * Read off the RENDERED template rather than the raw one, so a gym that typed
+ * its offer out by hand counts exactly the same as one that used {{offer}}.
+ */
+function offerInTemplate(input: PersonaliseInput): boolean {
+  const offer = input.context.offer?.trim();
+  if (!offer) return false;
+  return renderTemplate(input.template, input.context).includes(offer);
+}
+
 function factsBlock(input: PersonaliseInput): string {
   const { context, step } = input;
   const facts: string[] = [];
@@ -93,7 +113,7 @@ function factsBlock(input: PersonaliseInput): string {
     );
   }
 
-  if (context.offer) {
+  if (offerInTemplate(input)) {
     facts.push(`Offer, to be reproduced word for word: ${context.offer}`);
   } else {
     facts.push(
@@ -197,10 +217,22 @@ export function acceptable(text: string, input: PersonaliseInput): boolean {
   if (text.length < 40) return false;
   if (text.length > 2000) return false;
 
-  // The offer is a promise about money. If it did not survive verbatim, the
-  // member would be promised something the gym did not agree to.
-  if (input.context.offer && !text.includes(input.context.offer.trim())) {
-    return false;
+  // The offer is a promise about money, and it cuts both ways.
+  //
+  // If the gym put its offer in this message it has to survive verbatim: a
+  // paraphrase of "two free weeks" is a different promise. If the gym did NOT
+  // put it in, it must not appear at all, or personalisation would spend the
+  // gym's margin on a discount it never chose to give.
+  //
+  // The second check only catches the offer reproduced word for word, which is
+  // what the prompt asks the model to do with an offer it has been given. The
+  // real defence against a paraphrased one is factsBlock telling the model
+  // there is no offer; this is the cheap backstop behind it.
+  const offer = input.context.offer?.trim();
+  if (offer) {
+    const carried = offerInTemplate(input);
+    if (carried && !text.includes(offer)) return false;
+    if (!carried && text.includes(offer)) return false;
   }
 
   // A booking link that got reworded is a dead link.

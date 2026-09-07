@@ -34,17 +34,51 @@ describe("what a personalised message has to survive", () => {
     expect(acceptable("word ".repeat(500), BASE)).toBe(false);
   });
 
-  it("rejects a message that reworded the offer", () => {
+  it("rejects a message that reworded an offer the gym put in", () => {
     // The offer is a promise about money. "Two free weeks" paraphrased into
     // "a couple of weeks on us" is a different promise, made in the gym's
     // name, and the gym never agreed to it.
     const withOffer: PersonaliseInput = {
       ...BASE,
+      template: "Hi {{first_name}}, come back in.\n\n{{offer}}",
       context: { ...BASE.context, offer: "Your first two weeks back are free." },
     };
     expect(acceptable(GOOD, withOffer)).toBe(false);
     expect(
       acceptable(`${GOOD}\n\nYour first two weeks back are free.`, withOffer),
+    ).toBe(true);
+  });
+
+  it("rejects a message that added an offer the gym left out", () => {
+    // The gym's offer outlives the campaign that introduced it, so a gym with
+    // an old discount on file can write a plain check-in months later. Adding
+    // the discount back is spending the gym's money for it.
+    const offerOnFileButUnused: PersonaliseInput = {
+      ...BASE,
+      template: "Hi {{first_name}}, come back in.",
+      context: { ...BASE.context, offer: "Your first two weeks back are free." },
+    };
+    expect(
+      acceptable(
+        `${GOOD}\n\nYour first two weeks back are free.`,
+        offerOnFileButUnused,
+      ),
+    ).toBe(false);
+    expect(acceptable(GOOD, offerOnFileButUnused)).toBe(true);
+  });
+
+  it("counts an offer the gym typed out by hand, not just {{offer}}", () => {
+    // Placeholder or hand-typed, the member reads the same words, so the
+    // verbatim rule has to apply the same way to both.
+    const handTyped: PersonaliseInput = {
+      ...BASE,
+      template:
+        "Hi {{first_name}}, come back in.\n\nYour first two weeks back are free.",
+      context: { ...BASE.context, offer: "Your first two weeks back are free." },
+    };
+    expect(acceptable(GOOD, handTyped)).toBe(false);
+    expect(
+      acceptable(`${GOOD}\n\nYour first two weeks back are free.`, handTyped),
     ).toBe(true);
   });
 
