@@ -118,6 +118,24 @@ export function ReasonsAndOffers({
               const isOpen = open === row.key;
               const variant = variants[row.key];
               const count = reasonCounts[row.key] ?? 0;
+              /**
+               * Which saved offer this reason is currently using, if any.
+               *
+               * Matched on the wording, because that is what a variant stores:
+               * assigning an offer copies its text across on purpose, so that
+               * editing the offer later cannot rewrite what a member was
+               * already promised. The copy is the feature; this is how the
+               * screen reads it back.
+               *
+               * Two consequences, both correct. An offer whose wording has
+               * since been edited stops matching, and the reason then reads as
+               * its own wording rather than claiming to be an offer it no
+               * longer matches. And a reason whose text was typed by hand
+               * matches nothing, which is exactly what it is.
+               */
+              const assigned = variant
+                ? savedOffers.find((offer) => offer.body === variant.text)
+                : undefined;
               return (
                 <div key={row.key} className="rounded-xl border border-ash">
                   <button
@@ -145,7 +163,11 @@ export function ReasonsAndOffers({
                         {row.label}
                       </span>
                       <span className="block truncate text-[0.8125rem] text-stone">
-                        {variant ? variant.text : "Uses your general offer"}
+                        {assigned
+                          ? assigned.name
+                          : variant
+                            ? variant.text
+                            : "Uses your general offer"}
                       </span>
                     </span>
                     <Pill tone={count > 0 ? "teal" : "quiet"}>
@@ -173,10 +195,15 @@ export function ReasonsAndOffers({
                             Use one of your offers
                           </label>
                           <div className="flex flex-wrap items-center gap-3">
+                            {/* Keyed on what is actually assigned, so the
+                                control shows the current answer after a save
+                                rather than snapping back to "general offer"
+                                and implying nothing was saved. */}
                             <select
+                              key={assigned?.id ?? "none"}
                               id={`assign-${row.key}`}
                               name="offerId"
-                              defaultValue=""
+                              defaultValue={assigned?.id ?? ""}
                               disabled={assigning}
                               className="field w-auto max-w-full"
                             >

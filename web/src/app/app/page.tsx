@@ -33,6 +33,35 @@ import type { Member } from "@/lib/types";
 
 export const metadata = { title: "Overview" };
 
+/**
+ * How far back the dashboard looks (#69).
+ *
+ * Weeks throughout, because the underlying series is weekly: a gym sends in
+ * bursts and a daily chart of a 50-a-day cap is mostly zeroes. Every range is
+ * drawn against the same length of time immediately before it, so the
+ * comparison line always means the same thing.
+ *
+ * Fifty-two is the longest offered. Beyond a year the comparison would reach
+ * back further than casdey has existed for any gym, and a chart whose second
+ * line is all zeroes says nothing.
+ */
+const RANGES = [
+  { weeks: 4, short: "4w", label: "four weeks", heading: "The last four weeks" },
+  {
+    weeks: 12,
+    short: "12w",
+    label: "twelve weeks",
+    heading: "The last twelve weeks",
+  },
+  {
+    weeks: 26,
+    short: "6m",
+    label: "six months",
+    heading: "The last six months",
+  },
+  { weeks: 52, short: "1y", label: "year", heading: "The last year" },
+] as const;
+
 export default async function DashboardPage(props: PageProps<"/app">) {
   const params = await props.searchParams;
   const { gym, session } = await requireGym();
@@ -45,12 +74,17 @@ export default async function DashboardPage(props: PageProps<"/app">) {
   const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
   // Twelve weeks of what casdey did, and the twelve before them to compare
   // against (#48, #61).
+  // How far back the charts look. A URL rather than component state, so a
+  // range can be linked to and survives a reload, and so the whole page is
+  // still one server render.
+  const range = RANGES.find((r) => String(r.weeks) === params.range) ?? RANGES[1];
+
   const {
     weeks,
     total: totals,
     previous,
     previousWeeks,
-  } = await activityWithComparison(gym.id);
+  } = await activityWithComparison(gym.id, range.weeks);
 
   // The first-run checklist. Derived from state the gym already has, so it
   // ticks itself off and disappears once setup is done, no flag to persist.
@@ -266,13 +300,38 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           and one chart with two y-axes would let the picture imply a
           relationship the data has not earned. */}
       <section className="mt-8">
-        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="display text-[1.25rem]">The last twelve weeks</h2>
-          <p className="text-[0.875rem] text-stone">
-            {totals.sent === 0
-              ? "Fills in as soon as your first campaign goes out."
-              : "Compared with the twelve weeks before."}
-          </p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="display text-[1.25rem]">{range.heading}</h2>
+            <p className="text-[0.875rem] text-stone">
+              {totals.sent === 0
+                ? "Fills in as soon as your first campaign goes out."
+                : `Compared with the ${range.label.toLowerCase()} before.`}
+            </p>
+          </div>
+
+          {/* Links, not a control with state. Each range is a URL. */}
+          <nav aria-label="Chart period" className="flex flex-wrap gap-1">
+            {RANGES.map((option) => {
+              const active = option.weeks === range.weeks;
+              return (
+                <Link
+                  key={option.weeks}
+                  href={
+                    option.weeks === 12 ? "/app" : `/app?range=${option.weeks}`
+                  }
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-md border px-3 py-1.5 text-[0.8125rem] font-medium transition-colors duration-150 ${
+                    active
+                      ? "border-teal bg-shallow text-teal"
+                      : "border-ash text-graphite hover:border-stone hover:text-ink"
+                  }`}
+                >
+                  {option.short}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -282,7 +341,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
             changePercent={change(totals.sent, previous.sent)}
             changeLabel={
               previous.sent > 0
-                ? `${previous.sent} in the twelve before`
+                ? `${previous.sent} in the ${range.label.toLowerCase()} before`
                 : "nothing sent before this"
             }
             points={weeks.map((week) => ({
@@ -298,7 +357,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
             changePercent={change(totals.returned, previous.returned)}
             changeLabel={
               previous.returned > 0
-                ? `${previous.returned} in the twelve before`
+                ? `${previous.returned} in the ${range.label.toLowerCase()} before`
                 : "none came back before this"
             }
             points={weeks.map((week) => ({
@@ -314,7 +373,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
             changePercent={change(totals.revenueMinor, previous.revenueMinor)}
             changeLabel={
               previous.revenueMinor > 0
-                ? `${formatMoney(previous.revenueMinor, currency)} in the twelve before`
+                ? `${formatMoney(previous.revenueMinor, currency)} in the ${range.label.toLowerCase()} before`
                 : "nothing recovered before this"
             }
             points={weeks.map((week) => ({
@@ -334,7 +393,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
             tone="amber"
             hero={formatMoney(totals.revenueMinor, currency)}
             changePercent={change(totals.revenueMinor, previous.revenueMinor)}
-            caption="Each week at the price of the services actually booked. Not an average, and not a number casdey has billed."
+            caption="Each period at the price of the services actually booked. Not an average, and not a number casdey has billed."
             points={weeks.map((week) => ({
               label: week.label,
               value: week.revenueMinor,

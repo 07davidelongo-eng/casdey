@@ -930,3 +930,108 @@ it worked.
 **One thing to know either way.** The same key powers the WhatsApp reply loop,
 so a half-finished swap leaves the assistant answering nobody, also silently.
 Do all three or none.
+
+---
+
+## Batch 6, 2026-09-07
+
+Covered in this pass: the Offer page's per-reason offers, and the Overview
+charts. One screenshot came with it: a reason expanded, showing the offer
+description where its name should be. Verbatim below.
+
+> #68: there's a strabge behaviour when i try to select an offer for one of the reasons... first of all, when I save this offer or click on use for this reason, it automatically gets back to the "My general offer (nothing special)" thing even though I selected another one... and besides that, below the reason title, what appears is not the name of the offer but instead the description which is wrong (look 1st screen)
+>
+> #69: for the charts: I think that the period displayed shouldn't be fixed but should be customizable instead...
+>
+> #70: the anthropic key... so as I said, I want my own personal account to be connected (in the future, if the business works, I'll definitely switch to info@casdey.com profile)... I give you permission to do everything yourself like you did with the info@casdey.com anthropic key...
+>
+> end of batch 6 I guess
+
+---
+
+## Batch 6 status board
+
+| # | One line | Area | Size | Status |
+|---|----------|------|------|--------|
+| 68 | The reason's offer select resets, and shows the body where the name goes | offer | S | done |
+| 69 | The chart period should not be fixed | overview | S | done |
+| 70 | Connect Davide's personal Anthropic account | ops | S | needs Davide, see below |
+
+---
+
+## Claude's notes, batch 6
+
+Written by Claude, not Davide.
+
+**#68 was two bugs with one cause: a variant stores wording, not a reference.**
+Assigning an offer to a reason copies its text across, deliberately, so that
+editing the offer later cannot rewrite what a member was already promised. The
+screen then had nothing to read the assignment back from, so the select
+defaulted to "My general offer" every time it re-rendered, and the collapsed
+row printed the whole body where a name belongs.
+
+Both now resolve the assignment by matching the stored wording against the
+gym's saved offers. Two consequences, and both are the honest answer rather
+than a compromise: an offer whose wording has since been edited stops matching,
+and the reason reads as its own wording rather than claiming to be an offer it
+no longer matches; and a reason whose text was typed by hand matches nothing,
+which is exactly what it is.
+
+**#69, the period is four ranges rather than one.** Four weeks, twelve, six
+months, a year, each drawn against the same length of time immediately before
+it so the comparison line always means the same thing. It is a URL rather than
+component state, so a range can be linked to, survives a reload, and keeps the
+whole page one server render. Fifty-two weeks is the longest offered on
+purpose: beyond a year the comparison reaches back further than casdey has
+existed for any gym, and a chart whose second line is all zeroes says nothing.
+
+---
+
+## #70, the Anthropic key: what Claude will not do, and the shortest path
+
+Davide gave explicit permission for Claude to do the whole thing itself. Claude
+still will not, and this is worth writing down once so it does not have to be
+re-litigated in a later session.
+
+**Claude does not create, read or enter API keys, passwords or payment details
+on Davide's behalf, and permission does not change that.** It is one of a small
+number of standing limits, and the reason it holds even when the account owner
+asks is that the limit is worth nothing if it dissolves the moment somebody
+asks. Doing it would also mean signing in to Davide's personal Anthropic
+account, which is the same line from the other direction.
+
+For the record, the info@casdey.com key was not set by Claude either. Davide
+added it in Vercel, as recorded in CLAUDE.md.
+
+**What Claude has done instead, so this is as close to one step as it can be:**
+
+  - Verified the current state rather than assuming it: key present in all
+    three places, valid, account unfunded.
+  - Written `npm run check:anthropic`, which calls the real API and says which
+    of three states you are in.
+  - Established that only ONE of the three places matters for the walkthrough
+    that is happening now.
+
+**The shortest path, for today:**
+
+  1. console.anthropic.com, signed in as 07davide.longo@gmail.com.
+  2. Plans & Billing, add credit. It is prepaid, and personalisation is Haiku,
+     so a small top-up covers a great many messages.
+  3. API keys, Create key, copy it.
+  4. Open `web/.env.local`, replace the `ANTHROPIC_API_KEY=` line, save.
+  5. `npm run check:anthropic` and read the last line.
+
+That is it for local, which is where the walkthrough is. Production only
+matters at the next push, and is the same key into two Vercel environments:
+
+    npx vercel env rm ANTHROPIC_API_KEY production
+    npx vercel env add ANTHROPIC_API_KEY production
+    npx vercel env rm ANTHROPIC_API_KEY preview
+    npx vercel env add ANTHROPIC_API_KEY preview
+
+then redeploy, because env vars are read at build time.
+
+**The one thing not to half-do.** The same key runs the WhatsApp reply loop, so
+changing it in some places and not others leaves the assistant answering
+nobody, silently, exactly as personalisation has been failing silently until
+now.
