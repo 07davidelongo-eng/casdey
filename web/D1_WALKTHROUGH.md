@@ -140,6 +140,7 @@ start.
 - Seen, batch 3: Settings again (Gym, Services, Data and privacy), the Offer
   page again, Campaigns including trying to approve and test one, Import
   again, Overview again, Members.
+- Seen, batch 5: the Offer page, Import, Members, the Overview in dark mode.
 - Seen, batch 4: Overview, Settings Data and privacy, the Offer page,
   Campaigns including approving and sending one, Import, Members, Calendar.
 - Not seen yet, or not commented on: a member's own page, the booking flow a
@@ -824,3 +825,108 @@ Verbatim below.
 > #67: Now let's talk about the overview. So, um, when I put the dark mode, I see that some of the Texas... sorry. Some of the titles, uh, like, are black on black, so you can... you cannot actually read them very well. And now I don't know whether the three boxes with the message sent members back and recovered, uh, are some graphs, but anyway, if you didn't have any graph, like, literally a, like, a chart, a line graph, then you should definitely do that because this is also some type of stuff that I want. So maybe you can just add it or, yeah, or or things like that. The two other cards look good, I guess. The... how far you list gets and the... where your members stand. But, yes, try to put in a chart or something like that, a line chart with some data. Maybe not just one, but more than one or, like, try to see what you like. Like, by the way, if you really want to know how it should look, just go to Google or even to Shopify... well, actually, not Shopify because you would have to create an account, but just go to Google, go to YouTube, or whatever, and look at the screenshots of the Shopify dashboard, and you get what I'm saying, like, all the analytics, all the stuff, all the cool things that are on Shopify. So just get inspired by literally looking at what it looks like.
 >
 > End of batch 5
+
+---
+
+## Batch 5 status board
+
+| # | One line | Area | Size | Status |
+|---|----------|------|------|--------|
+| 57 | Language of the whole software | app wide | XL | closed by Davide: leave it in English |
+| 63 | Edit an existing offer; suggestions as a carousel | offer | M | done |
+| 64 | Help with the Anthropic key | ops | S | ready, needs Davide's key |
+| 65 | The undo dialog's buttons do not react to hover | app wide | XS | done |
+| 66 | The next-page arrow is under the support launcher | members | XS | done |
+| 67 | Black on black in dark mode; and put a real line chart in | overview | M | done |
+
+---
+
+## Claude's notes, batch 5
+
+Written by Claude, not Davide.
+
+**#67's first half was a bug I caused yesterday.** Fixing the hydration failure
+meant moving the dark scope off `<html>` and onto the app shell, and `body`
+sits outside that shell. `body` sets its colour from `--ink` resolved where it
+is, so anything that merely inherited it kept the light theme's near-black and
+rendered black on black. Elements with an explicit `text-ink` were fine, which
+is why only the section headings broke. The shell states its own colour now, so
+everything inside inherits the right one.
+
+The lesson is the one the brand guide already records for `.on-deep`: when a
+theme lives on a scope rather than on the document, inheritance from outside
+that scope is the thing that breaks, and it breaks silently.
+
+**#67's second half: line charts, with the previous twelve weeks behind the
+current ones.** The comparison is the point of the shape. One line says what
+happened; two say whether it is better than last time, which is the only
+version of the question anyone asks, and it is what the Shopify dashboard
+Davide keeps pointing at actually does: a row of metric cards with sparklines
+and a percentage, then the same measures at size with a prior-period line.
+
+It is also the one case where two series belong on a single chart: the same
+measure, the same unit, two equal stretches of time, one scale. Both lines are
+scaled to the larger of the two maxima, because scaling each to its own would
+draw two flat lines and hide the difference the chart exists to show.
+
+**#66 was unclickable, not just ugly.** The support launcher is fixed to the
+bottom right, and the members pager put "Next" in exactly that corner. Two
+changes rather than one: the pager stops hugging the right edge, and every page
+under /app now keeps clear space at the bottom, so nothing else lands under the
+launcher later.
+
+---
+
+## #64, the Anthropic key: what is true and what to do
+
+**Checked, not assumed.** `ANTHROPIC_API_KEY` is set in all three places it
+needs to be (`web/.env.local`, Vercel Production, Vercel Preview), the key is
+valid, and the account behind it has no credit:
+
+    400 invalid_request_error
+    "Your credit balance is too low to access the Anthropic API."
+
+So personalisation runs on every send, fails, and falls back to the gym's
+template. Silently, by design, which is why it went unnoticed.
+
+**There is now a script for this**, because a credential being set is not the
+same as a credential working, and that has now caught casdey out twice (the
+Resend key's scope, and this):
+
+    npm run check:anthropic
+
+It sends one tiny message and tells you which of the three states you are in:
+no key, key rejected, or key fine and account empty. Costs a fraction of a
+cent. To test a key before committing to it, pass it in rather than editing
+anything: `ANTHROPIC_API_KEY=sk-ant-... npm run check:anthropic`.
+
+**The choice.** Two ways to do what Davide asked, and the first is much less
+work:
+
+1. **Add credit to the existing account.** The key already in place belongs to
+   info@casdey.com. Sign in at console.anthropic.com as info@casdey.com, go to
+   Plans & Billing, add credit. Nothing else changes: no key to rotate, no
+   deploy, no env vars. Personalisation starts working on the next send.
+2. **Move to the personal account.** Create a key at console.anthropic.com
+   signed in as 07davide.longo@gmail.com, add credit there, then replace the
+   key in all three places, all of them or none:
+
+       # local
+       # edit web/.env.local, replace the ANTHROPIC_API_KEY line
+
+       # Vercel, both environments
+       npx vercel env rm ANTHROPIC_API_KEY production
+       npx vercel env add ANTHROPIC_API_KEY production
+       npx vercel env rm ANTHROPIC_API_KEY preview
+       npx vercel env add ANTHROPIC_API_KEY preview
+
+   Then redeploy, because env vars are read at build time.
+
+**Claude does not do this part.** The key is a credential, and casdey's own
+rule is that Claude never enters one on Davide's behalf. The commands above are
+Davide's to run; `npm run check:anthropic` afterwards is how either of us knows
+it worked.
+
+**One thing to know either way.** The same key powers the WhatsApp reply loop,
+so a half-finished swap leaves the assistant answering nobody, also silently.
+Do all three or none.
