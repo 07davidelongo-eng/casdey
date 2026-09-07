@@ -1500,7 +1500,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | F4 | Guarantee Pro-gated; 20% coupon currency-agnostic | me | code done 2026-09-03 |
 | F5 | Plan copy / FAQ / upgrade prompts for three tiers | me | done 2026-09-03 |
 | F6 | Tests: 4-plan capability matrix + price→tier mapping | me | done 2026-09-04 — `stripe.test.ts` added; found + fixed the silent Standard→Pro over-grant |
-| C1 | Live-mode Stripe checkout + refund in prod | Davide | todo — needs a real card, so not Claude's to do |
+| C1 | Live-mode Stripe checkout + refund in prod | Davide | **done 2026-09-07** — real card, Standard EUR monthly, €79.20 after the 20% coupon, then refunded and cancelled. Found the apex-vs-www webhook bug: every delivery 308d, so the payment completed in Stripe and the gym stayed unpaid. Endpoint repointed to www, events resent, verified in the DB |
 | C2 | Real Resend campaign send in prod | me | **done 2026-09-05** — self-test from prod, `delivered` in Resend's event log, gym display name, gym reply-to, live booking + unsubscribe links |
 | C3 | Calendar booking end-to-end in prod | me | **done 2026-09-05** — two prod-only breaks found and fixed: `redirect_uri_mismatch` (apex vs www), then booking never writing to Google at all under A6's narrowed scope (migration `0020`). Connect → book → event confirmed in Google → cancel → event cancelled, all verified in prod |
 | C4 | Every wizard step verified in prod | me | **done 2026-09-05** — all 13 `/app` routes 200, matching local; C3 was the only prod-only break |
