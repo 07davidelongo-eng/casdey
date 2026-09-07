@@ -88,6 +88,8 @@ type CampaignRow = {
   approved_at: string | null;
   follow_ups: FollowUp[] | null;
   personalise: boolean;
+  /** The language the gym chose for this campaign, passed to personalise. */
+  language: string | null;
 };
 
 export async function drainQueue(
@@ -221,7 +223,9 @@ export async function drainQueue(
         async () => {
           const { data: row } = await client
             .from("campaigns")
-            .select("status, subject, body, approved_at, follow_ups, personalise")
+            .select(
+              "status, subject, body, approved_at, follow_ups, personalise, language",
+            )
             .eq("id", message.campaign_id)
             .maybeSingle();
           return row as CampaignRow | null;
@@ -342,6 +346,7 @@ export async function drainQueue(
               template: written.body,
               context,
               step: message.step,
+              language: campaign.language ?? undefined,
             })
           : null;
 

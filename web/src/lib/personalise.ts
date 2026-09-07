@@ -1,5 +1,6 @@
 import "server-only";
 
+import { languageEndonym } from "./languages";
 import { renderTemplate, type TemplateContext } from "./template";
 
 /**
@@ -51,9 +52,21 @@ export type PersonaliseInput = {
   context: TemplateContext;
   /** Which step of the sequence this is, so a follow-up sounds like one. */
   step: number;
+  /**
+   * The campaign's language code, so the message is written in the language
+   * the gym CHOSE rather than the one the model infers from the template.
+   *
+   * Inference is not good enough: a gym whose offer is written in one language
+   * and whose template is in another gives the model two signals, and it
+   * follows the offer, because reproducing the offer verbatim is a hard rule.
+   * That was observed, an Italian template returning English prose around an
+   * English offer. Omitted falls back to English, matching languageEndonym.
+   */
+  language?: string;
 };
 
-function systemPrompt(gymName: string): string {
+function systemPrompt(gymName: string, language: string | undefined): string {
+  const endonym = languageEndonym(language ?? "en");
   return `You write short re-engagement messages on behalf of ${gymName}, a gym, to a member who stopped coming. You are writing as the gym, in the first person. The member believes a person at the gym wrote this, and that has to be true of the words even though it is not true of the author.
 
 You will be given the gym's own version of the message and the only facts known about this member. Rewrite the gym's message for this one person.
@@ -67,7 +80,7 @@ Hard rules:
 - Similar length to the gym's version, and never longer than it by much. Short reads as human; long reads as marketing.
 - Warm, direct, specific. No manufactured urgency, no guilt, no "we miss you!", no exclamation marks.
 - Never use an em dash. Use commas or separate sentences.
-- Write in the same language as the gym's version.
+- Write the whole message in ${endonym}. Every sentence you write is in ${endonym}, including the greeting and the sign-off. An offer or a booking link that is written in another language is still reproduced exactly as given, and that is the only exception: it does not license writing anything else in that language.
 - Reply with the message itself and nothing else. No preamble, no explanation, no quotes around it.`;
 }
 
@@ -166,7 +179,7 @@ export async function personalise(
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: systemPrompt(input.gymName),
+        system: systemPrompt(input.gymName, input.language),
         messages: [
           {
             role: "user",

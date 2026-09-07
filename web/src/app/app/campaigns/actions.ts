@@ -781,7 +781,7 @@ export async function previewPersonalisedAction(
 
   const { data: campaign } = await client
     .from("campaigns")
-    .select("id, body, kind, personalise")
+    .select("id, body, kind, personalise, language")
     .eq("id", campaignId)
     .eq("gym_id", gym.id)
     .maybeSingle();
@@ -843,6 +843,7 @@ export async function previewPersonalisedAction(
       template: campaign.body as string,
       context,
       step: 1,
+      language: (campaign.language as string | null) ?? undefined,
     });
 
     samples.push({
