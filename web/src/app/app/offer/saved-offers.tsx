@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 
 import { Button, Card, CardTitle, Notice, Pill } from "@/components/app/ui";
 import { ConfirmButton } from "@/components/app/confirm-button";
@@ -65,12 +66,24 @@ export function SavedOffers({
 
   return (
     <Card>
-      <CardTitle>Your offers</CardTitle>
-      <p className="mb-5 text-[0.875rem] leading-relaxed text-stone">
-        Everything you have written, kept. Switch between them whenever you
-        like. Members who were already promised one keep it, whatever you change
-        here.
-      </p>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <CardTitle>Your offers</CardTitle>
+          <p className="mt-1 max-w-[62ch] text-[0.875rem] leading-relaxed text-stone">
+            Everything you have written, kept. Switch between them whenever you
+            like. Members who were already promised one keep it, whatever you
+            change here.
+          </p>
+        </div>
+        {/* Straight to the questions, from the card where a gym is looking at
+            what it already has and deciding it wants one more (#54). */}
+        <Link
+          href="/app/offer?build=1#builder"
+          className="shrink-0 rounded-md border border-ash px-3.5 py-2 text-[0.875rem] font-medium text-teal hover:border-teal"
+        >
+          Suggest me another offer
+        </Link>
+      </div>
 
       {error ? (
         <div className="mb-4">

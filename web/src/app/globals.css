@@ -111,12 +111,19 @@
   goes muddy here, so the primary becomes the luminous value, exactly as it
   does inside `.on-deep`.
 
-  Applied by data-theme on <html>, set from localStorage before first paint by
-  the script in the app layout, and never by prefers-color-scheme alone: this
-  is a switch the gym owner asked for, so it answers to them rather than to
-  whatever their laptop decided at sunset.
+  Applied by data-theme on whichever element carries it, which since #51 is
+  the app shell rather than <html>. It used to be set by an inline script
+  reading localStorage before first paint, and that script was the thing making
+  React report a hydration failure on every page: the server rendered one set
+  of attributes and the browser had already changed them. The preference is a
+  cookie now, so the server renders the right theme first time and there is
+  nothing to correct afterwards. Scoping it to the shell is also what keeps
+  dark mode the product's: the marketing site cannot inherit it.
+
+  Never prefers-color-scheme alone: this is a switch the gym owner asked for,
+  so it answers to them rather than to whatever their laptop decided at sunset.
 */
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   color-scheme: dark;
 
   --paper: #16160f;
@@ -388,6 +395,10 @@
    is deliberately minimal: a card in the top layer, and a backdrop dark enough
    to say the page behind it is not currently the thing being used. */
 .confirm-dialog {
+  /* Never inherit a nowrap from whatever the trigger happened to sit inside.
+     A dialog is its own box and its prose has to wrap in it. */
+  white-space: normal;
+  text-align: left;
   max-width: 30rem;
   width: calc(100% - 2rem);
   margin: auto;

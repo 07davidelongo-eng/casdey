@@ -9,7 +9,8 @@ import { ReasonsAndOffers } from "./reasons-and-offers";
 
 export const metadata = { title: "Your offer" };
 
-export default async function OfferPage() {
+export default async function OfferPage(props: PageProps<"/app/offer">) {
+  const params = await props.searchParams;
   const { gym, session } = await requireGym();
 
   // Every reason this gym works with, casdey's original six included: they are
@@ -48,13 +49,16 @@ export default async function OfferPage() {
         lede="casdey writes the message and sends it. What a member gets for walking back in has to come from you, because only you know what you can afford to give away, and that is what this page is for. Answer five questions and casdey suggests offers that fit, or write your own. Keep as many as you like, switch between them, and give a different one to each reason members leave."
       />
 
-      <OfferBuilder
-        current={{
-          id: gym.offer_id,
-          text: gym.offer_text,
-          expiresAt: gym.offer_expires_at,
-        }}
-      />
+      <div id="builder">
+        <OfferBuilder
+          startBuilding={params.build === "1"}
+          current={{
+            id: gym.offer_id,
+            text: gym.offer_text,
+            expiresAt: gym.offer_expires_at,
+          }}
+        />
+      </div>
 
       <OwnOfferForm />
 

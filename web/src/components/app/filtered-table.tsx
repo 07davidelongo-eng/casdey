@@ -77,7 +77,7 @@ export function FilteredTable({
             setPage(0);
           }}
           placeholder={searchPlaceholder}
-          className="field max-w-[20rem]"
+          className="field min-w-[18rem] flex-1 sm:max-w-[26rem]"
           aria-label={searchPlaceholder}
         />
 

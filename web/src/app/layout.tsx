@@ -59,16 +59,14 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // suppressHydrationWarning covers this element's attributes only, and it
-    // is here for exactly one of them. The product's no-flash theme script
-    // (see components/app/theme-toggle.tsx) stamps data-theme on <html> before
-    // React hydrates, which is the point of it: the alternative is a white
-    // flash on every dark-mode page load. React then compares the server's
-    // markup against a DOM that has deliberately moved and reports a mismatch
-    // it cannot patch. The divergence is intended and one attribute wide.
+    // Nothing to suppress here any more. Dark mode used to be stamped onto
+    // this element by an inline script reading localStorage before paint, and
+    // that is what made React report a hydration failure on every single page:
+    // the browser had changed the document before React ever saw it. The
+    // preference is a cookie now, read on the server by the app shell, so the
+    // markup that arrives is already right. See components/app/theme-toggle.tsx.
     <html
       lang="en-GB"
-      suppressHydrationWarning
       className={`${outfit.variable} ${plex.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

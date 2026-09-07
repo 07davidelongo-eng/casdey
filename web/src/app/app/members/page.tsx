@@ -22,7 +22,9 @@ import type { Member } from "@/lib/types";
 
 export const metadata = { title: "Members" };
 
-const PAGE_SIZE = 50;
+// Ten, matching the audit log and the import history. A gym with a thousand
+// members should never be asked to scroll to find one.
+const PAGE_SIZE = 10;
 
 type Filter = "lapsed" | "all" | "contacted" | "returned";
 
@@ -32,6 +34,32 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "returned", label: "Returned" },
   { value: "all", label: "Everyone" },
 ];
+
+/**
+ * Sorting, and why it is done in the database rather than in the page.
+ *
+ * The other lists in casdey filter in the browser over rows already fetched,
+ * which is right for a few hundred audit entries. A member list is the one
+ * place that does not hold: it is the biggest table a gym has, it is paged
+ * server-side already, and sorting one page of ten would sort ten rows out of
+ * a thousand and look broken.
+ *
+ * "Away" is not a column. It is derived from last_visit_at and is exactly its
+ * inverse, so sorting by one sorts by the other and there is nothing to store.
+ */
+type SortKey = "last_visit" | "visits" | "name" | "email" | "status";
+
+const SORT_COLUMN: Record<SortKey, string> = {
+  last_visit: "last_visit_at",
+  visits: "visit_count",
+  name: "first_name",
+  email: "email",
+  status: "status",
+};
+
+function isSortKey(value: unknown): value is SortKey {
+  return typeof value === "string" && value in SORT_COLUMN;
+}
 
 export default async function MembersPage(props: PageProps<"/app/members">) {
   const params = await props.searchParams;
@@ -43,6 +71,24 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
 
   const page = Math.max(1, Number(params.page ?? 1) || 1);
   const from = (page - 1) * PAGE_SIZE;
+
+  const q = typeof params.q === "string" ? params.q.trim().slice(0, 80) : "";
+  const sort: SortKey = isSortKey(params.sort) ? params.sort : "last_visit";
+  const dir: "asc" | "desc" = params.dir === "desc" ? "desc" : "asc";
+
+  /** Keeps every control the gym has set while changing one of them. */
+  const link = (patch: Record<string, string | number | undefined>) => {
+    const search = new URLSearchParams({ filter });
+    if (q) search.set("q", q);
+    if (sort !== "last_visit") search.set("sort", sort);
+    if (dir !== "asc") search.set("dir", dir);
+    if (page > 1) search.set("page", String(page));
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined || value === "") search.delete(key);
+      else search.set(key, String(value));
+    }
+    return `/app/members?${search.toString()}`;
+  };
 
   const rule = ruleFor(gym);
   const cutoff = lapseCutoff(rule);
@@ -64,9 +110,25 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
     query = query.eq("status", "returned");
   }
 
+  if (q) {
+    // Matched in the database so it searches the whole list, not the ten rows
+    // that happen to be on screen. Commas and parentheses would end the or()
+    // expression early, so they are stripped rather than escaped.
+    const needle = q.replace(/[,()*]/g, " ").trim();
+    if (needle) {
+      query = query.or(
+        [
+          `first_name.ilike.%${needle}%`,
+          `last_name.ilike.%${needle}%`,
+          `email.ilike.%${needle}%`,
+        ].join(","),
+      );
+    }
+  }
+
   const { data, count } = await query
-    // Longest away first: those are the ones most worth writing to.
-    .order("last_visit_at", { ascending: true, nullsFirst: false })
+    // Longest away first by default: those are the ones most worth writing to.
+    .order(SORT_COLUMN[sort], { ascending: dir === "asc", nullsFirst: false })
     .range(from, from + PAGE_SIZE - 1);
 
   const members = (data ?? []) as Member[];
@@ -94,6 +156,40 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
           ) : undefined
         }
       />
+
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        {/* A plain GET form, so searching survives a reload, can be linked to,
+            and works before any JavaScript has run. */}
+        <form action="/app/members" className="flex items-center gap-2">
+          <input type="hidden" name="filter" value={filter} />
+          {sort !== "last_visit" ? (
+            <input type="hidden" name="sort" value={sort} />
+          ) : null}
+          {dir !== "asc" ? <input type="hidden" name="dir" value={dir} /> : null}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Search a name or an email address"
+            aria-label="Search members"
+            className="field min-w-[18rem] sm:w-[24rem]"
+          />
+          <button
+            type="submit"
+            className="text-[0.875rem] font-semibold text-teal underline underline-offset-4"
+          >
+            Search
+          </button>
+        </form>
+        {q ? (
+          <Link
+            href={link({ q: undefined, page: undefined })}
+            className="text-[0.875rem] text-stone underline underline-offset-4 hover:text-ink"
+          >
+            Clear
+          </Link>
+        ) : null}
+      </div>
 
       <nav className="mb-5 flex flex-wrap gap-2" aria-label="Filter members">
         {FILTERS.map((option) => (
@@ -131,18 +227,38 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
           <p className="mb-3 text-[0.875rem] text-stone">
             <span className="literal">{total}</span>{" "}
             {total === 1 ? "member" : "members"}
+            {q ? (
+              <>
+                {" "}
+                matching <span className="literal">{q}</span>
+              </>
+            ) : null}
           </p>
 
           <Card className="!p-0 overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Member</th>
-                  <th>Email</th>
-                  <th>Last visit</th>
-                  <th>Away</th>
-                  <th>Visits</th>
-                  <th>Status</th>
+                  <SortHeader label="Member" column="name" sort={sort} dir={dir} link={link} />
+                  <SortHeader label="Email" column="email" sort={sort} dir={dir} link={link} />
+                  <SortHeader
+                    label="Last visit"
+                    column="last_visit"
+                    sort={sort}
+                    dir={dir}
+                    link={link}
+                  />
+                  {/* Away is last_visit read the other way round, so it shares
+                      its column rather than pretending to be its own. */}
+                  <SortHeader
+                    label="Away"
+                    column="last_visit"
+                    sort={sort}
+                    dir={dir}
+                    link={link}
+                  />
+                  <SortHeader label="Visits" column="visits" sort={sort} dir={dir} link={link} />
+                  <SortHeader label="Status" column="status" sort={sort} dir={dir} link={link} />
                 </tr>
               </thead>
               <tbody>
@@ -199,26 +315,54 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
               className="mt-5 flex items-center justify-between"
               aria-label="Pages"
             >
-              <PageLink
-                href={`/app/members?filter=${filter}&page=${page - 1}`}
-                disabled={page === 1}
-              >
-                Previous
+              <PageLink href={link({ page: page - 1 })} disabled={page === 1}>
+                &larr; Previous
               </PageLink>
               <span className="literal text-[0.8125rem] text-stone">
                 Page {page} of {pages}
               </span>
-              <PageLink
-                href={`/app/members?filter=${filter}&page=${page + 1}`}
-                disabled={page === pages}
-              >
-                Next
+              <PageLink href={link({ page: page + 1 })} disabled={page === pages}>
+                Next &rarr;
               </PageLink>
             </nav>
           ) : null}
         </>
       )}
     </>
+  );
+}
+
+/** A column header that sorts, and says which way it is sorting. */
+function SortHeader({
+  label,
+  column,
+  sort,
+  dir,
+  link,
+}: {
+  label: string;
+  column: SortKey;
+  sort: SortKey;
+  dir: "asc" | "desc";
+  link: (patch: Record<string, string | number | undefined>) => string;
+}) {
+  const active = sort === column;
+  // Clicking the column you are already on reverses it; a new column starts
+  // ascending, which for dates means longest-away first.
+  const next = active && dir === "asc" ? "desc" : "asc";
+
+  return (
+    <th aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
+      <Link
+        href={link({ sort: column, dir: next, page: undefined })}
+        className={`inline-flex items-center gap-1 ${active ? "text-ink" : ""}`}
+      >
+        {label}
+        <span aria-hidden="true" className="text-[0.625rem]">
+          {active ? (dir === "asc" ? "▲" : "▼") : ""}
+        </span>
+      </Link>
+    </th>
   );
 }
 

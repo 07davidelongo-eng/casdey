@@ -5,64 +5,71 @@ import { useSyncExternalStore } from "react";
 /**
  * Light or dark, for the product.
  *
- * The preference lives in localStorage and nowhere else. It is one bit of
- * cosmetic taste per browser, it has to be readable before React runs to stop
- * the page flashing white, and putting it on the gym row would make an
- * individual's eyesight a property of the business every member of staff
- * shares.
+ * The preference is a cookie, and a cookie rather than localStorage for one
+ * reason: the server can read it. localStorage cannot be read during a server
+ * render, so the old version needed an inline script to stamp the theme onto
+ * the document before paint, and that script is exactly what made React report
+ * a hydration failure on every page load. Now the shell renders the right
+ * theme in the first place and there is nothing to correct afterwards.
  *
- * Read through useSyncExternalStore rather than an effect, so the first render
- * already knows the answer and the toggle never shows the wrong state for a
- * frame. The store is the DOM attribute the no-flash script already set.
+ * Still per browser rather than on the gym row: it is one bit of cosmetic
+ * taste, and putting it on the business would make one person's eyesight a
+ * property every member of staff shares.
+ *
+ * Read through useSyncExternalStore rather than an effect, so the toggle never
+ * shows the wrong state for a frame. The store is the data-theme attribute on
+ * the shell; the server's answer comes in as a prop, so the two agree.
  */
 
-const KEY = "casdey-theme";
+export const THEME_COOKIE = "casdey-theme";
 
-type Theme = "light" | "dark";
+export type Theme = "light" | "dark";
 
-/** The script that runs before paint. Kept here so the two cannot drift. */
-export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(KEY)});if(t==="dark"||t==="light"){document.documentElement.dataset.theme=t}}catch(e){}})()`;
+/** A year, because a preference that quietly expires is worse than none. */
+const MAX_AGE = 60 * 60 * 24 * 365;
 
 const listeners = new Set<() => void>();
 
+/** The element the theme lives on: the app shell, not the document. */
+function root(): HTMLElement | null {
+  return document.querySelector("[data-theme]");
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  // Another tab switching theme should not leave this one disagreeing.
-  const onStorage = (event: StorageEvent) => {
-    if (event.key !== KEY) return;
-    apply((event.newValue === "dark" ? "dark" : "light") as Theme, false);
-    listener();
-  };
-  window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
   };
 }
 
 function currentTheme(): Theme {
-  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  return root()?.dataset.theme === "dark" ? "dark" : "light";
 }
 
-function apply(theme: Theme, persist: boolean) {
-  document.documentElement.dataset.theme = theme;
-  if (persist) {
-    try {
-      localStorage.setItem(KEY, theme);
-    } catch {
-      // A browser refusing storage is not a reason to refuse the switch. It
-      // simply will not survive the next page load.
-    }
-  }
+function apply(theme: Theme) {
+  const element = root();
+  if (element) element.dataset.theme = theme;
+  // A cookie rather than localStorage, so the server renders the right theme
+  // in the first place. localStorage cannot be read during a server render,
+  // which is why the old version needed a script and why that script made
+  // React report a hydration failure on every page load.
+  document.cookie = `${THEME_COOKIE}=${theme}; path=/; max-age=${MAX_AGE}; samesite=lax`;
 }
 
-export function ThemeToggle({ compact = false }: { compact?: boolean } = {}) {
+export function ThemeToggle({
+  initial,
+  compact = false,
+}: {
+  /** What the server rendered, so hydration has nothing to disagree about. */
+  initial: Theme;
+  compact?: boolean;
+}) {
   const theme = useSyncExternalStore(
     subscribe,
     currentTheme,
-    // Rendered on the server, where there is no document. Light is what the
-    // markup ships as, so this is what matches it.
-    () => "light" as Theme,
+    // Rendered on the server, where there is no document. The shell already
+    // read the cookie, so this is the same answer rather than a guess.
+    () => initial,
   );
 
   const next: Theme = theme === "dark" ? "light" : "dark";
@@ -71,7 +78,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean } = {}) {
     <button
       type="button"
       onClick={() => {
-        apply(next, true);
+        apply(next);
         for (const listener of listeners) listener();
       }}
       aria-label={`Switch to ${next} mode`}

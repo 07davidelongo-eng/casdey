@@ -76,8 +76,11 @@ const STEPS = [
 
 export function OfferBuilder({
   current,
+  startBuilding = false,
 }: {
   current: { id: string | null; text: string | null; expiresAt: string | null };
+  /** From ?build=1, so "Suggest me another" can live in a different card. */
+  startBuilding?: boolean;
 }) {
   const [step, setStep] = useState(0);
   /**
@@ -89,7 +92,7 @@ export function OfferBuilder({
    * condition needed something the reset could not clear, and an explicit
    * intent is that something.
    */
-  const [rebuilding, setRebuilding] = useState(false);
+  const [rebuilding, setRebuilding] = useState(startBuilding);
   /** The offer the gym picked, held while they edit its wording. */
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
@@ -356,14 +359,18 @@ function CurrentOffer({
         not change offers already sent: a member who was promised something
         keeps being promised it.
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={onEdit}>
           Edit the wording
         </Button>
         <Button type="button" variant="quiet" onClick={onRebuild}>
-          Build a different offer
+          Suggest me another offer
         </Button>
       </div>
+      <p className="mt-3 text-[0.8125rem] text-stone">
+        Building another one does not replace this. Everything you write is kept
+        under Your offers below, and you switch between them whenever you like.
+      </p>
     </Card>
   );
 }

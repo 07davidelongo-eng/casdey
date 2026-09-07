@@ -20,11 +20,16 @@ export function PageHeader({
 }) {
   return (
     <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div className="max-w-[46ch]">
+      <div className="min-w-0 flex-1">
         {eyebrow ? <p className="label mb-2 text-teal">{eyebrow}</p> : null}
-        <h1 className="display text-[1.75rem] sm:text-[2rem]">{title}</h1>
+        <h1 className="display max-w-[30ch] text-[1.75rem] sm:text-[2rem]">
+          {title}
+        </h1>
+        {/* The measure belongs to the heading, not to the paragraph under it.
+            Capping both at 46ch stacked a long lede into a narrow column with
+            the rest of the row empty. */}
         {lede ? (
-          <p className="mt-2 text-[0.9375rem] leading-relaxed text-graphite">
+          <p className="mt-2 max-w-[80ch] text-[0.9375rem] leading-relaxed text-graphite">
             {lede}
           </p>
         ) : null}

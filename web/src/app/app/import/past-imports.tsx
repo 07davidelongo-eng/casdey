@@ -101,7 +101,7 @@ export function PastImports({
                     added nobody
                   </span>
                 ) : (
-                  <span key="undo" className="whitespace-nowrap">
+                  <span key="undo">
                     <form
                       id={`undo-${run.id}`}
                       action={undo}

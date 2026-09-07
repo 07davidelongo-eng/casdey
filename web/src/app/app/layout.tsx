@@ -3,11 +3,13 @@ import Link from "next/link";
 import { AppNav } from "@/components/app/nav";
 import { IconSignOut } from "@/components/app/icons";
 import { Logo } from "@/components/wordmark";
+import { cookies } from "next/headers";
+
 import { getGymContext } from "@/lib/dal";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { SupportWidget } from "@/components/app/support-widget";
 import { UnsavedChangesGuard } from "@/components/app/unsaved-changes";
-import { ThemeToggle, THEME_SCRIPT } from "@/components/app/theme-toggle";
+import { ThemeToggle, THEME_COOKIE } from "@/components/app/theme-toggle";
 
 import "@/styles/product.css";
 
@@ -38,14 +40,17 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const context = await getGymContext();
 
-  return (
-    <div className="flex min-h-full flex-1 flex-col md:flex-row">
-      {/* Runs as the browser parses it, before anything below paints, so a
-          gym owner who chose dark never gets a chalk-white flash first.
-          Inline and tiny for the same reason: a fetched script is already
-          too late. */}
-      <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+  // Read here rather than guessed in the browser, so the first paint is
+  // already the theme the gym owner chose and React never has to reconcile a
+  // document something else has already changed underneath it.
+  const theme =
+    (await cookies()).get(THEME_COOKIE)?.value === "dark" ? "dark" : "light";
 
+  return (
+    <div
+      data-theme={theme}
+      className="flex min-h-full flex-1 flex-col bg-paper md:flex-row"
+    >
       {/* Sticky and exactly one viewport tall on desktop, with its own scroll.
           As a plain flex child it stretched to the height of whatever page it
           sat beside, which put the gym name, the theme switch and sign out at
@@ -60,7 +65,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           {/* The sidebar footer that carries the full switch is desktop only,
               so on a phone this is the only way to reach it. */}
           <div className="md:hidden">
-            <ThemeToggle compact />
+            <ThemeToggle initial={theme} compact />
           </div>
         </div>
 
@@ -77,7 +82,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
               {context.session.email}
             </p>
             <div className="mt-3 -mx-2.5">
-              <ThemeToggle />
+              <ThemeToggle initial={theme} />
             </div>
 
             <form action="/auth/signout" method="post" className="mt-1">

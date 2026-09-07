@@ -119,3 +119,57 @@ export async function weeklyActivity(
 
   return [...buckets.values()];
 }
+
+export type Totals = { sent: number; returned: number; revenueMinor: number };
+
+export type Period = {
+  weeks: WeekPoint[];
+  total: Totals;
+  /** The same length of time immediately before it, for comparison. */
+  previous: Totals;
+};
+
+function sum(weeks: WeekPoint[]): Totals {
+  return weeks.reduce(
+    (acc, week) => ({
+      sent: acc.sent + week.sent,
+      returned: acc.returned + week.returned,
+      revenueMinor: acc.revenueMinor + week.revenueMinor,
+    }),
+    { sent: 0, returned: 0, revenueMinor: 0 },
+  );
+}
+
+/**
+ * The last N weeks, and the N weeks before them.
+ *
+ * A number on a dashboard means very little on its own: 14 messages is good or
+ * bad depending entirely on what last quarter looked like. Fetching double the
+ * window and splitting it is one query's worth of work for a figure that
+ * actually tells the gym something.
+ */
+export async function activityWithComparison(
+  gymId: string,
+  weeks = 12,
+  now: Date = new Date(),
+): Promise<Period> {
+  const all = await weeklyActivity(gymId, weeks * 2, now);
+  const current = all.slice(weeks);
+  return {
+    weeks: current,
+    total: sum(current),
+    previous: sum(all.slice(0, weeks)),
+  };
+}
+
+/**
+ * Percentage change, or null when there is nothing to compare against.
+ *
+ * Null rather than 100%: going from no messages to fourteen is not a 100%
+ * improvement, it is the first time casdey did anything, and dressing that up
+ * as a percentage is the kind of number that makes a dashboard untrustworthy.
+ */
+export function change(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}

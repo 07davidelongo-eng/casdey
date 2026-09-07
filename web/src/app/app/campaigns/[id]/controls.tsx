@@ -107,7 +107,16 @@ export function CampaignControls({
         {/* A draft is the one state where changing your mind costs nothing,
             so both ways out live here: edit it, or throw it away. Deleting is
             offered only for drafts on purpose, see deleteCampaignAction. */}
+        {/* A draft is already saved, and the page never said so, so the only
+            visible ways out were approve and delete. This says it plainly and
+            gives leaving a name (#55). */}
         <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-ash pt-4">
+          <Link
+            href="/app/campaigns"
+            className="rounded-md border border-ash px-3.5 py-2 text-[0.875rem] font-medium text-graphite hover:border-stone hover:text-ink"
+          >
+            Save for later
+          </Link>
           {!isWhatsApp ? (
             <Link
               href={`/app/campaigns/${campaignId}/edit`}
@@ -130,6 +139,11 @@ export function CampaignControls({
             Delete this draft
           </ConfirmButton>
         </div>
+
+        <p className="mt-3 text-[0.8125rem] text-stone">
+          This draft is saved already. Nothing goes out until you approve it,
+          and you can come back to it from Campaigns whenever you like.
+        </p>
 
         {error ? (
           <p role="alert" className="notice notice-error mt-4">

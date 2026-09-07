@@ -457,13 +457,17 @@ export function CampaignForm({
           </Card>
 
           <Card>
-            <CardTitle>One message, or one each</CardTitle>
+            <CardTitle>Personalisation</CardTitle>
             <p className="mt-1 mb-4 text-[0.875rem] leading-relaxed text-stone">
-              Leave this on and casdey writes every member their own message,
-              from the draft above and the facts it holds about them: their
-              name, how long they have been away, why they left where you
-              recorded it, and your offer word for word. Turn it off and every
-              member gets the draft above exactly as it stands.
+              <strong className="text-ink">
+                This switch is what makes each message different.
+              </strong>{" "}
+              Leave it on and casdey writes every member their own version, from
+              your draft above and what it knows about them: their name, how
+              long they have been away, why they left where you recorded it, and
+              your offer word for word. Turn it off and all of them get the
+              draft above exactly as it stands, with only the merge fields
+              swapped.
             </p>
 
             <label className="flex items-start gap-2.5 text-[0.9375rem] text-ink">
@@ -476,10 +480,11 @@ export function CampaignForm({
                 className="mt-0.5 h-4 w-4 accent-[var(--teal)]"
               />
               <span>
-                Write each message individually
+                Let casdey write each message individually
                 <span className="mt-1 block text-[0.875rem] text-stone">
-                  You will see real examples, written against members from your
-                  own list, before you approve anything.
+                  This is the personalisation. With it on, no two members get
+                  the same words. You will see real examples, written against
+                  members from your own list, before you approve anything.
                 </span>
               </span>
             </label>

@@ -44,25 +44,25 @@ const INTEGRATIONS: Integration[] = [
   {
     name: mindbodySource.label,
     status:
-      "A direct sync is possible but needs Mindbody to approve casdey as a partner and you to switch it on for your studio. Ask us and we will start it.",
+      "A direct sync is possible but needs Mindbody to approve casdey as a partner, and you to switch it on for your studio. Ask us and we will start it.",
     state: "request",
-    href: "https://support.mindbodyonline.com/s/article/Exporting-client-data",
-    hrefLabel: "How to export your clients",
+    href: "https://support.mindbodyonline.com/s/?language=en_US",
+    hrefLabel: "Mindbody support",
   },
   {
     name: "TeamUp",
     status:
       "TeamUp gives you your own API key from your dashboard, at no cost, so this is the sync casdey can build fastest. Ask us and it moves to the front.",
     state: "request",
-    href: "https://support.goteamup.com/en/articles/1794325-exporting-your-data",
-    hrefLabel: "How to export your customers",
+    href: "https://support.goteamup.com/",
+    hrefLabel: "TeamUp support",
   },
   {
     name: "Glofox",
     status:
       "No self-serve API for member lists. Export from Glofox and casdey reads it.",
     state: "csv",
-    href: "https://support.glofox.com/hc/en-us/sections/360002216procedure",
+    href: "https://support.glofox.com/",
     hrefLabel: "Glofox support",
   },
   {
@@ -70,28 +70,42 @@ const INTEGRATIONS: Integration[] = [
     status:
       "Publishes no API, and its Zapier app can only report bookings from now on, never the members who already lapsed. The export is the only way in.",
     state: "csv",
-    href: "https://help.legitfit.com/",
-    hrefLabel: "LegitFit help centre",
+    href: "https://www.legitfit.com/help",
+    hrefLabel: "LegitFit help",
   },
   {
     name: "PushPress",
     status: "Export your members and casdey reads it.",
     state: "csv",
     href: "https://help.pushpress.com/",
-    hrefLabel: "PushPress help centre",
+    hrefLabel: "PushPress help",
   },
   {
     name: "Wodify",
     status:
       "Its API covers workouts rather than membership, so the member list comes from an export.",
     state: "csv",
-    href: "https://help.wodify.com/hc/en-us",
-    hrefLabel: "Wodify help centre",
+    href: "https://help.wodify.com/",
+    hrefLabel: "Wodify help",
   },
   {
-    name: "ABC Fitness, Zen Planner, Virtuagym and the rest",
+    name: "Virtuagym",
+    status: "Export your members and casdey reads it.",
+    state: "csv",
+    href: "https://help.virtuagym.com/",
+    hrefLabel: "Virtuagym help",
+  },
+  {
+    name: "ABC Fitness",
+    status: "Export your members and casdey reads it.",
+    state: "csv",
+    href: "https://help.abcfitness.com/",
+    hrefLabel: "ABC Fitness help",
+  },
+  {
+    name: "Anything else",
     status:
-      "casdey reads any CSV with a name, an email address and a last visit date. Nothing else is required.",
+      "casdey reads any CSV with a name, an email address and a last visit date. Nothing else is required. Tell us what you use and we will look at a sync for it.",
     state: "csv",
     href: "/contact",
     hrefLabel: "Tell us what you use",
@@ -191,9 +205,9 @@ export default async function ImportPage() {
           </table>
         </Card>
         <p className="mt-3 max-w-[46rem] text-[0.875rem] text-stone">
-          Until one of these is live, the CSV export above does the same job and
-          works with every one of them. If your software is not listed, export a
-          CSV and casdey will read it.
+          Every link goes to that company&apos;s own help site, which is where the
+          export lives and where it stays correct when they move it. If your
+          software is not listed, export a CSV and casdey will read it.
         </p>
       </section>
 

@@ -11,8 +11,8 @@ import {
 } from "@/lib/lapse";
 import { formatMoney, gymCurrency } from "@/lib/money";
 import { buildSetupState } from "@/lib/setup";
-import { weeklyActivity } from "@/lib/dashboard";
-import { TrendChart } from "@/components/app/trend-chart";
+import { activityWithComparison, change } from "@/lib/dashboard";
+import { Funnel, MetricChart, Split } from "@/components/app/chart";
 import { calendarConnectionView } from "@/lib/calendar/provider";
 import { isGoogleCalendarConfigured } from "@/lib/calendar/google";
 import { isCalendarKeyConfigured } from "@/lib/calendar/tokens";
@@ -43,15 +43,10 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     hasPricedServices(session.supabase, gym.id),
   ]);
   const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
-  // Twelve weeks of what casdey actually did (#48).
-  const weeks = await weeklyActivity(gym.id);
-  const totals = weeks.reduce(
-    (sum, week) => ({
-      sent: sum.sent + week.sent,
-      returned: sum.returned + week.returned,
-      revenueMinor: sum.revenueMinor + week.revenueMinor,
-    }),
-    { sent: 0, returned: 0, revenueMinor: 0 },
+  // Twelve weeks of what casdey did, and the twelve before them to compare
+  // against (#48, #61).
+  const { weeks, total: totals, previous } = await activityWithComparison(
+    gym.id,
   );
 
   // The first-run checklist. Derived from state the gym already has, so it
@@ -189,54 +184,11 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         />
       </div>
 
-      {/* Three measures, three charts. One chart with all three would need a
-          second y-axis, which is the worst thing a chart can have, or it would
-          squash two of them flat against the baseline. */}
-      <section className="mt-6">
-        <h2 className="display mb-1 text-[1.25rem]">The last twelve weeks</h2>
-        <p className="mb-4 text-[0.9375rem] text-graphite">
-          {totals.sent === 0
-            ? "This fills in as soon as your first campaign goes out."
-            : "What casdey has done in your name, and what came back."}
-        </p>
-        <div className="grid gap-4 md:grid-cols-3">
-          <TrendChart
-            title="Messages sent"
-            hero={String(totals.sent)}
-            caption="Every message casdey sent for you, including follow-ups."
-            points={weeks.map((week) => ({
-              label: week.label,
-              value: week.sent,
-              display: `${week.sent} sent`,
-            }))}
-          />
-          <TrendChart
-            title="Members back"
-            tone="returned"
-            hero={String(totals.returned)}
-            caption="Booked through casdey, or seen again in a later import."
-            points={weeks.map((week) => ({
-              label: week.label,
-              value: week.returned,
-              display: `${week.returned} back`,
-            }))}
-          />
-          <TrendChart
-            title="Revenue recovered"
-            tone="amber"
-            hero={formatMoney(totals.revenueMinor, currency)}
-            caption="Each booking at the price of the service it was for."
-            points={weeks.map((week) => ({
-              label: week.label,
-              value: week.revenueMinor,
-              display: formatMoney(week.revenueMinor, currency),
-            }))}
-          />
-        </div>
-      </section>
-
+      {/* Recovered revenue belongs with the counts above it, not at the bottom
+          of the page: it is the one number the whole product is judged on and
+          the first thing anybody opens this page to see. */}
       {priced ? (
-        <Card className="mt-6">
+        <Card className="mt-4">
           <p className="label text-stone">Revenue recovered</p>
           <p className="literal mt-2 text-[2.5rem] leading-none font-medium text-[color-mix(in_srgb,var(--amber)_62%,var(--ink))]">
             {formatMoney(recovered.totalMinor, currency)}
@@ -305,6 +257,132 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           </ButtonLink>
         </Card>
       )}
+
+      {/* Analytics. Each measure gets its own panel against its own scale:
+          messages sent and members returned differ by an order of magnitude,
+          and one chart with two y-axes would let the picture imply a
+          relationship the data has not earned. */}
+      <section className="mt-8">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="display text-[1.25rem]">The last twelve weeks</h2>
+          <p className="text-[0.875rem] text-stone">
+            {totals.sent === 0
+              ? "Fills in as soon as your first campaign goes out."
+              : "Compared with the twelve weeks before."}
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <MetricChart
+            title="Messages sent"
+            hero={String(totals.sent)}
+            changePercent={change(totals.sent, previous.sent)}
+            changeLabel={
+              previous.sent > 0
+                ? `${previous.sent} in the twelve before`
+                : "nothing sent before this"
+            }
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.sent,
+              display: `${week.sent} sent`,
+            }))}
+          />
+          <MetricChart
+            title="Members back"
+            tone="returned"
+            hero={String(totals.returned)}
+            changePercent={change(totals.returned, previous.returned)}
+            changeLabel={
+              previous.returned > 0
+                ? `${previous.returned} in the twelve before`
+                : "none came back before this"
+            }
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.returned,
+              display: `${week.returned} back`,
+            }))}
+          />
+          <MetricChart
+            title="Recovered"
+            tone="amber"
+            hero={formatMoney(totals.revenueMinor, currency)}
+            changePercent={change(totals.revenueMinor, previous.revenueMinor)}
+            changeLabel={
+              previous.revenueMinor > 0
+                ? `${formatMoney(previous.revenueMinor, currency)} in the twelve before`
+                : "nothing recovered before this"
+            }
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.revenueMinor,
+              display: formatMoney(week.revenueMinor, currency),
+            }))}
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardTitle>How far your list gets</CardTitle>
+            <p className="mt-1 mb-5 text-[0.875rem] text-stone">
+              Every stage as a share of the members who have gone quiet. This is
+              the whole job in three numbers.
+            </p>
+            <Funnel
+              stages={[
+                {
+                  label: "Gone quiet",
+                  value: stats.lapsed,
+                  hint: describeRule(rule),
+                  tone: "teal",
+                },
+                {
+                  label: "Written to",
+                  value: stats.contacted,
+                  hint:
+                    stats.reachable < stats.lapsed
+                      ? `${stats.lapsed - stats.reachable} of them have no email address casdey can use`
+                      : "everyone quiet is reachable by email",
+                  tone: "amber",
+                },
+                {
+                  label: "Came back",
+                  value: stats.returned,
+                  hint: "booked through casdey, or seen again in a later import",
+                  tone: "returned",
+                },
+              ]}
+            />
+          </Card>
+
+          <Card>
+            <CardTitle>Where your members stand</CardTitle>
+            <p className="mt-1 mb-5 text-[0.875rem] text-stone">
+              All {stats.members} of them, split by what casdey knows right now.
+            </p>
+            <Split
+              total={stats.members}
+              parts={[
+                {
+                  label: "Still coming",
+                  value: Math.max(
+                    stats.members -
+                      stats.lapsed -
+                      stats.contacted -
+                      stats.returned,
+                    0,
+                  ),
+                  tone: "quiet",
+                },
+                { label: "Gone quiet", value: stats.lapsed, tone: "teal" },
+                { label: "Written to", value: stats.contacted, tone: "amber" },
+                { label: "Came back", value: stats.returned, tone: "returned" },
+              ]}
+            />
+          </Card>
+        </div>
+      </section>
 
       {returned ? (
         <Card className="mt-6">
