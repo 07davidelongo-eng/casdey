@@ -89,7 +89,7 @@ export function ConfirmButton({
           <button
             type="button"
             onClick={() => ref.current?.close()}
-            className="rounded-md px-3 py-2 text-[0.9375rem] text-stone hover:text-ink"
+            className="rounded-md px-3 py-2 text-[0.9375rem] text-stone transition-colors duration-150 hover:bg-mist hover:text-ink focus-visible:bg-mist focus-visible:text-ink"
           >
             {cancelLabel}
           </button>
@@ -100,7 +100,7 @@ export function ConfirmButton({
               onConfirm?.();
               ref.current?.close();
             }}
-            className="rounded-md bg-[var(--danger)] px-3.5 py-2 text-[0.9375rem] font-medium text-white"
+            className="rounded-md bg-[var(--danger)] px-3.5 py-2 text-[0.9375rem] font-medium text-white transition-[filter,transform] duration-150 hover:brightness-110 focus-visible:brightness-110 active:scale-[0.98]"
           >
             {confirmLabel}
           </button>

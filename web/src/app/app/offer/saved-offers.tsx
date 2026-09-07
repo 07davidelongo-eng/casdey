@@ -8,6 +8,7 @@ import { ConfirmButton } from "@/components/app/confirm-button";
 import {
   assignOfferToReasonAction,
   deleteSavedOfferAction,
+  editSavedOfferAction,
   useSavedOfferAction,
   type OfferState,
 } from "./actions";
@@ -54,15 +55,25 @@ export function SavedOffers({
     assignOfferToReasonAction,
     INITIAL,
   );
+  const [editState, edit, editing] = useActionState(
+    editSavedOfferAction,
+    INITIAL,
+  );
   // Collapsed by default, same as the services page (#46). An offer is three
   // or four lines of prose, so six of them open at once is a wall.
   const [open, setOpen] = useState<string | null>(null);
+  /** Which offer is being reworded, if any (#63). */
+  const [rewording, setRewording] = useState<string | null>(null);
 
   if (offers.length === 0) return null;
 
-  const error = useState_.error ?? deleteState.error ?? assignState.error;
+  const error =
+    useState_.error ?? deleteState.error ?? assignState.error ?? editState.error;
   const message =
-    useState_.message ?? deleteState.message ?? assignState.message;
+    useState_.message ??
+    deleteState.message ??
+    assignState.message ??
+    editState.message;
 
   return (
     <Card>
@@ -135,11 +146,75 @@ export function SavedOffers({
 
               {isOpen ? (
                 <div className="border-t border-ash p-4">
-                  <p className="mb-4 rounded-md bg-mist p-3 text-[0.9375rem] text-graphite">
-                    {offer.body}
-                  </p>
+                  {/* Editing in place rather than on its own screen: the gym is
+                      already looking at the words it wants to change (#63). */}
+                  {rewording === offer.id ? (
+                    <form action={edit} className="mb-4">
+                      <input type="hidden" name="offerId" value={offer.id} />
+                      <label
+                        className="field-label"
+                        htmlFor={`name-${offer.id}`}
+                      >
+                        What you call it
+                      </label>
+                      <input
+                        id={`name-${offer.id}`}
+                        name="name"
+                        defaultValue={offer.name}
+                        maxLength={120}
+                        disabled={editing}
+                        className="field mb-3"
+                      />
+                      <label
+                        className="field-label"
+                        htmlFor={`body-${offer.id}`}
+                      >
+                        What the member reads
+                      </label>
+                      <textarea
+                        id={`body-${offer.id}`}
+                        name="body"
+                        rows={4}
+                        maxLength={600}
+                        defaultValue={offer.body}
+                        disabled={editing}
+                        className="field leading-relaxed"
+                      />
+                      <p className="field-hint">
+                        Anyone already promised the old wording keeps it. This
+                        changes what goes out from now on.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button type="submit" disabled={editing}>
+                          {editing ? "Saving" : "Save wording"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          disabled={editing}
+                          onClick={() => setRewording(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <p className="mb-4 rounded-md bg-mist p-3 text-[0.9375rem] text-graphite">
+                      {offer.body}
+                    </p>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-4">
+                    {rewording !== offer.id ? (
+                      <button
+                        type="button"
+                        onClick={() => setRewording(offer.id)}
+                        className="text-[0.875rem] text-teal underline underline-offset-4"
+                      >
+                        Edit the wording
+                      </button>
+                    ) : null}
+
                     {!inUse ? (
                       <form action={use}>
                         <input type="hidden" name="offerId" value={offer.id} />

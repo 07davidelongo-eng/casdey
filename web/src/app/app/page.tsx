@@ -12,7 +12,7 @@ import {
 import { formatMoney, gymCurrency } from "@/lib/money";
 import { buildSetupState } from "@/lib/setup";
 import { activityWithComparison, change } from "@/lib/dashboard";
-import { Funnel, MetricChart, Split } from "@/components/app/chart";
+import { Funnel, LineChart, MetricChart, Split } from "@/components/app/chart";
 import { calendarConnectionView } from "@/lib/calendar/provider";
 import { isGoogleCalendarConfigured } from "@/lib/calendar/google";
 import { isCalendarKeyConfigured } from "@/lib/calendar/tokens";
@@ -45,9 +45,12 @@ export default async function DashboardPage(props: PageProps<"/app">) {
   const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
   // Twelve weeks of what casdey did, and the twelve before them to compare
   // against (#48, #61).
-  const { weeks, total: totals, previous } = await activityWithComparison(
-    gym.id,
-  );
+  const {
+    weeks,
+    total: totals,
+    previous,
+    previousWeeks,
+  } = await activityWithComparison(gym.id);
 
   // The first-run checklist. Derived from state the gym already has, so it
   // ticks itself off and disappears once setup is done, no flag to persist.
@@ -319,6 +322,40 @@ export default async function DashboardPage(props: PageProps<"/app">) {
               value: week.revenueMinor,
               display: formatMoney(week.revenueMinor, currency),
             }))}
+          />
+        </div>
+
+        {/* The trend, at a size worth looking at, with the period before it
+            drawn behind. Two lines on one axis is the one case where two series
+            belong together: same measure, same unit, equal stretches of time. */}
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <LineChart
+            title="Revenue recovered"
+            tone="amber"
+            hero={formatMoney(totals.revenueMinor, currency)}
+            changePercent={change(totals.revenueMinor, previous.revenueMinor)}
+            caption="Each week at the price of the services actually booked. Not an average, and not a number casdey has billed."
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.revenueMinor,
+              display: formatMoney(week.revenueMinor, currency),
+            }))}
+            comparison={previousWeeks.map((week) => ({
+              value: week.revenueMinor,
+            }))}
+          />
+          <LineChart
+            title="Members back"
+            tone="returned"
+            hero={String(totals.returned)}
+            changePercent={change(totals.returned, previous.returned)}
+            caption="Booked through casdey, or seen again in a later import of your own list."
+            points={weeks.map((week) => ({
+              label: week.label,
+              value: week.returned,
+              display: `${week.returned} back`,
+            }))}
+            comparison={previousWeeks.map((week) => ({ value: week.returned }))}
           />
         </div>
 

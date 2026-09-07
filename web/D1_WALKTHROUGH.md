@@ -801,3 +801,26 @@ Then each further language is a file rather than a project. The trigger is a
 real customer who needs it, which is the same trigger already agreed for Resend
 Pro and Vercel Pro, and until then every gym casdey has spoken to reads English
 comfortably.
+
+---
+
+## Batch 5, 2026-09-07
+
+Covered in this pass: the Offer page, Import, Members, the Overview in dark
+mode. One screenshot came with it: the members list with the next-page arrow
+sitting under the support launcher. Davide also closed #57 in his opening line.
+Verbatim below.
+
+> ok just leave it in english then.
+>
+> #63: people should have the ability to edit an existing offer... besides that, I think that the suggested offer that show up after those questions, should be displayed in a horizontal carousel that you can scroll with a bar, instead of a vertical long layout like it currently is.
+>
+> #64: for the API key, help me do that once you've dealt with all the other stuff...
+>
+> #65: In the undo this import box, when I over the undo this import button, it doesn't highlight... doesn't do any type of animation that tells the user that, like, that button has been selected or or whatever. Okay? So you should do just this little fix.
+>
+> #66: Another small fix is that in the members page, like the arrows to go to the previous and the next page, like just the next page arrow is basically hidden by the the button to, you know, for the support. So, like, I cannot click it, and you can see it in the screenshot which I attached. I mean, it it is also the fact that, like, um, the page can be expanded. Okay? So, like, if I, uh, expand the browser pane, then I can see the button. But, anyway, just, like, treat it as I cannot resize the browser pane. So just make it more visible or just try and do something.
+>
+> #67: Now let's talk about the overview. So, um, when I put the dark mode, I see that some of the Texas... sorry. Some of the titles, uh, like, are black on black, so you can... you cannot actually read them very well. And now I don't know whether the three boxes with the message sent members back and recovered, uh, are some graphs, but anyway, if you didn't have any graph, like, literally a, like, a chart, a line graph, then you should definitely do that because this is also some type of stuff that I want. So maybe you can just add it or, yeah, or or things like that. The two other cards look good, I guess. The... how far you list gets and the... where your members stand. But, yes, try to put in a chart or something like that, a line chart with some data. Maybe not just one, but more than one or, like, try to see what you like. Like, by the way, if you really want to know how it should look, just go to Google or even to Shopify... well, actually, not Shopify because you would have to create an account, but just go to Google, go to YouTube, or whatever, and look at the screenshots of the Shopify dashboard, and you get what I'm saying, like, all the analytics, all the stuff, all the cool things that are on Shopify. So just get inspired by literally looking at what it looks like.
+>
+> End of batch 5

@@ -312,7 +312,7 @@ export default async function MembersPage(props: PageProps<"/app/members">) {
 
           {showPagination ? (
             <nav
-              className="mt-5 flex items-center justify-between"
+              className="mt-5 flex flex-wrap items-center gap-5"
               aria-label="Pages"
             >
               <PageLink href={link({ page: page - 1 })} disabled={page === 1}>

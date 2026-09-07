@@ -127,6 +127,8 @@ export type Period = {
   total: Totals;
   /** The same length of time immediately before it, for comparison. */
   previous: Totals;
+  /** And week by week, so a chart can draw it behind the current line. */
+  previousWeeks: WeekPoint[];
 };
 
 function sum(weeks: WeekPoint[]): Totals {
@@ -155,10 +157,12 @@ export async function activityWithComparison(
 ): Promise<Period> {
   const all = await weeklyActivity(gymId, weeks * 2, now);
   const current = all.slice(weeks);
+  const earlier = all.slice(0, weeks);
   return {
     weeks: current,
     total: sum(current),
-    previous: sum(all.slice(0, weeks)),
+    previous: sum(earlier),
+    previousWeeks: earlier,
   };
 }
 

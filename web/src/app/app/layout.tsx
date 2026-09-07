@@ -49,7 +49,12 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
   return (
     <div
       data-theme={theme}
-      className="flex min-h-full flex-1 flex-col bg-paper md:flex-row"
+      // text-ink is load-bearing, not decoration. body sets its colour from
+      // --ink resolved OUTSIDE this element, so anything that merely inherits
+      // it kept the light theme's near-black and rendered black on black in
+      // dark mode. Re-stating it here resolves the token inside the themed
+      // scope, so every descendant inherits the right one.
+      className="flex min-h-full flex-1 flex-col bg-paper text-ink md:flex-row"
     >
       {/* Sticky and exactly one viewport tall on desktop, with its own scroll.
           As a plain flex child it stretched to the height of whatever page it
@@ -100,7 +105,11 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {context ? <BillingBanner gym={context.gym} /> : null}
-        <main className="mx-auto w-full max-w-[68rem] flex-1 px-5 py-8 sm:px-8 sm:py-10">
+        {/* pb leaves room for the support launcher, which is fixed to the
+            bottom right and was sitting on top of whatever the page ended
+            with: on Members that was the next-page arrow, which could not be
+            clicked at all. */}
+        <main className="mx-auto w-full max-w-[68rem] flex-1 px-5 pt-8 pb-24 sm:px-8 sm:pt-10">
           {children}
         </main>
       </div>

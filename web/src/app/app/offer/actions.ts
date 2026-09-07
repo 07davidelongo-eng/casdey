@@ -617,3 +617,87 @@ export async function assignOfferToReasonAction(
       : "Cleared. Those members get your general offer.",
   };
 }
+
+/**
+ * Change the wording of an offer already in the library (#63).
+ *
+ * Editing here does not touch what any member was promised. gyms.offer_text is
+ * a copy taken when the offer was put in use, and every per-reason variant is
+ * a copy too, for the reason this file keeps repeating: a member promised two
+ * free weeks must never open a booking page describing something else.
+ *
+ * The one thing it does keep in step is the general offer, and only when the
+ * offer being edited is the one currently in use. Editing "Free week" while it
+ * is your live offer and having the next campaign still send the old words
+ * would be the more surprising behaviour by a distance.
+ */
+export async function editSavedOfferAction(
+  _previous: OfferState,
+  formData: FormData,
+): Promise<OfferState> {
+  const { gym, session } = await requireOwner();
+
+  const id = String(formData.get("offerId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (body.length < 10) {
+    return { error: "Write the offer as a member would read it.", message: null };
+  }
+  if (body.length > 600) {
+    return {
+      error: "That is longer than an offer should be. Keep it under 600 characters.",
+      message: null,
+    };
+  }
+
+  const client = supabaseAdmin();
+
+  const { data: existing } = await client
+    .from("gym_offers")
+    .select("id, body")
+    .eq("id", id)
+    .eq("gym_id", gym.id)
+    .maybeSingle();
+
+  if (!existing) {
+    return { error: "That offer is no longer in your list.", message: null };
+  }
+
+  const wasInUse = existing.body === gym.offer_text;
+
+  const { error } = await client
+    .from("gym_offers")
+    .update({ name: name || body.slice(0, 42), body })
+    .eq("id", id)
+    .eq("gym_id", gym.id);
+
+  if (error) {
+    console.error("[offer] edit failed", error.message);
+    return { error: "We could not save that. Try again.", message: null };
+  }
+
+  if (wasInUse) {
+    await client
+      .from("gyms")
+      .update({ offer_text: body })
+      .eq("id", gym.id);
+  }
+
+  await recordAudit({
+    gymId: gym.id,
+    actorId: session.userId,
+    actorEmail: session.email,
+    action: "offer.chosen",
+    meta: { edited: id, wasInUse },
+  });
+
+  revalidatePath("/app/offer");
+  revalidatePath("/app/campaigns/new");
+  return {
+    error: null,
+    message: wasInUse
+      ? "Saved. Your next campaign carries the new wording; anyone already promised the old one keeps it."
+      : "Saved.",
+  };
+}

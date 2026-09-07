@@ -234,3 +234,204 @@ export function Split({
     </div>
   );
 }
+
+/**
+ * A measure over time as a line, with the period before it behind it.
+ *
+ * The comparison line is the point of the whole chart. A single line tells a
+ * gym what happened; two tell it whether that is better than last time, which
+ * is the only version of the question anybody actually asks. It is the pattern
+ * every analytics dashboard worth copying uses, Shopify's included.
+ *
+ * The two series share one y-axis, and they can because they are the same
+ * measure over two equal stretches of time. That is the only circumstance in
+ * which two lines belong on one chart: same unit, same scale, no second axis.
+ *
+ * Drawn as an area plus a line rather than bars because twelve weeks is a
+ * trend, and a trend is a shape. Points carry a <title> each, so any week can
+ * be read exactly by hovering it.
+ */
+export function LineChart({
+  title,
+  hero,
+  changePercent,
+  points,
+  comparison,
+  tone = "amber",
+  caption,
+}: {
+  title: string;
+  hero: string;
+  changePercent: number | null;
+  points: { label: string; value: number; display: string }[];
+  /** The same measure, the period before. Same length, same scale. */
+  comparison: { value: number }[];
+  tone?: Tone;
+  caption?: string;
+}) {
+  const width = 600;
+  const height = 200;
+  const padTop = 16;
+  const padBottom = 28;
+  const padLeft = 8;
+  const padRight = 8;
+
+  // One scale for both lines. Taking the max across the pair is what makes the
+  // comparison honest: scaling each to its own maximum would draw two flat
+  // lines and hide the difference the chart exists to show.
+  const max = Math.max(
+    ...points.map((p) => p.value),
+    ...comparison.map((p) => p.value),
+    1,
+  );
+
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+  const step = points.length > 1 ? plotWidth / (points.length - 1) : 0;
+
+  const x = (index: number) => padLeft + index * step;
+  const y = (value: number) => padTop + plotHeight - (value / max) * plotHeight;
+
+  const path = (series: { value: number }[]) =>
+    series
+      .map((point, index) => `${index === 0 ? "M" : "L"}${x(index)} ${y(point.value)}`)
+      .join(" ");
+
+  const area = `${path(points)} L${x(points.length - 1)} ${padTop + plotHeight} L${x(0)} ${padTop + plotHeight} Z`;
+  const fill = TONES[tone];
+  const gradientId = `fade-${title.replace(/\W+/g, "")}`;
+
+  return (
+    <div className="rounded-[16px] border border-ash bg-white p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <p className="label text-stone">{title}</p>
+          <p className="literal mt-1 text-[1.75rem] leading-none font-medium text-ink">
+            {hero}
+          </p>
+        </div>
+        {changePercent !== null ? (
+          <span
+            className={`literal text-[0.875rem] font-medium ${
+              changePercent >= 0 ? "text-teal" : "text-stone"
+            }`}
+          >
+            {changePercent >= 0 ? "+" : ""}
+            {changePercent}% on the twelve before
+          </span>
+        ) : null}
+      </div>
+
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`${title} over the last ${points.length} weeks, against the ${comparison.length} weeks before`}
+        className="mt-4 block h-[200px] w-full"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={fill} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={fill} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {[0, 0.5, 1].map((stop) => (
+          <line
+            key={stop}
+            x1={padLeft}
+            x2={width - padRight}
+            y1={padTop + plotHeight * stop}
+            y2={padTop + plotHeight * stop}
+            stroke="var(--ash)"
+            strokeWidth={1}
+          />
+        ))}
+
+        {/* Behind, dashed and quiet: it is context, not the subject. */}
+        <path
+          d={path(comparison)}
+          fill="none"
+          stroke="var(--stone)"
+          strokeWidth={1.5}
+          strokeDasharray="4 4"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          opacity={0.7}
+        />
+
+        <path d={area} fill={`url(#${gradientId})`} />
+        <path
+          d={path(points)}
+          fill="none"
+          stroke={fill}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {points.map((point, index) => (
+          <circle
+            key={point.label}
+            cx={x(index)}
+            cy={y(point.value)}
+            r={index === points.length - 1 ? 4 : 3}
+            fill={index === points.length - 1 ? fill : "var(--white)"}
+            stroke={fill}
+            strokeWidth={1.5}
+          >
+            <title>{`${point.label}: ${point.display}`}</title>
+          </circle>
+        ))}
+
+        <text
+          x={padLeft}
+          y={height - 8}
+          className="literal"
+          fontSize="11"
+          fill="var(--stone)"
+        >
+          {points[0]?.label}
+        </text>
+        <text
+          x={width - padRight}
+          y={height - 8}
+          textAnchor="end"
+          className="literal"
+          fontSize="11"
+          fill="var(--stone)"
+        >
+          {points.at(-1)?.label}
+        </text>
+      </svg>
+
+      {/* Two series, so a legend is not optional. */}
+      <div className="mt-3 flex flex-wrap items-center gap-5 text-[0.8125rem] text-stone">
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="h-0.5 w-5 rounded-full"
+            style={{ background: fill }}
+          />
+          Last twelve weeks
+        </span>
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="h-0.5 w-5 rounded-full opacity-70"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(to right, var(--stone) 0 4px, transparent 4px 8px)",
+            }}
+          />
+          The twelve before
+        </span>
+      </div>
+
+      {caption ? (
+        <p className="mt-3 text-[0.8125rem] leading-relaxed text-stone">
+          {caption}
+        </p>
+      ) : null}
+    </div>
+  );
+}

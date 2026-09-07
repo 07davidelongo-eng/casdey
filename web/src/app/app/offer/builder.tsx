@@ -196,8 +196,16 @@ export function OfferBuilder({
           ) : null}
         </Card>
 
+        {/* Sideways, because these are alternatives to compare rather than a
+            list to read through: stacked vertically, the third suggestion was
+            a scroll away from the first and nobody weighed them against each
+            other. Scroll-snap so each one lands square. */}
+        <div className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-3">
         {ranked.map(({ offer }) => (
-          <Card key={offer.id}>
+          <Card
+            key={offer.id}
+            className="flex w-[19rem] shrink-0 snap-start flex-col sm:w-[22rem]"
+          >
             <CardTitle>{offer.name}</CardTitle>
             <p className="mb-4 rounded-md bg-mist p-3 text-[0.9375rem]">
               {offer.dated && deadline
@@ -212,11 +220,14 @@ export function OfferBuilder({
               <strong className="text-ink">What it costs you.</strong>{" "}
               {offer.cost}
             </p>
-            <Button type="button" onClick={() => setChosenId(offer.id)}>
-              Use this offer
-            </Button>
+            <div className="mt-auto">
+              <Button type="button" onClick={() => setChosenId(offer.id)}>
+                Use this offer
+              </Button>
+            </div>
           </Card>
         ))}
+        </div>
 
         <div className="flex flex-wrap gap-4">
           <button
