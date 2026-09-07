@@ -20,6 +20,23 @@ export type BookState = {
   booked: boolean;
   error: string | null;
   confirmedStartAt: string | null;
+  /**
+   * Where this member can cancel, shown on the confirmation itself.
+   *
+   * It used to live only in the confirmation email, which is not sent at all
+   * when the member has no email address on file (phone-only members are
+   * importable), and can fail for any of the ordinary reasons a send fails.
+   * A member who booked and cannot reach this link cannot cancel at all, so
+   * the screen they are already looking at has to carry it.
+   *
+   * Optional so the failure returns above do not each have to repeat it.
+   */
+  manageUrl?: string | null;
+  /**
+   * Whether a confirmation email was actually sent. The screen promised one
+   * unconditionally, including to members casdey has no address for.
+   */
+  emailed?: boolean;
 };
 
 /**
@@ -296,7 +313,13 @@ export async function bookSlotAction(
     console.error("[booking] confirmation send failed", error);
   });
 
-  return { booked: true, error: null, confirmedStartAt: startAt.toISOString() };
+  return {
+    booked: true,
+    error: null,
+    confirmedStartAt: startAt.toISOString(),
+    manageUrl: `${siteUrl()}/book/${booking.booking_token}/manage`,
+    emailed: Boolean(member.email),
+  };
 }
 
 function memberLabel(member: {

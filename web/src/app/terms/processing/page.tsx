@@ -175,11 +175,18 @@ export default function ProcessingTermsPage() {
                 </>,
                 <>
                   <strong className="font-semibold text-ink">Anthropic</strong>,
-                  only for the WhatsApp channel, to write the replies in a
-                  conversation once a member has answered. It receives the text
-                  of that conversation and the gym&apos;s name, processes them
-                  in the United States, and is contractually barred from
-                  training on them. Not used for email.
+                  in two places, both of which the gym turns on itself. If the
+                  gym asks casdey to write each message individually, it
+                  receives the gym&apos;s own message and the few facts casdey
+                  holds about that member: their first name, roughly how long
+                  since their last visit, the reason for leaving if the gym
+                  recorded one, and the gym&apos;s offer. If the gym turns on
+                  the WhatsApp channel, it also receives the text of a
+                  conversation once a member has replied. In both cases it
+                  receives the gym&apos;s name, processes in the United States,
+                  and is contractually barred from training on any of it. A gym
+                  that leaves individual writing off and WhatsApp off shares
+                  nothing with Anthropic.
                 </>,
               ]}
             />

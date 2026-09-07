@@ -60,9 +60,23 @@ export function BookingForm({
         <p className="mt-2">
           {state.confirmedStartAt
             ? formatConfirmed(state.confirmedStartAt, timezone)
-            : "Check your email for the details."}{" "}
-          A confirmation with a calendar invite is on its way to your inbox.
+            : "Your time is confirmed."}{" "}
+          {state.emailed
+            ? "A confirmation with a calendar invite is on its way to your inbox."
+            : null}
         </p>
+        {/* The way out, on the screen itself. Promising it by email and
+            nothing else strands any member casdey has no address for, and
+            anyone whose confirmation does not arrive. */}
+        {state.manageUrl ? (
+          <p className="mt-2">
+            Need to cancel?{" "}
+            <a href={state.manageUrl} className="underline">
+              Manage this booking
+            </a>
+            . Keep the link, it stays valid.
+          </p>
+        ) : null}
       </div>
     );
   }
