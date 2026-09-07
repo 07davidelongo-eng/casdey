@@ -249,19 +249,35 @@ export default async function BillingPage(
           </p>
         ) : (
           <p className="text-[0.9375rem] text-graphite">
-            {gym.subscription_status === "past_due"
-              ? "Your last payment did not go through. Sending is paused until the card is updated."
-              : `${planLabel(plan)} is active. Sending is on.`}
-            {gym.current_period_end ? (
+            {gym.subscription_status === "past_due" ? (
+              "Your last payment did not go through. Sending is paused until the card is updated."
+            ) : gym.cancels_at ? (
+              /* Cancelled, but paid up to the end of the period. Saying
+                 "next payment" here told a gym that had just cancelled it
+                 would be charged again. */
               <>
-                {" "}
-                Next payment{" "}
+                {planLabel(plan)} is active until{" "}
                 <span className="literal text-ink">
-                  {formatDate(gym.current_period_end)}
+                  {formatDate(gym.cancels_at)}
                 </span>
-                .
+                , then you drop to the Free plan. Sending is on until then, and
+                nothing more is charged.
               </>
-            ) : null}
+            ) : (
+              <>
+                {planLabel(plan)} is active. Sending is on.
+                {gym.current_period_end ? (
+                  <>
+                    {" "}
+                    Next payment{" "}
+                    <span className="literal text-ink">
+                      {formatDate(gym.current_period_end)}
+                    </span>
+                    .
+                  </>
+                ) : null}
+              </>
+            )}
           </p>
         )}
 

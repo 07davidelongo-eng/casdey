@@ -36,6 +36,7 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     plan_interval: null,
     trial_ends_at: null,
     current_period_end: null,
+    cancels_at: null,
     premium_started_at: null,
     early_adopter: true,
     booking_value_minor: null,

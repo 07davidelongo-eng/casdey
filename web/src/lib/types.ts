@@ -123,6 +123,8 @@ export type Gym = {
   plan_interval: "month" | "year" | null;
   trial_ends_at: string | null;
   current_period_end: string | null;
+  /** When a cancelled subscription ends. Null means it renews as normal. */
+  cancels_at: string | null;
   /** When the first real (non-trial) Premium payment landed. Null until then.
    *  The guarantee clock can only start on or after this date. See
    *  src/lib/guarantee.ts. */

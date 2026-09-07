@@ -319,6 +319,13 @@ async function syncSubscription(
     // overwrite it. As of API version 2026-07-29 the billing period lives on
     // the subscription item, not on the subscription itself.
     current_period_end: toIso(item?.current_period_end),
+    // Whether this subscription is winding down. Stripe keeps a
+    // cancelled-at-period-end subscription "active" until the period ends,
+    // which is right, but without this the billing page reads
+    // current_period_end as the next charge and tells a gym that has just
+    // cancelled that it will be billed again. Written on every sync, so
+    // resuming a cancelled subscription clears it.
+    cancels_at: toIso(subscription.cancel_at),
     plan_currency: price?.currency === "gbp" ? "gbp" : "eur",
     plan_interval: price?.recurring?.interval === "year" ? "year" : "month",
     // Only write plan_tier when a tier actually resolves, so a not-yet-
