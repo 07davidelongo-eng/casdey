@@ -12,3 +12,13 @@ temporary screenshots/
 wiki/
 
 .vercel
+
+# Google service-account keys. These are private keys, not config: the outreach
+# routine's `casdey-routine@casdey-gws-cli.iam.gserviceaccount.com` credential
+# lands here as a downloaded JSON file. Never commit one.
+casdey-gws-cli-*.json
+*-service-account*.json
+
+# Next.js build output. The real app builds in web/, so anything at the repo
+# root is a stray from running next outside it.
+.next/
