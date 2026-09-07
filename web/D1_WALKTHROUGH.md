@@ -140,10 +140,11 @@ start.
 - Seen, batch 3: Settings again (Gym, Services, Data and privacy), the Offer
   page again, Campaigns including trying to approve and test one, Import
   again, Overview again, Members.
+- Seen, batch 4: Overview, Settings Data and privacy, the Offer page,
+  Campaigns including approving and sending one, Import, Members, Calendar.
 - Not seen yet, or not commented on: a member's own page, the booking flow a
-  member actually sees, the new Calendar page, Settings Booking, Sending and
-  WhatsApp, sign up, password reset, `/waitlist`, `/privacy`, the processing
-  terms.
+  member actually sees, Settings Booking, Sending and WhatsApp, sign up,
+  password reset, `/waitlist`, `/privacy`, the processing terms.
 
 ---
 
@@ -689,3 +690,114 @@ cards, and Data and privacy with the truncated search box. Verbatim below.
 > #62: Okay. Even the calendar page looks like shit. Like, what five did you do? It looks... what the fuck did you do? Like it looks very, very bad, it is not a calendar. It doesn't make sense. It should little bit... it should literally be like a calendar. So just think how a Google Calendar is made. Okay? You know, with all the day's pages, etcetera, and you should do the same. And as I told you, you should have, like, a plug in or an integration or whatever is called, um, of Google Calendar, and that just can be enabled so you can, you know, enable it when you want or disable it. But you should still have, like, a fixed built in calendar by Casti, which, like, gets inspired by by the Google Calendar or just a normal calendar where you have different days and pages and events, and you can scroll around, and you can select the date, and you can see the events, the hours, the the... and all the stuff. So just get inspired by Google Calendar and also I have the possible integration of a Google Calendar that, like, when you select the integration, you can literally see open your Google Calendar in the page. Okay? So, like, there's a window where you literally see your Google Calendar. Just... like, let me let me tell you what is the specific name because I forgot. You should put, like, a... okay. An embed. You should be able to embed your Google Calendar in this page.
 >
 > So this is batch, I think, four, and do the same stuff in the end, like the list with the done and undone thing like we did with all the other batch, and make sure to save also this batch.
+
+---
+
+## Batch 4 status board
+
+| # | One line | Area | Size | Status |
+|---|----------|------|------|--------|
+| 51 | The red issue box is back | app wide | M | done |
+| 52 | The audit search box is cut off mid-placeholder | settings | XS | done |
+| 53 | The offer lede still does not run the page | app wide | XS | done |
+| 54 | No obvious way to build another suggested offer | offer | S | done |
+| 55 | A draft needs a save-for-later, and a visible way back | campaigns | S | done |
+| 56 | Which switch turns personalisation on, and use my own Anthropic account | campaigns | S | done in product, key needs Davide |
+| 57 | Pick the language of the whole software | app wide | XL | not built, see below |
+| 58 | The integration links go to pages that do not exist | import | S | done |
+| 59 | The undo dialog stretches into one long line | import | XS | done |
+| 60 | Members needs ten a page and a real search | members | M | done |
+| 61 | The overview is not the dashboard that was asked for | overview | L | done |
+| 62 | The calendar is not a calendar | calendar | L | done |
+
+---
+
+## Claude's notes, batch 4
+
+Written by Claude, not Davide.
+
+**#51 was never a badge.** The overlay was counting a hydration failure that
+happened on every page of the product, and the cause was casdey's own dark-mode
+script: it read localStorage and stamped `data-theme` onto the document before
+paint, so by the time React arrived the page had already been rewritten
+underneath it and React regenerated the whole tree. Two attempts at keeping the
+script and quietening React made it worse, which was the signal that the script
+itself was the problem.
+
+The preference is a cookie now. The server can read a cookie, so the app shell
+renders the right theme in the first place: no script, no flash, nothing to
+reconcile, and dark mode stays scoped to the product because the attribute is
+on the shell rather than on `<html>`. A second failure was mine from yesterday:
+an SVG `<title>` given two text children, which React hoists and cannot
+hydrate.
+
+**#61, what changed and why it is not three boxes.** Recovered revenue sits
+directly under the five counts, because it is the number the product is judged
+on and it belongs with them. Below it, each measure gets its own panel against
+its own scale, with the twelve weeks before it as the comparison, because a
+number with nothing to compare it to is decoration. Then two panels that say
+something the tiles cannot: a funnel from gone quiet to written to to came
+back, which is the whole job in three bars on one scale, and a split of where
+every member currently stands.
+
+What is deliberately absent is the one thing that would have made it look
+busier: a chart with two y-axes. Messages sent and members returned differ by
+an order of magnitude, and drawing them on one chart with two scales lets the
+picture imply a relationship the data has not earned.
+
+**#62, the first version was a list of days, which is a diary the way a receipt
+is a spreadsheet.** It is a month grid now, with the weeks stacked, today
+ringed, and a day you can click to see its hours. Navigation is links rather
+than state, so a month is a URL that survives a reload. The gym's own Google
+Calendar can be embedded underneath, off by default, and the page says plainly
+that the embed shows whatever Google shows the person looking, because casdey's
+own read access is free/busy only and could not render it otherwise.
+
+---
+
+## #56, the Anthropic account
+
+The switch is **"Let casdey write each message individually"** on the campaign
+form, on by default, and it now says on the card that it is the personalisation
+rather than leaving that to be inferred.
+
+Davide asked to move billing to his personal Anthropic account. That is one
+value casdey cannot fetch for itself: the key has to come from him. When he has
+it, it replaces `ANTHROPIC_API_KEY` in three places, and all three or none:
+
+  - Vercel, Production
+  - Vercel, Preview
+  - `web/.env.local`
+
+Same key powers the WhatsApp reply loop, so a half-done swap leaves that
+answering nobody.
+
+---
+
+## #57, the language of the software, and why it is not done
+
+Member-facing copy is already localised. The messages casdey sends, the ones a
+gym's own customers read, exist in all seven languages and follow the campaign's
+language setting (batch 2, #34). That is the half that reaches the public.
+
+What #57 asks for is the admin interface: every screen a gym owner sees. That
+is a different size of job and worth being honest about rather than half doing:
+
+  - Several hundred strings across roughly forty screens, plus every server
+    action's error messages and every empty state.
+  - The copy is the product's voice. casdey does not read like software, and
+    machine-translating it without a native reader gets back something that
+    does, in six languages at once, with nobody able to tell.
+  - A half-translated interface is worse than an English one. A gym owner who
+    sets Italian and meets English on the billing page trusts neither.
+
+The infrastructure alone is not the hard part and would not help on its own: a
+language switch that changes nothing is worse than no switch.
+
+**What is actually worth doing, when it is worth doing it.** One language
+first, Italian, done properly and read by Davide before it ships, with the
+strings extracted as they are translated rather than in a big pass beforehand.
+Then each further language is a file rather than a project. The trigger is a
+real customer who needs it, which is the same trigger already agreed for Resend
+Pro and Vercel Pro, and until then every gym casdey has spoken to reads English
+comfortably.
