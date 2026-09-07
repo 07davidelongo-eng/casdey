@@ -105,6 +105,27 @@ Davide's own notes from a video plus Alex Hormozi's teachings (his business ment
 
 Keep automation on the side while lead volume is still small early on, add it back later. If the Week 1/2 volume (30 total, 5/day) turns out too low, increase it.
 
+## Marketing plan (rewritten 2026-09-07, Hormozi "More, Better, New" — current authority for outreach volume + testing)
+
+**Mentor context.** Davide's only mentor is Alex Hormozi. He has read *$100M Offers* and *$100M Leads* (the third book, *$100M Money Models*, still to read); Hormozi's videos are treated as restating the books, so either source counts. Marketing and outreach decisions should be checkable against a Hormozi framework, and Davide expects future casdey work in this project to be run the way Hormozi would.
+
+**Source of truth.** The Google Doc **"Marketing Plan"** in the info@casdey.com Google Drive (file id `1dd6GLXQ2_4ZKCpY43HtUV9YgJVRWGH5AJiJ-Qfpm4J0`), rewritten from scratch 2026-09-07 against *$100M Leads*. This section mirrors it; the Doc wins if they diverge.
+
+**Baseline being changed** (full mechanics: `.claude/skills/gym-outreach/SKILL.md` on branch `gym-outreach-automation`, plus the two live cloud routines): 75 cold emails/day (A/B split — A feedback-driven, B onboarding-driven) + 2 follow-ups per lead; 10 cold DMs/day (first touch references the email) + 2 follow-ups per lead.
+
+**Changes to implement** — Hormozi's "More, Better, New"; **"New" is deferred** (too small to add channels yet):
+1. **More volume.** Target **200 cold emails/day** (100 first-touch + 100 follow-ups) and **20 cold DMs/day** (10 first-touch + 10 follow-ups). **Hard-blocked on upgrading Resend off the Free plan** — Free caps 100 emails/day / 3,000/mo and the product shares the same Resend quota (see the Resend bullet under Infrastructure and `web/SAAS_V1_PLAN.md` G1a). Davide's action (billing); no routine change can exceed 100/day until it lands. Note: a flat 100 FT + 100 FU is not a stable steady state — 100 first-touch/day generates ~190 follow-up obligations/day against a 100/day follow-up budget, so the follow-up backlog grows; the split needs rebalancing (fewer first-touch, or higher total) when the volume bump is actually built.
+2. **Better — a weekly test loop.** Each week, run one improvement test on one of: first-touch cold email, follow-up emails, DM first touch, DM follow-up. The lever can be the subject line, hook, CTA/offer, how the offer is framed, tone, etc. End of each week, a "meeting" (Davide + Claude): (a) read the results and pick the winner(s); (b) append the outcome to a **cumulative test log** so the next test builds on the current best, not square one; (c) decide the next test to beat the current best. If the current best survives **4 consecutive weekly tests**, treat it as an established winner and move testing effort to another asset.
+
+**Status (2026-09-07): decisions taken, changes staged and held.** Davide's calls this session:
+- **Volume shape:** first-touch is the fixed lever at **100 cold emails/day**; follow-ups are sized around that with no cap; total may exceed 200/day (~290 expected steady state) and that's fine. IG stays 10 first-DM + 10 follow-up drafts/day.
+- **Apply timing:** the volume bump AND the week-1 test are prepped now and **held** until Davide confirms Resend Pro is live (he gives the signal in the marketing chat). No interim bump.
+- **Test log:** a "Test Log" tab in the Casdey-Gym-Leads sheet (routine creates + maintains headers; weekly rows pasted in by Davide), pointer from the Marketing Plan doc.
+- **Weekly meeting:** manual, in the marketing chat (not a scheduled routine — routines can't edit files). First one the Sunday after the bump goes live.
+- **Testing style:** small parallel A/B tests per week (not one change at a time), starting with the first-touch **subject line**. The existing CTA A/B (permission vs free-to-try) is logged as test T0, still unvalidated.
+
+Full staged spec (exact prompt edits, Test Log schema, weekly-meeting steps): `scratchpad/staged-more-better.md` this session; mirror into `.claude/skills/gym-outreach/SKILL.md` on branch `gym-outreach-automation` when applied. Still open: finalise the two subject-line variants; confirm whether the doc's "IG follow-ups as emails" means patterned-on-email (assumed) or a literal channel switch.
+
 ## Offer evolution (beta → V1 → V2)
 
 **Superseded in part 2026-09-03 by the 3-tier move (Track F). READ THIS FIRST.** The phase structure below (beta → V1 → V2, free week → Free plan → early-adopter discount if you upgrade) still holds. What changed: the single "Premium" tier became **Free / Standard / Pro** (see the Price bullet above and `web/SAAS_V1_PLAN.md` §F0), and the lifetime early-adopter discount is now a flat **20% off either paid tier**, not £50/€59. So "upgrade to Premium" below now means "upgrade to Standard or Pro", and "£50/€59" is now "20%". The V2 end-state is Free / Standard / Pro, not "Free vs Premium".
