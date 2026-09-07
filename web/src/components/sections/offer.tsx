@@ -62,14 +62,18 @@ export function Offer() {
                 <IconShield className="h-5 w-5" />
               </span>
               <div>
-                <p className="label text-teal">The guarantee</p>
+                {/* "on Pro" is not a detail. The guarantee is a Pro feature
+                    (Track F); a Standard gym pays and is not covered. The
+                    pricing page has always said so, and this block said it
+                    unconditionally, which is the half a buyer reads first. */}
+                <p className="label text-teal">The guarantee, on Pro</p>
                 <p className="display mt-2 text-[1.5rem] leading-tight text-ink">
                   Profit or nothing.
                 </p>
                 <p className="mt-3 max-w-xl text-[0.9375rem] leading-relaxed text-graphite">
-                  If casdey does not recover more than it costs, you do not pay.
-                  No ad budget and no agency retainer stacked on top, just the
-                  subscription, backed by that.
+                  On Pro, if casdey does not recover more than it costs, you do
+                  not pay. No ad budget and no agency retainer stacked on top,
+                  just the subscription, backed by that.
                 </p>
               </div>
             </div>

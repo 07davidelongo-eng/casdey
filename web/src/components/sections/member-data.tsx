@@ -16,7 +16,11 @@ import { Container } from "../ui";
 const FACTS = [
   {
     label: "Where it lives",
-    value: "UK and EU",
+    // Ireland, not "UK and EU". The database is a single eu-west-1 project,
+    // so nothing is stored in the UK, and the processing terms already say
+    // Ireland. A residency claim is the one place to be exact rather than
+    // roughly right about the market casdey sells into.
+    value: "Ireland, EU",
     body: "Where your member data is stored and processed. It does not leave without a lawful basis.",
   },
   {

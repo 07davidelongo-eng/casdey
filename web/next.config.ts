@@ -33,21 +33,21 @@ const nextConfig: NextConfig = {
       { source: "/homepage", destination: "/", permanent: false },
     ];
 
-    // Narrowed 2026-08-23: the gym/fitness V1 is now going out to real
-    // invited gyms for the free-trial/feedback loop, so /app and everything
-    // it depends on (auth, booking, unsubscribe, legal pages, password
-    // reset) must be reachable in production. Only the public marketing
-    // homepage stays behind /waitlist for now — going fully public is a
-    // separate, later decision. Locally (`next dev`) this block is skipped
-    // entirely, so nothing changes for development. /api/* is untouched in
-    // both cases. Reversible: to republish the homepage too, delete this
-    // `unpublish` block; to re-gate everything, restore the fuller list.
-    // Temporary (307/308) redirect, not permanent.
-    const unpublish = [{ source: "/", destination: "/waitlist", permanent: false }];
-
-    return process.env.NODE_ENV === "production"
-      ? [...always, ...unpublish]
-      : always;
+    // Published 2026-09-07. casdey.com now serves the product to anyone.
+    //
+    // History, because the shape of this block mattered for three weeks: the
+    // whole site was redirected to /waitlist during the dental→gym pivot
+    // (2026-08-19), narrowed on 2026-08-23 so only the marketing homepage
+    // stayed behind /waitlist while invited gyms used /app, and removed here
+    // once the V1 gates were met. /waitlist is deliberately kept reachable at
+    // its own URL: the cold outreach has been linking to it since August and
+    // those links must not break.
+    //
+    // To un-publish again, restore:
+    //   { source: "/", destination: "/waitlist", permanent: false }
+    // guarded by NODE_ENV === "production". It was a temporary 307, never a
+    // permanent redirect, precisely so republishing needs no cache to expire.
+    return always;
   },
 };
 
