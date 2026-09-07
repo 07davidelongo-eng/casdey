@@ -1,7 +1,7 @@
 # STAGED — "More, Better" outreach changes
 
 **Status:** staged 2026-09-07. **Do NOT apply to the live routines until Davide confirms Resend Pro (or higher) is active.**
-Trigger to apply: Davide says in the marketing chat that Resend is upgraded. Until then both routines run unchanged (email 75/day reserved-floor split; IG 10 first-DM drafts/day).
+Trigger to apply: Davide says in the marketing chat that Resend is upgraded. **Resend Pro is live as of 2026-09-07, so the plan prerequisite is satisfied; this stays staged pending Davide own go-ahead and the two subject-line variants being finalised.** Until then both routines run unchanged (email 75/day reserved-floor split; IG 10 first-DM drafts/day).
 
 Applied via `RemoteTrigger action:update` on the two triggers, then SKILL.md synced on branch `gym-outreach-automation`.
 

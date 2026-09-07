@@ -442,8 +442,9 @@ anywhere):**
 - Account SID starts `ACd3a30e46…` (full value in `web/.env.local`), created
   **2026-08-15**. Upgraded to **`type: Full`** on 2026-09-04 (verified via the
   Twilio API, not the dashboard).
-- Note `info@casdey.com` is a Zoho **group**, delivered to both Davide and
-  Abhi, so Twilio mail reaches them both.
+- Note `info@casdey.com` is a Zoho **group**. It was set up to deliver to both
+  Davide and Abhi; since 2026-09-07 Abhi is no longer involved, so in practice
+  it reaches Davide only.
 
 ### B9. Confirm JD's gym software — `closed 2026-09-04: LegitFit, no API → E2 to V2`
 JD runs **LegitFit** (Irish gym/studio booking + membership platform). The open
@@ -847,6 +848,9 @@ through it rather than on top of it.** Migration `0017`.
 > two things below.
 
 **G1a. The Resend plan is the real ceiling — found 2026-09-04, NOT a code problem.**
+
+**RESOLVED 2026-09-07: Resend Pro ($20/mo) is live.** The 100/day cap is gone and domains went 3 → 10 (not unlimited: two are casdey own, so ~8 gyms can have their own sending identity before the domain add-on). Billed to `info@casdey.com` on an Italian billing address, on a team now shared between Davide personal login and info@. This also unblocks the marketing plan volume increase, which could never exceed 100/day on Free. The analysis below is kept as the reasoning for why it mattered.
+
 Connecting a second gym domain through the UI returned:
 
 ```
@@ -1501,7 +1505,7 @@ Then    ── TRACK D  (Davide's walkthrough) ──► V1 READY
 | C3 | Calendar booking end-to-end in prod | me | **done 2026-09-05** — two prod-only breaks found and fixed: `redirect_uri_mismatch` (apex vs www), then booking never writing to Google at all under A6's narrowed scope (migration `0020`). Connect → book → event confirmed in Google → cancel → event cancelled, all verified in prod |
 | C4 | Every wizard step verified in prod | me | **done 2026-09-05** — all 13 `/app` routes 200, matching local; C3 was the only prod-only break |
 | G1 | Email from the gym's own domain (Resend per-gym) | me | **done and proven in prod 2026-09-05** — connect → DNS at GoDaddy → `verified` → a real send delivered from `hello@gymtest.casdey.com` with the gym's reply-to. Two findings on the way: it only needed time, and the "Check again" button was itself un-verifying the domain, which no gym could ever have got past |
-| G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | deferred by decision 2026-09-04. **Now also blocks the marketing plan's volume increase** (CLAUDE.md "Marketing plan", `MARKETING_STAGED.md`): outreach cannot go past 100 emails/day on the Free plan, and the staged 100 first-touch + all-due-follow-ups routine is held until this lands. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day. **Now also the binding limit on send throughput** (§3.9): until this happens a gym's campaign is throttled to ~25/day whatever the code does |
+| G1a | **Upgrade Resend to Pro ($20/mo)** | Davide | **done 2026-09-07** — Pro live, $20/mo, billed to info@casdey.com. Previously: deferred by decision 2026-09-04. **Now also blocks the marketing plan's volume increase** (CLAUDE.md "Marketing plan", `MARKETING_STAGED.md`): outreach cannot go past 100 emails/day on the Free plan, and the staged 100 first-touch + all-due-follow-ups routine is held until this lands. Free caps at 100/day, 3 domains (= 1 gym); outreach already uses 75/day of the *same* pool. Trigger: first gym campaign, or outreach >90/day. **Now also the binding limit on send throughput** (§3.9): until this happens a gym's campaign is throttled to ~25/day whatever the code does |
 | §3.9 | Send throughput: drain a full day's work per run | me | **done 2026-09-05** — the queue drained 25/day against a promise of 50/gym/day. Also fixed a loop that would have re-read capped gyms' rows, and a rate-limit error that burned retry attempts |
 | §3.10 | At-risk visit cap: does a regular going quiet count? | Davide + me | **done 2026-09-05** — Davide's call: drop the cap for at-risk only, keep it for win-back. A 20-visit regular who stops coming is now flagged and can be sent a check-in; the settings copy no longer implies a limit that is not there |
 | §3.11 | Feature-readiness stress test (full walk as a gym) | me | **done 2026-09-05** — three failures found and fixed: a shared email address silently deleting one member and giving another their identity, phone-only members unimportable (so Pro's WhatsApp channel could reach nobody), and a dead calendar connection invisible to the gym. Migration `0021` applied. Four smaller items left open, listed in §3.11 |
