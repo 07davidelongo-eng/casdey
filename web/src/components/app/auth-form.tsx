@@ -136,11 +136,21 @@ export function AuthForm({
       redirectTo: `${canonicalOrigin()}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
     });
 
-    if (error) {
+    // A rate limit is the one failure worth showing, because it is the one the
+    // person can act on: the link is genuinely not coming yet, and saying
+    // "check your email" would have them waiting on nothing.
+    if (error && /rate|too many|only request this after/i.test(error.message)) {
       setStatus("error");
-      setMessage(error.message);
+      setMessage(
+        "Too many reset emails have been requested for this address. Wait a minute and try again.",
+      );
       return;
     }
+
+    // Every other outcome lands on the same screen, whether or not that address
+    // has an account. Supabase does not reveal which, and neither should the
+    // page: an error shown only for addresses casdey knows would turn this form
+    // into a way to test whether a given gym has signed up.
     setStatus("sent");
     setMessage(email);
   }
@@ -175,11 +185,22 @@ export function AuthForm({
           {isReset ? "Check your email" : "Confirm your email"}
         </h1>
         <p className="mt-3 text-[0.9375rem] text-graphite">
-          We sent {isReset ? "a password reset link" : "a link"} to{" "}
-          <span className="literal text-ink">{message}</span>.{" "}
-          {isReset
-            ? "Open it to choose a new password."
-            : "Open it and you are in."}{" "}
+          {isReset ? (
+            <>
+              {/* Deliberately conditional. Stating flatly that a link was sent
+                  would confirm the address has an account, which is the one
+                  thing this screen must not tell a stranger. */}
+              If <span className="literal text-ink">{message}</span> has a
+              casdey account, a password reset link is on its way. Open it to
+              choose a new password.
+            </>
+          ) : (
+            <>
+              We sent a link to{" "}
+              <span className="literal text-ink">{message}</span>. Open it and
+              you are in.
+            </>
+          )}{" "}
           It can take a minute, and it sometimes lands in spam.
         </p>
       </div>

@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  RECOVERY_COOKIE,
+  RECOVERY_WINDOW_SECONDS,
+  RESET_PATH,
+} from "@/lib/password-recovery";
 import { supabaseServer } from "@/lib/supabase-server";
 import { safeNextPath } from "@/lib/safe-redirect";
 
@@ -41,7 +46,30 @@ export async function GET(request: NextRequest): Promise<Response> {
     );
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  const response = NextResponse.redirect(`${origin}${next}`);
+
+  // A recovery link, and only a recovery link, earns the right to set a new
+  // password without knowing the old one.
+  //
+  // Supabase hands back an ordinary session for a recovery code, with nothing
+  // on it that says how it was obtained, so without this marker /reset-password
+  // cannot tell "clicked the emailed link two seconds ago" from "was already
+  // signed in on this laptop". Treating those the same is what let anyone with
+  // a borrowed session change the password and lock the owner out.
+  //
+  // Short-lived on purpose: it grants the weaker check, so it should outlive
+  // the click and nothing more.
+  if (next === RESET_PATH) {
+    response.cookies.set(RECOVERY_COOKIE, "1", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: RECOVERY_WINDOW_SECONDS,
+    });
+  }
+
+  return response;
 }
 
 function redirectToLogin(origin: string, message: string): NextResponse {
