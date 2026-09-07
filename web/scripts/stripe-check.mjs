@@ -300,6 +300,44 @@ const REQUIRED_EVENTS = [
 
 const expectedPath = "/api/stripe/webhook";
 
+/**
+ * POSTs an unsigned body to a webhook URL and reports only the status line.
+ *
+ * Answers the one question Stripe's configuration cannot: does a delivery to
+ * this URL actually arrive? Redirects are not followed, because Stripe does
+ * not follow them either, and that is exactly the failure being looked for.
+ */
+async function probeEndpoint(url) {
+  const https = await import("node:https");
+  const agent = new https.Agent({ keepAlive: false });
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      url,
+      {
+        method: "POST",
+        agent,
+        headers: { "content-type": "application/json", "content-length": 2 },
+        timeout: 10_000,
+      },
+      (response) => {
+        const probeStatus = response.statusCode ?? 0;
+        const probeLocation = response.headers.location ?? null;
+        response.resume(); // drain, so the socket closes rather than lingering
+        response.on("end", () => {
+          agent.destroy();
+          resolve({ probeStatus, probeLocation });
+        });
+      },
+    );
+    request.on("timeout", () => request.destroy(new Error("timed out")));
+    request.on("error", (error) => {
+      agent.destroy();
+      reject(error);
+    });
+    request.end("{}");
+  });
+}
+
 try {
   const endpoints = await stripe.webhookEndpoints.list({ limit: 100 });
   const ours = endpoints.data.filter((e) => e.url.endsWith(expectedPath));
@@ -329,6 +367,43 @@ try {
       );
     } else {
       ok(`${endpoint.url} — enabled, all ${REQUIRED_EVENTS.length} required events`);
+    }
+
+    // Configured is not the same as reachable.
+    //
+    // On 2026-09-07 this endpoint was registered on the apex domain while the
+    // site is canonically served from www, so every delivery got a 308 and
+    // Stripe, which does not follow redirects for webhooks, recorded five
+    // straight failures. A real payment was taken and the gym stayed marked
+    // unpaid. Everything above passed at the time, because all of it reads
+    // Stripe's configuration rather than asking whether a request survives
+    // the trip. So: POST an unsigned body and insist on a 4xx. A redirect,
+    // a 404 or a 5xx all mean deliveries are being thrown away.
+    // Deliberately node:https rather than fetch. fetch keeps its connection
+    // pooled in undici, and on Windows the still-open socket makes node trip a
+    // libuv assertion during exit, aborting the process: the check printed
+    // "All good" and still exited non-zero, which is worse than not checking.
+    // An explicit agent with keepAlive off closes the socket with the response.
+    try {
+      const { probeStatus, probeLocation } = await probeEndpoint(endpoint.url);
+      if (probeStatus >= 300 && probeStatus < 400) {
+        bad(
+          `${endpoint.url} answers ${probeStatus}, a redirect`,
+          `Stripe does not follow redirects: every delivery fails and no gym is ` +
+            `ever marked as paying. Point the endpoint at ` +
+            `${probeLocation ?? "the canonical URL"} instead.`,
+        );
+      } else if (probeStatus >= 400 && probeStatus < 500) {
+        ok(`${endpoint.url} — reachable (${probeStatus} on an unsigned body, as it should)`);
+      } else {
+        bad(
+          `${endpoint.url} answers ${probeStatus} to an unsigned POST`,
+          "Expected a 4xx from signature verification. Anything else means the " +
+            "route is not handling deliveries.",
+        );
+      }
+    } catch (error) {
+      bad(`${endpoint.url} could not be reached`, error.message);
     }
   }
 } catch (error) {
