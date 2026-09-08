@@ -12,14 +12,15 @@ import { NextResponse, type NextRequest } from "next/server";
  *      refreshed token would be dropped and the user would be logged out at
  *      random.
  *   2. An optimistic redirect so a signed-out visitor never reaches an /app
- *      render. This is a convenience, not a security boundary: the real check
- *      is `requireSession()` in src/lib/dal.ts, which runs against the data.
+ *      (or /admin) render. This is a convenience, not a security boundary:
+ *      the real check is `requireSession()`/`requireAdmin()` in src/lib/dal.ts
+ *      and src/lib/admin.ts, which run against the data.
  *
  * No database work here. Proxy runs on prefetches too, so anything slow would
  * be paid for on every hovered link.
  */
 
-const PROTECTED_PREFIX = "/app";
+const PROTECTED_PREFIXES = ["/app", "/admin"];
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   let response = NextResponse.next({ request });
@@ -64,7 +65,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   const path = request.nextUrl.pathname;
 
-  if (path.startsWith(PROTECTED_PREFIX) && !user) {
+  if (PROTECTED_PREFIXES.some((prefix) => path.startsWith(prefix)) && !user) {
     const target = new URL("/login", request.url);
     target.searchParams.set("next", path);
     return NextResponse.redirect(target);
@@ -78,5 +79,5 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/login"],
+  matcher: ["/app/:path*", "/admin/:path*", "/login"],
 };
