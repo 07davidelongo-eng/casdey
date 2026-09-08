@@ -29,6 +29,13 @@ import type { Gym } from "./types";
  * abandoned it. That half needs an actual analytics tool (PostHog EU,
  * cookieless — see the 2026-09-08 planning note) and is deliberately not
  * faked here with a number this file cannot honestly produce.
+ *
+ * Every query here excludes gyms.is_internal (migration 0035, 2026-09-08):
+ * casdey's own dev/QA gyms live in the same table real customers do, because
+ * local development points at the same Supabase project as production. Found
+ * the hard way: this page counted three test-mode Stripe subscriptions from
+ * feature stress-tests, plus Davide's own live-mode test account from the
+ * 2026-09-07 V1 walkthrough, as four paying customers.
  */
 
 /** Monday of the week containing this date, in UTC. Same rule as
@@ -100,7 +107,11 @@ export async function signupTrend(
 
   const [waitlist, gyms] = await Promise.all([
     supabase.from("waitlist_signups").select("created_at").gte("created_at", fromIso),
-    supabase.from("gyms").select("created_at").gte("created_at", fromIso),
+    supabase
+      .from("gyms")
+      .select("created_at")
+      .eq("is_internal", false)
+      .gte("created_at", fromIso),
   ]);
 
   if (waitlist.error) {
@@ -152,7 +163,8 @@ export async function planBreakdown(
 ): Promise<{ counts: PlanCounts; total: number }> {
   const { data, error } = await supabaseAdmin()
     .from("gyms")
-    .select("subscription_status, trial_ends_at, plan_tier");
+    .select("subscription_status, trial_ends_at, plan_tier")
+    .eq("is_internal", false);
 
   const counts: PlanCounts = { trial: 0, free: 0, standard: 0, pro: 0 };
 
@@ -208,6 +220,7 @@ export async function mrr(): Promise<MrrByCurrency> {
   const { data: gyms, error } = await supabaseAdmin()
     .from("gyms")
     .select("id, stripe_subscription_id, early_adopter")
+    .eq("is_internal", false)
     .in("subscription_status", ["active", "past_due"])
     .not("stripe_subscription_id", "is", null);
 
@@ -279,6 +292,7 @@ export async function churnSummary(
   const { data, error } = await supabaseAdmin()
     .from("gyms")
     .select("updated_at")
+    .eq("is_internal", false)
     .eq("subscription_status", "canceled")
     .gte("updated_at", previousFrom.toISOString());
 
@@ -313,7 +327,10 @@ export type GuaranteeSummary = {
 export async function guaranteeSummary(): Promise<GuaranteeSummary> {
   const { data, error } = await supabaseAdmin()
     .from("guarantee_claims")
-    .select("status, refunded_minor, gyms (plan_currency)");
+    // !inner so the is_internal filter below actually excludes the row,
+    // rather than just nulling out the embed on a left join.
+    .select("status, refunded_minor, gyms!inner(plan_currency, is_internal)")
+    .eq("gyms.is_internal", false);
 
   const refundedByCurrency: MrrByCurrency = { eur: 0, gbp: 0 };
 

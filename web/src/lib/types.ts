@@ -131,6 +131,10 @@ export type Gym = {
   premium_started_at: string | null;
   /** Joined in the V1/waitlist window, so keeps the lifetime upgrade discount. */
   early_adopter: boolean;
+  /** A casdey-created dev/QA gym, never a real customer. Mirrors
+   *  members.is_test. Excluded from every founder-facing count in
+   *  admin-stats.ts, whatever its Stripe or plan state. */
+  is_internal: boolean;
   /** Typical value of a recovered booking, in minor units of the billing
    *  currency. Null until the gym sets it. Powers the revenue estimate and
    *  the profit-or-nothing guarantee. See src/lib/money.ts. */
