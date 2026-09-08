@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { currencyFor } from "@/lib/countries";
 import { earlyAdopterProgramActive } from "@/lib/plan";
 import type { PlanTier } from "@/lib/types";
@@ -107,6 +108,16 @@ export async function POST(request: NextRequest): Promise<Response> {
       actorEmail: session.email,
       action: "billing.started",
       meta: { tier, currency, interval, discounted: Boolean(coupon) },
+    });
+
+    // A checkout session existing is the honest definition of "started": it
+    // is the last thing casdey's own server does before handing off to
+    // Stripe's hosted page, which casdey has no visibility into at all.
+    await captureServerEvent(gym.id, "checkout_started", {
+      tier,
+      currency,
+      interval,
+      discounted: Boolean(coupon),
     });
 
     // 303 so the browser turns the form POST into a GET on Stripe's page.

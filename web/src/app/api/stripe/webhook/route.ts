@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { armsGuaranteeClock } from "@/lib/guarantee";
 import { planTierForPriceId, stripeClient } from "@/lib/stripe";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
+import { captureServerEvent } from "@/lib/posthog-server";
 import type { PlanTier, SubscriptionStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -111,6 +112,16 @@ async function handle(event: Stripe.Event): Promise<void> {
         subscription,
         session.client_reference_id ?? undefined,
       );
+
+      // The gym paying, not casdey's own webhook plumbing succeeding: this is
+      // Stripe's own record of a completed checkout, the same session
+      // checkout_started was captured against.
+      if (session.client_reference_id) {
+        await captureServerEvent(session.client_reference_id, "checkout_completed", {
+          amount_total_minor: session.amount_total,
+          currency: session.currency,
+        });
+      }
       return;
     }
 

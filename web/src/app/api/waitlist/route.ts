@@ -5,6 +5,7 @@ import {
   notifyTeam,
   validate,
 } from "@/lib/waitlist";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 // Server-only: this route holds the Supabase service role key and the Zoho
 // credentials, neither of which may reach the browser.
@@ -86,6 +87,11 @@ export async function POST(request: NextRequest): Promise<Response> {
       await Promise.allSettled([
         notifyTeam(checked.value),
         confirmToGym(checked.value),
+        // A repeat submission from the same lead is not a second join, so
+        // this sits inside the same guard as the two emails above.
+        captureServerEvent(checked.value.email, "waitlist_joined", {
+          software: checked.value.software || null,
+        }),
       ]);
     }
 

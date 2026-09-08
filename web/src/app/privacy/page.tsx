@@ -20,6 +20,14 @@ import { Container } from "@/components/ui";
  * choice. A registered legal/trading entity and a postal address are deliberately
  * deferred until casdey has a registered entity (no P.IVA yet); email-only contact
  * is a defensible pre-entity choice for a waitlist notice under UK/EU GDPR art. 13.
+ *
+ * Analytics disclosure added 2026-09-08: PostHog (EU Cloud, cookieless) was
+ * wired into the whole site that day, and "no analytics that profiles you"
+ * under "What we collect" would otherwise sit here false. It is site-wide,
+ * not waitlist-specific, so it gets its own section rather than being folded
+ * into the waitlist scope this page otherwise keeps to. It never touches
+ * member data, which is why it is not in /terms/processing's sub-processor
+ * list: no member name, email, or phone number is ever sent to PostHog.
  */
 
 export const metadata: Metadata = {
@@ -29,7 +37,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = "1 September 2026";
+const LAST_UPDATED = "8 September 2026";
 
 function H2({ children }: { children: React.ReactNode }) {
   return <h2 className="display mt-14 text-[1.5rem] text-ink">{children}</h2>;
@@ -84,9 +92,22 @@ export default function PrivacyPage() {
             <P>
               Only what the waitlist form asks for: your gym name, your work
               email address, and optionally the gym software you use. We also
-              record the date you joined. There is nothing else, no tracking
-              pixels, no advertising cookies, and no analytics that profiles
-              you.
+              record the date you joined. There are no advertising cookies and
+              nothing here is sold or shared for anyone else&apos;s marketing.
+            </P>
+
+            <H2>Analytics on this website</H2>
+            <P>
+              We use PostHog, hosted in the EU, to see roughly how many people
+              visit casdey.com and which pages they land on. It runs
+              cookieless: no cookie is set, nothing is written to your
+              browser&apos;s storage, and you are counted by a rotating,
+              privacy-preserving hash PostHog computes on its own servers
+              rather than an identifier tied to you personally. That is also
+              why there is no cookie banner: nothing is stored on your device
+              to ask permission for. It is not used for advertising, does not
+              follow you to other websites, and is never linked to your
+              waitlist entry.
             </P>
 
             <H2>Why we collect it</H2>

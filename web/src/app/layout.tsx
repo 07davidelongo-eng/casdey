@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, Outfit } from "next/font/google";
+import { PostHogProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
 // Titles and the wordmark. One face for both, so the logo is not a stranger
@@ -69,7 +70,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en-GB"
       className={`${outfit.variable} ${plex.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <PostHogProvider />
+        {children}
+      </body>
     </html>
   );
 }

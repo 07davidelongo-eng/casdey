@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getGymContext, requireSession } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { COUNTRIES, timezoneFor } from "@/lib/countries";
 import {
   TRIAL_DAYS,
@@ -106,6 +107,12 @@ export async function createGymAction(
       action: "gym.created",
       meta: { country, trial: trialEnabled },
     });
+
+    // gymId, not the signed-in email: everything a gym does from here on
+    // (import, campaign, checkout) is keyed the same way, so the product
+    // funnel can be built without stitching identities together after the
+    // fact.
+    await captureServerEvent(gymId, "gym_signed_up", { country });
   }
 
   // Straight into the product. The free week is already running; upgrading to

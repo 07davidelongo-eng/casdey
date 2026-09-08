@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { atRiskRuleFor, ruleFor } from "@/lib/lapse";
 import { gymReasons } from "@/lib/reasons";
 import {
@@ -610,6 +611,12 @@ export async function approveCampaignAction(
     meta: { queued },
   });
 
+  await captureServerEvent(gym.id, "campaign_approved", {
+    channel: "email",
+    kind,
+    audience_size: audience.length,
+  });
+
   revalidatePath("/app", "layout");
   return { error: null };
 }
@@ -690,6 +697,13 @@ async function approveWhatsAppCampaign(
     action: "campaign.approved",
     target: campaignId,
     meta: { channel: "whatsapp", sent: report.sent, failed: report.failed },
+  });
+
+  await captureServerEvent(gym.id, "campaign_approved", {
+    channel: "whatsapp",
+    audience_size: audience.length,
+    sent: report.sent,
+    failed: report.failed,
   });
 
   revalidatePath("/app", "layout");

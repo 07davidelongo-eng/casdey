@@ -6,6 +6,7 @@ import {
   planBreakdown,
   signupTrend,
 } from "@/lib/admin-stats";
+import { checkoutFunnel, visitorTrend } from "@/lib/posthog-query";
 import { formatMoney } from "@/lib/money";
 import { Funnel, LineChart, Split } from "@/components/app/chart";
 import { Card, CardTitle, PageHeader, Stat } from "@/components/app/ui";
@@ -15,24 +16,27 @@ export const metadata = { title: "Business overview" };
 /**
  * casdey's own Shopify-style admin page: the numbers a founder checks, not a
  * gym owner. See src/lib/admin-stats.ts for what each figure is sourced from
- * and why.
+ * and why, and src/lib/posthog-query.ts for the visitor/checkout half, added
+ * once PostHog EU (cookieless) was wired in on 2026-09-08.
  *
- * What is missing on purpose: visitors, and how many of them reached
- * checkout. Nothing in casdey's own tables can answer that, it needs an
- * actual analytics tool wired into the marketing site and the checkout flow
- * (PostHog EU, cookieless, planned 2026-09-08). This page is built so that
- * half slots in as its own card once that lands, without reshaping the rest.
+ * visitors/checkout are the two figures nothing in casdey's own tables can
+ * answer, so they come back `null` rather than a fake zero whenever PostHog
+ * is not configured or unreachable — the page says so explicitly instead of
+ * drawing a chart or a conversion rate that looks real but is not.
  */
 export default async function AdminPage() {
   await requireAdmin();
 
-  const [plans, revenue, signups, churn, guarantee] = await Promise.all([
-    planBreakdown(),
-    mrr(),
-    signupTrend(),
-    churnSummary(),
-    guaranteeSummary(),
-  ]);
+  const [plans, revenue, signups, churn, guarantee, visitors, checkout] =
+    await Promise.all([
+      planBreakdown(),
+      mrr(),
+      signupTrend(),
+      churnSummary(),
+      guaranteeSummary(),
+      visitorTrend(),
+      checkoutFunnel(),
+    ]);
 
   const payingGyms = plans.counts.standard + plans.counts.pro;
   const guaranteeRefunded =
@@ -81,7 +85,29 @@ export default async function AdminPage() {
         />
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {visitors ? (
+          <LineChart
+            title="Visitors"
+            hero={String(visitors.totalCurrent)}
+            changePercent={visitors.changePercent}
+            tone="returned"
+            points={visitors.current.map((week) => ({
+              label: week.label,
+              value: week.visitors,
+              display: String(week.visitors),
+            }))}
+            comparison={visitors.previous.map((week) => ({ value: week.visitors }))}
+          />
+        ) : (
+          <Card>
+            <CardTitle>Visitors</CardTitle>
+            <p className="mt-2 text-[0.8125rem] text-stone">
+              Not connected. Set NEXT_PUBLIC_POSTHOG_HOST, POSTHOG_PROJECT_ID
+              and POSTHOG_PERSONAL_API_KEY, or check that PostHog is reachable.
+            </p>
+          </Card>
+        )}
         <LineChart
           title="Waitlist signups"
           hero={String(signups.totals.waitlist)}
@@ -124,14 +150,25 @@ export default async function AdminPage() {
           </div>
         </Card>
         <Card>
-          <CardTitle>The funnel casdey can see today</CardTitle>
+          <CardTitle>The funnel</CardTitle>
           <p className="mt-1 text-[0.8125rem] text-stone">
-            Visitors and checkout starts are not in this list, they need an
-            analytics tool, not a table casdey already has.
+            {visitors
+              ? "Visitors are an anonymous cookieless count, so a visitor cannot be traced into a later signup one-for-one. Checkout started/completed can: both are captured server-side against the same gym."
+              : "Visitors need PostHog connected (see the card above) to appear here."}
           </p>
           <div className="mt-4">
             <Funnel
               stages={[
+                ...(visitors
+                  ? [
+                      {
+                        label: "Visitors",
+                        value: visitors.totalCurrent,
+                        hint: "Last 12 weeks",
+                        tone: "returned" as const,
+                      },
+                    ]
+                  : []),
                 {
                   label: "Waitlist joins",
                   value: signups.totals.waitlist,
@@ -144,6 +181,22 @@ export default async function AdminPage() {
                   hint: "Last 12 weeks",
                   tone: "returned",
                 },
+                ...(checkout
+                  ? [
+                      {
+                        label: "Checkout started",
+                        value: checkout.started,
+                        hint: "Last 12 weeks",
+                        tone: "amber" as const,
+                      },
+                      {
+                        label: "Checkout completed",
+                        value: checkout.completed,
+                        hint: "Last 12 weeks",
+                        tone: "teal" as const,
+                      },
+                    ]
+                  : []),
                 {
                   label: "Gyms paying",
                   value: payingGyms,
