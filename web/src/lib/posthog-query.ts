@@ -1,6 +1,7 @@
 import "server-only";
 
 import { change } from "./dashboard";
+import { periodBuckets } from "./admin-period";
 
 /**
  * Reading numbers back out of PostHog for /admin.
@@ -13,6 +14,10 @@ import { change } from "./dashboard";
  * docs: "eu.i.posthog.com for public endpoints and eu.posthog.com for
  * private ones." The ".i." is the whole difference, so it is stripped rather
  * than hand-maintaining a second host env var that could drift from the first.
+ *
+ * Everything here returns null (never a fake zero) when PostHog is not
+ * configured or a request fails: /admin then says so in words instead of
+ * drawing a chart that looks real but is not.
  */
 function appHost(): string | null {
   const ingestHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -30,8 +35,7 @@ function configured(): { host: string; projectId: string; key: string } | null {
 
 /** Runs one HogQL query and returns its rows, or null if PostHog is not
  *  configured or the request fails. Every caller treats null as "nothing to
- *  show", never as zero: /admin says so explicitly rather than drawing a
- *  false 0% while PostHog is unreachable. */
+ *  show", never as zero. */
 async function hogql(query: string): Promise<unknown[][] | null> {
   const config = configured();
   if (!config) return null;
@@ -67,7 +71,25 @@ async function hogql(query: string): Promise<unknown[][] | null> {
   }
 }
 
-export type VisitorWeek = { weekStart: string; label: string; visitors: number };
+/** Whether the read side is wired at all. Lets /admin show one "not connected"
+ *  note for the whole PostHog section rather than one per empty card. */
+export function posthogConfigured(): boolean {
+  return configured() !== null;
+}
+
+type Bucket = "day" | "week";
+const DEFAULT_DAYS = 84;
+
+/* ------------------------------------------------------------------ */
+/* Visitors and pageviews, over the period                            */
+/* ------------------------------------------------------------------ */
+
+export type VisitorWeek = {
+  key: string;
+  label: string;
+  visitors: number;
+  views: number;
+};
 
 export type VisitorTrend = {
   current: VisitorWeek[];
@@ -75,85 +97,69 @@ export type VisitorTrend = {
   totalCurrent: number;
   totalPrevious: number;
   changePercent: number | null;
+  viewsCurrent: number;
+  viewsPrevious: number;
+  viewsChangePercent: number | null;
 };
-
-// Same Monday-start bucketing admin-stats.ts uses, kept local rather than
-// imported for the same reason that file gives for not importing
-// dashboard.ts's copy: each of these files buckets its own weeks
-// independently rather than depending on another module's private helper.
-function weekStartOf(date: Date): Date {
-  const d = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-  const offset = (d.getUTCDay() + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - offset);
-  return d;
-}
-
-function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-const WEEK_LABEL = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-});
 
 /**
  * Unique visitors (by PostHog's cookieless hash, not a real person, but the
- * closest honest proxy) per week, the last `weeks` weeks against the `weeks`
- * before — the same shape signupTrend() in admin-stats.ts returns, so the two
- * can sit side by side as LineCharts and mean the same "week".
+ * closest honest proxy) and raw pageviews per bucket, the last `days` days
+ * against the `days` before — the same shape gymSignupTrend() in
+ * admin-stats.ts returns, so the two can sit side by side and mean the same
+ * bucket.
  *
- * PostHog's GROUP BY only returns weeks that actually had a pageview, so the
- * raw rows are re-indexed onto a fixed, gap-free week list (toMonday() rather
- * than toStartOfWeek()'s mode argument, whose Monday-vs-Sunday values are not
- * worth getting wrong silently) exactly like every other weekly chart in this
- * app already does for the same reason: an empty week must read as zero, not
- * fall out of the axis.
+ * The DISTINCT count is done in HogQL at the right granularity (toStartOfDay /
+ * toMonday), not summed from daily rows in JS — a week's uniques is not the
+ * sum of its days' uniques. PostHog's GROUP BY only returns buckets that had a
+ * pageview, so the rows are re-indexed onto a fixed, gap-free list: an empty
+ * bucket must read as zero, not fall out of the axis.
  */
 export async function visitorTrend(
-  weeks = 12,
+  days = DEFAULT_DAYS,
+  bucket: Bucket = "week",
   now: Date = new Date(),
 ): Promise<VisitorTrend | null> {
+  const groupExpr =
+    bucket === "day" ? "toStartOfDay(timestamp)" : "toMonday(timestamp)";
   const rows = await hogql(`
-    SELECT toMonday(timestamp) AS week, count(DISTINCT distinct_id) AS visitors
+    SELECT ${groupExpr} AS b,
+           count(DISTINCT distinct_id) AS visitors,
+           count() AS views
     FROM events
-    WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${weeks * 2} WEEK
-    GROUP BY week
-    ORDER BY week
+    WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days * 2} DAY
+    GROUP BY b
+    ORDER BY b
   `);
   if (rows === null) return null;
 
-  const byWeek = new Map(
-    rows.map((row) => [String(row[0]).slice(0, 10), Number(row[1])]),
+  const byBucket = new Map(
+    rows.map((row) => [
+      String(row[0]).slice(0, 10),
+      { visitors: Number(row[1]), views: Number(row[2]) },
+    ]),
   );
 
-  const totalWeeks = weeks * 2;
-  const thisWeek = weekStartOf(now);
-  const from = new Date(thisWeek);
-  from.setUTCDate(from.getUTCDate() - (totalWeeks - 1) * 7);
+  const { all: anchors, perSide } = periodBuckets(days, bucket, now);
+  const all: VisitorWeek[] = anchors.map((a) => {
+    const hit = byBucket.get(a.key);
+    return {
+      key: a.key,
+      label: a.label,
+      visitors: hit?.visitors ?? 0,
+      views: hit?.views ?? 0,
+    };
+  });
 
-  const all: VisitorWeek[] = [];
-  for (let i = 0; i < totalWeeks; i += 1) {
-    const start = new Date(from);
-    start.setUTCDate(start.getUTCDate() + i * 7);
-    const key = dayKey(start);
-    all.push({
-      weekStart: key,
-      label: WEEK_LABEL.format(start),
-      visitors: byWeek.get(key) ?? 0,
-    });
-  }
+  const current = all.slice(perSide);
+  const previous = all.slice(0, perSide);
+  const sum = (arr: VisitorWeek[], k: "visitors" | "views") =>
+    arr.reduce((total, week) => total + week[k], 0);
 
-  const current = all.slice(weeks);
-  const previous = all.slice(0, weeks);
-  const sum = (arr: VisitorWeek[]) =>
-    arr.reduce((total, week) => total + week.visitors, 0);
-
-  const totalCurrent = sum(current);
-  const totalPrevious = sum(previous);
+  const totalCurrent = sum(current, "visitors");
+  const totalPrevious = sum(previous, "visitors");
+  const viewsCurrent = sum(current, "views");
+  const viewsPrevious = sum(previous, "views");
 
   return {
     current,
@@ -161,32 +167,159 @@ export async function visitorTrend(
     totalCurrent,
     totalPrevious,
     changePercent: change(totalCurrent, totalPrevious),
+    viewsCurrent,
+    viewsPrevious,
+    viewsChangePercent: change(viewsCurrent, viewsPrevious),
   };
 }
 
-export type CheckoutFunnel = { started: number; completed: number };
+/* ------------------------------------------------------------------ */
+/* Ranked breakdowns: pages, referrers, countries, devices           */
+/* ------------------------------------------------------------------ */
+
+export type RankedRow = { label: string; value: number };
+
+/**
+ * The client captures $current_url as a bare path (see posthog-provider.tsx),
+ * so there is no host to strip, only a trailing ?query. splitByChar returns a
+ * 1-indexed array; [1] is the part before the first '?'.
+ */
+const PAGE_EXPR = "splitByChar('?', coalesce(properties.$current_url, ''))[1]";
+
+async function ranked(
+  query: string,
+  blankAs: string,
+): Promise<RankedRow[] | null> {
+  const rows = await hogql(query);
+  if (rows === null) return null;
+  return rows
+    .map(([label, value]) => {
+      const text =
+        label == null || label === "" || label === "$direct"
+          ? blankAs
+          : String(label);
+      return { label: text, value: Number(value) };
+    })
+    .filter((row) => Number.isFinite(row.value) && row.value > 0);
+}
+
+/** Most-viewed paths, last `days` days. */
+export function topPages(days = 84, limit = 12): Promise<RankedRow[] | null> {
+  return ranked(
+    `
+    SELECT ${PAGE_EXPR} AS page, count() AS views
+    FROM events
+    WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days} DAY
+    GROUP BY page
+    ORDER BY views DESC
+    LIMIT ${limit}
+    `,
+    "/",
+  );
+}
+
+/** Where visitors came from, by referring domain. $direct (typed the URL or a
+ *  bookmark) is folded into one honest bucket rather than dropped. */
+export function topReferrers(
+  days = 84,
+  limit = 12,
+): Promise<RankedRow[] | null> {
+  return ranked(
+    `
+    SELECT properties.$referring_domain AS ref,
+           count(DISTINCT distinct_id) AS visitors
+    FROM events
+    WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days} DAY
+    GROUP BY ref
+    ORDER BY visitors DESC
+    LIMIT ${limit}
+    `,
+    "Direct / none",
+  );
+}
+
+/** Visitors by country, from PostHog's GeoIP enrichment. */
+export function topCountries(
+  days = 84,
+  limit = 12,
+): Promise<RankedRow[] | null> {
+  return ranked(
+    `
+    SELECT properties.$geoip_country_name AS country,
+           count(DISTINCT distinct_id) AS visitors
+    FROM events
+    WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days} DAY
+    GROUP BY country
+    ORDER BY visitors DESC
+    LIMIT ${limit}
+    `,
+    "Unknown",
+  );
+}
+
+/** Desktop / Mobile / Tablet split. */
+export function deviceMix(days = 84): Promise<RankedRow[] | null> {
+  return ranked(
+    `
+    SELECT properties.$device_type AS device,
+           count(DISTINCT distinct_id) AS visitors
+    FROM events
+    WHERE event = '$pageview' AND timestamp >= now() - INTERVAL ${days} DAY
+    GROUP BY device
+    ORDER BY visitors DESC
+    `,
+    "Unknown",
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The checkout half of the funnel                                    */
+/* ------------------------------------------------------------------ */
+
+export type CheckoutFunnel = {
+  started: number;
+  completed: number;
+  /** Started, split by the tier the gym picked. */
+  startedByTier: RankedRow[];
+};
 
 /**
  * How many gyms started a Stripe Checkout versus actually completed one, the
- * last `weeks` weeks. Both events are captured server-side keyed on gym.id
+ * last `days` days. Both events are captured server-side keyed on gym.id
  * (see checkout/route.ts and stripe/webhook/route.ts), so — unlike a website
  * visitor, who is anonymous — this pair genuinely is the same gym on both
  * rows, not two numbers assumed to relate.
  */
-export async function checkoutFunnel(weeks = 12): Promise<CheckoutFunnel | null> {
-  const rows = await hogql(`
-    SELECT event, count(DISTINCT distinct_id) AS gyms
-    FROM events
-    WHERE event IN ('checkout_started', 'checkout_completed')
-      AND timestamp >= now() - INTERVAL ${weeks} WEEK
-    GROUP BY event
-  `);
-  if (rows === null) return null;
+export async function checkoutFunnel(
+  days = 84,
+): Promise<CheckoutFunnel | null> {
+  const [totals, byTier] = await Promise.all([
+    hogql(`
+      SELECT event, count(DISTINCT distinct_id) AS gyms
+      FROM events
+      WHERE event IN ('checkout_started', 'checkout_completed')
+        AND timestamp >= now() - INTERVAL ${days} DAY
+      GROUP BY event
+    `),
+    hogql(`
+      SELECT properties.tier AS tier, count(DISTINCT distinct_id) AS gyms
+      FROM events
+      WHERE event = 'checkout_started'
+        AND timestamp >= now() - INTERVAL ${days} DAY
+      GROUP BY tier
+      ORDER BY gyms DESC
+    `),
+  ]);
+  if (totals === null) return null;
 
-  const funnel: CheckoutFunnel = { started: 0, completed: 0 };
-  for (const [event, count] of rows) {
+  const funnel: CheckoutFunnel = { started: 0, completed: 0, startedByTier: [] };
+  for (const [event, count] of totals) {
     if (event === "checkout_started") funnel.started = Number(count);
     if (event === "checkout_completed") funnel.completed = Number(count);
+  }
+  for (const [tier, count] of byTier ?? []) {
+    if (tier == null) continue;
+    funnel.startedByTier.push({ label: String(tier), value: Number(count) });
   }
   return funnel;
 }

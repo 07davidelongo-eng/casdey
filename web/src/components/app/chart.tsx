@@ -259,6 +259,7 @@ export function LineChart({
   comparison,
   tone = "amber",
   caption,
+  periodLabel = "twelve weeks",
 }: {
   title: string;
   hero: string;
@@ -268,6 +269,9 @@ export function LineChart({
   comparison: { value: number }[];
   tone?: Tone;
   caption?: string;
+  /** What one period is called, for the legend and the change caption.
+   *  Defaults to "twelve weeks" — the per-gym dashboard's fixed window. */
+  periodLabel?: string;
 }) {
   const width = 600;
   const height = 200;
@@ -317,7 +321,7 @@ export function LineChart({
             }`}
           >
             {changePercent >= 0 ? "+" : ""}
-            {changePercent}% on the twelve before
+            {changePercent}% on the {periodLabel} before
           </span>
         ) : null}
       </div>
@@ -412,7 +416,7 @@ export function LineChart({
             className="h-0.5 w-5 rounded-full"
             style={{ background: fill }}
           />
-          Last twelve weeks
+          Last {periodLabel}
         </span>
         <span className="flex items-center gap-2">
           <span
@@ -423,7 +427,7 @@ export function LineChart({
                 "repeating-linear-gradient(to right, var(--stone) 0 4px, transparent 4px 8px)",
             }}
           />
-          The twelve before
+          The {periodLabel} before
         </span>
       </div>
 

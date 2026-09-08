@@ -4,31 +4,31 @@ import { supabaseAdmin } from "./supabase";
 import { stripeClient } from "./stripe";
 import { effectivePlan, type Plan } from "./plan";
 import { change } from "./dashboard";
+import { bucketKeyFor, periodBuckets, type PeriodPoint } from "./admin-period";
+import { gymCurrency } from "./money";
 import type { Gym } from "./types";
 
 /**
- * The founder-facing numbers for /admin: the Shopify-style "how is the
- * business doing" view, as distinct from a gym's own dashboard in
+ * The founder-facing numbers for /admin: the Shopify/Baremetrics-style "how is
+ * the business doing" view, as distinct from a gym's own dashboard in
  * src/app/app/page.tsx, which is scoped to one gym's members and campaigns.
  *
  * Two kinds of number live here, and they are sourced differently on purpose:
  *
- *   - Money (MRR, guarantee payouts) is read from Stripe and from
- *     subscription_payments/guarantee_claims, never re-derived from a price
- *     catalogue. A hand-entered catalogue is exactly the seam that produced
- *     the 2026-09-04 webhook price-lookup bug (see CLAUDE.md "A revenue bug
- *     in that hand-entry seam") and the 2026-09-07 apex-webhook outage: our
- *     own columns are not proof of what is actually being charged.
- *   - Everything else (signups, plan mix, churn) is counted straight from
- *     casdey's own tables, the same "no summary table to drift out of step"
- *     rule src/lib/dashboard.ts already follows.
+ *   - Money (MRR, revenue collected, guarantee payouts) is read from Stripe
+ *     and from subscription_payments/guarantee_claims, never re-derived from a
+ *     price catalogue. A hand-entered catalogue is exactly the seam that
+ *     produced the 2026-09-04 webhook price-lookup bug (see CLAUDE.md "A
+ *     revenue bug in that hand-entry seam") and the 2026-09-07 apex-webhook
+ *     outage: our own columns are not proof of what is actually being charged.
+ *   - Everything else (signups, plan mix, churn, activation) is counted
+ *     straight from casdey's own tables, the same "no summary table to drift
+ *     out of step" rule src/lib/dashboard.ts already follows.
  *
- * What this file does NOT cover: visitor counts and the marketing/checkout
- * funnel. Casdey's own tables have no idea how many people looked at the
- * pricing page before signing up, or how many started a Stripe Checkout and
- * abandoned it. That half needs an actual analytics tool (PostHog EU,
- * cookieless — see the 2026-09-08 planning note) and is deliberately not
- * faked here with a number this file cannot honestly produce.
+ * The visitor/traffic half lives in src/lib/posthog-query.ts: casdey's own
+ * tables cannot say how many people looked at the pricing page, so that half
+ * comes from PostHog and comes back null (never a fake zero) when PostHog is
+ * unreachable.
  *
  * Every query here excludes gyms.is_internal (migration 0035, 2026-09-08):
  * casdey's own dev/QA gyms live in the same table real customers do, because
@@ -36,116 +36,112 @@ import type { Gym } from "./types";
  * the hard way: this page counted three test-mode Stripe subscriptions from
  * feature stress-tests, plus Davide's own live-mode test account from the
  * 2026-09-07 V1 walkthrough, as four paying customers.
+ *
+ * Money is always split by currency, never blended into one figure with a
+ * made-up exchange rate — the same rule pricing.ts follows for the public
+ * price list.
  */
 
-/** Monday of the week containing this date, in UTC. Same rule as
- *  src/lib/dashboard.ts's weekStartOf, kept local rather than exported from
- *  there: that file is gym-scoped and this one is cross-gym. */
-function weekStartOf(date: Date): Date {
-  const d = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-  const offset = (d.getUTCDay() + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - offset);
-  return d;
+export type MoneyByCurrency = { eur: number; gbp: number };
+/** @deprecated older name, kept so callers do not all churn at once. */
+export type MrrByCurrency = MoneyByCurrency;
+
+const ZERO_MONEY: MoneyByCurrency = { eur: 0, gbp: 0 };
+
+/** Whole days back from now, with the trend charts grouping by day or week.
+ *  The URL → these values mapping lives in src/app/admin/parts.tsx. */
+type Bucket = "day" | "week";
+const DEFAULT_DAYS = 84;
+
+/** The ids of every gym that is a real (non-internal) customer. Passed into
+ *  the cross-table counts below so an `in("gym_id", …)` filter does the
+ *  is_internal exclusion without a fragile embedded-resource head count. */
+export async function nonInternalGymIds(): Promise<string[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("gyms")
+    .select("id")
+    .eq("is_internal", false);
+
+  if (error) {
+    console.error("[admin-stats] gym id lookup failed", error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => row.id as string);
 }
 
-function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+/** The mirror of nonInternalGymIds: casdey's own dev/QA gyms. Only the
+ *  "Test & dev" section uses this. */
+export async function internalGymIds(): Promise<string[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("gyms")
+    .select("id")
+    .eq("is_internal", true);
+
+  if (error) {
+    console.error("[admin-stats] internal gym id lookup failed", error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => row.id as string);
 }
 
-const WEEK_LABEL = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-});
-
 /* ------------------------------------------------------------------ */
-/* Signups: waitlist and real gyms, week by week                       */
+/* Signups: real gyms, over the period (the waitlist is retired now    */
+/* that casdey.com is published — see the 2026-09-08 note)             */
 /* ------------------------------------------------------------------ */
 
-export type SignupWeek = {
-  weekStart: string;
-  label: string;
-  waitlist: number;
-  gyms: number;
-};
+export type SignupBucket = { key: string; label: string; gyms: number };
 
 export type SignupTrend = {
-  current: SignupWeek[];
-  previous: SignupWeek[];
-  totals: { waitlist: number; gyms: number };
-  previousTotals: { waitlist: number; gyms: number };
-  changeWaitlist: number | null;
-  changeGyms: number | null;
+  current: SignupBucket[];
+  previous: SignupBucket[];
+  total: number;
+  previousTotal: number;
+  changePercent: number | null;
 };
 
-/** Waitlist joins and gym signups, the last `weeks` weeks against the
- *  `weeks` before them. Mirrors activityWithComparison() in dashboard.ts. */
-export async function signupTrend(
-  weeks = 12,
+/** Gym signups over the period, against the same length before it, grouped by
+ *  `bucket`. Mirrors activityWithComparison() in dashboard.ts. */
+export async function gymSignupTrend(
+  days = DEFAULT_DAYS,
+  bucket: Bucket = "week",
   now: Date = new Date(),
 ): Promise<SignupTrend> {
   const supabase = supabaseAdmin();
-  const totalWeeks = weeks * 2;
-  const thisWeek = weekStartOf(now);
-  const from = new Date(thisWeek);
-  from.setUTCDate(from.getUTCDate() - (totalWeeks - 1) * 7);
-  const fromIso = from.toISOString();
+  const { all, perSide } = periodBuckets(days, bucket, now);
 
-  const buckets = new Map<string, SignupWeek>();
-  for (let i = 0; i < totalWeeks; i += 1) {
-    const start = new Date(from);
-    start.setUTCDate(start.getUTCDate() + i * 7);
-    buckets.set(dayKey(start), {
-      weekStart: dayKey(start),
-      label: WEEK_LABEL.format(start),
-      waitlist: 0,
-      gyms: 0,
-    });
+  const { data, error } = await supabase
+    .from("gyms")
+    .select("created_at")
+    .eq("is_internal", false)
+    .gte("created_at", all[0]?.key ?? new Date(0).toISOString());
+
+  if (error) {
+    console.error("[admin-stats] gym signup lookup failed", error.message);
   }
 
-  const [waitlist, gyms] = await Promise.all([
-    supabase.from("waitlist_signups").select("created_at").gte("created_at", fromIso),
-    supabase
-      .from("gyms")
-      .select("created_at")
-      .eq("is_internal", false)
-      .gte("created_at", fromIso),
-  ]);
-
-  if (waitlist.error) {
-    console.error("[admin-stats] waitlist signup lookup failed", waitlist.error.message);
-  }
-  if (gyms.error) {
-    console.error("[admin-stats] gym signup lookup failed", gyms.error.message);
+  const counts = new Map<string, number>(all.map((b) => [b.key, 0]));
+  for (const row of data ?? []) {
+    const k = bucketKeyFor(row.created_at as string, bucket);
+    if (counts.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1);
   }
 
-  for (const row of waitlist.data ?? []) {
-    const bucket = buckets.get(dayKey(weekStartOf(new Date(row.created_at as string))));
-    if (bucket) bucket.waitlist += 1;
-  }
-  for (const row of gyms.data ?? []) {
-    const bucket = buckets.get(dayKey(weekStartOf(new Date(row.created_at as string))));
-    if (bucket) bucket.gyms += 1;
-  }
-
-  const all = [...buckets.values()];
-  const current = all.slice(weeks);
-  const previous = all.slice(0, weeks);
-  const sum = (arr: SignupWeek[], key: "waitlist" | "gyms") =>
-    arr.reduce((total, week) => total + week[key], 0);
-
-  const totals = { waitlist: sum(current, "waitlist"), gyms: sum(current, "gyms") };
-  const previousTotals = { waitlist: sum(previous, "waitlist"), gyms: sum(previous, "gyms") };
+  const merged: SignupBucket[] = all.map((b: PeriodPoint) => ({
+    key: b.key,
+    label: b.label,
+    gyms: counts.get(b.key) ?? 0,
+  }));
+  const current = merged.slice(perSide);
+  const previous = merged.slice(0, perSide);
+  const sum = (arr: SignupBucket[]) => arr.reduce((t, w) => t + w.gyms, 0);
+  const total = sum(current);
+  const previousTotal = sum(previous);
 
   return {
     current,
     previous,
-    totals,
-    previousTotals,
-    changeWaitlist: change(totals.waitlist, previousTotals.waitlist),
-    changeGyms: change(totals.gyms, previousTotals.gyms),
+    total,
+    previousTotal,
+    changePercent: change(total, previousTotal),
   };
 }
 
@@ -188,8 +184,6 @@ export async function planBreakdown(
 /* MRR: read from Stripe, never re-derived from the price catalogue    */
 /* ------------------------------------------------------------------ */
 
-export type MrrByCurrency = { eur: number; gbp: number };
-
 /** The early-adopter coupon's live percent-off, read from Stripe rather than
  *  assumed to still be 20: a coupon can be edited in the dashboard without a
  *  code change, and this number gets multiplied into real revenue figures. */
@@ -205,18 +199,24 @@ async function earlyAdopterDiscountFraction(): Promise<number> {
   }
 }
 
+export type Mrr = {
+  byCurrency: MoneyByCurrency;
+  /** Paying gyms whose subscription is in that currency. */
+  gymsByCurrency: MoneyByCurrency;
+  payingGyms: number;
+};
+
 /**
  * Monthly recurring revenue, net of the early-adopter discount, split by
- * currency (never blended into one figure with a made-up exchange rate, the
- * same rule pricing.ts follows for the public price list).
+ * currency.
  *
  * Reads each paying gym's live Stripe subscription rather than trusting
  * gyms.plan_tier/plan_currency: those columns are written by the webhook and
- * have already been wrong once in production (see the 2026-09-04 price
- * lookup bug and the 2026-09-07 apex-redirect outage in CLAUDE.md). A handful
- * of paying gyms at casdey's current scale makes one Stripe call each cheap.
+ * have already been wrong once in production (see the 2026-09-04 price lookup
+ * bug and the 2026-09-07 apex-redirect outage in CLAUDE.md). A handful of
+ * paying gyms at casdey's current scale makes one Stripe call each cheap.
  */
-export async function mrr(): Promise<MrrByCurrency> {
+export async function mrr(): Promise<Mrr> {
   const { data: gyms, error } = await supabaseAdmin()
     .from("gyms")
     .select("id, stripe_subscription_id, early_adopter")
@@ -224,13 +224,17 @@ export async function mrr(): Promise<MrrByCurrency> {
     .in("subscription_status", ["active", "past_due"])
     .not("stripe_subscription_id", "is", null);
 
-  const totals: MrrByCurrency = { eur: 0, gbp: 0 };
+  const empty: Mrr = {
+    byCurrency: { ...ZERO_MONEY },
+    gymsByCurrency: { ...ZERO_MONEY },
+    payingGyms: 0,
+  };
 
   if (error) {
     console.error("[admin-stats] mrr lookup failed", error.message);
-    return totals;
+    return empty;
   }
-  if (!gyms || gyms.length === 0) return totals;
+  if (!gyms || gyms.length === 0) return empty;
 
   const [discount, subscriptions] = await Promise.all([
     earlyAdopterDiscountFraction(),
@@ -249,10 +253,15 @@ export async function mrr(): Promise<MrrByCurrency> {
     ),
   ]);
 
+  const byCurrency: MoneyByCurrency = { ...ZERO_MONEY };
+  const gymsByCurrency: MoneyByCurrency = { ...ZERO_MONEY };
+  let payingGyms = 0;
+
   subscriptions.forEach((subscription, index) => {
     if (!subscription) return;
     const gym = gyms[index];
     const multiplier = gym.early_adopter ? 1 - discount : 1;
+    let counted = false;
 
     for (const item of subscription.items.data) {
       const price = item.price;
@@ -261,12 +270,223 @@ export async function mrr(): Promise<MrrByCurrency> {
       const interval = price.recurring?.interval;
       const divisor = interval === "year" ? 12 : interval === "month" ? 1 : null;
       if (!divisor || price.unit_amount == null) continue;
-      totals[currency] +=
+      byCurrency[currency] +=
         (price.unit_amount * (item.quantity ?? 1) * multiplier) / divisor;
+      if (!counted) {
+        gymsByCurrency[currency] += 1;
+        counted = true;
+      }
     }
+    if (counted) payingGyms += 1;
   });
 
-  return { eur: Math.round(totals.eur), gbp: Math.round(totals.gbp) };
+  return {
+    byCurrency: {
+      eur: Math.round(byCurrency.eur),
+      gbp: Math.round(byCurrency.gbp),
+    },
+    gymsByCurrency,
+    payingGyms,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Cash actually collected, from subscription_payments (webhook truth) */
+/* ------------------------------------------------------------------ */
+
+export type RevenueCollected = {
+  windowGross: MoneyByCurrency;
+  windowRefunded: MoneyByCurrency;
+  windowNet: MoneyByCurrency;
+  previousNet: MoneyByCurrency;
+  allTimeGross: MoneyByCurrency;
+  allTimeNet: MoneyByCurrency;
+  changeNet: { eur: number | null; gbp: number | null };
+};
+
+/**
+ * Real cash in, from the subscription_payments rows the invoice.paid webhook
+ * writes — one row per paid Stripe invoice, with what it charged and what has
+ * since been refunded against it. "Net" is gross minus refunds (guarantee
+ * payouts land here as refunded_minor), so it is the number that actually
+ * hit casdey's account.
+ */
+export async function revenueCollected(
+  gymIds: string[],
+  days = DEFAULT_DAYS,
+  now: Date = new Date(),
+): Promise<RevenueCollected> {
+  const empty: RevenueCollected = {
+    windowGross: { ...ZERO_MONEY },
+    windowRefunded: { ...ZERO_MONEY },
+    windowNet: { ...ZERO_MONEY },
+    previousNet: { ...ZERO_MONEY },
+    allTimeGross: { ...ZERO_MONEY },
+    allTimeNet: { ...ZERO_MONEY },
+    changeNet: { eur: null, gbp: null },
+  };
+  if (gymIds.length === 0) return empty;
+
+  const { data, error } = await supabaseAdmin()
+    .from("subscription_payments")
+    .select("amount_minor, refunded_minor, currency, paid_at")
+    .in("gym_id", gymIds);
+
+  if (error) {
+    console.error("[admin-stats] revenue collected lookup failed", error.message);
+    return empty;
+  }
+
+  const windowFrom = new Date(now);
+  windowFrom.setUTCDate(windowFrom.getUTCDate() - days);
+  const previousFrom = new Date(windowFrom);
+  previousFrom.setUTCDate(previousFrom.getUTCDate() - days);
+
+  const result: RevenueCollected = {
+    windowGross: { ...ZERO_MONEY },
+    windowRefunded: { ...ZERO_MONEY },
+    windowNet: { ...ZERO_MONEY },
+    previousNet: { ...ZERO_MONEY },
+    allTimeGross: { ...ZERO_MONEY },
+    allTimeNet: { ...ZERO_MONEY },
+    changeNet: { eur: null, gbp: null },
+  };
+
+  for (const row of data ?? []) {
+    const currency = row.currency as "eur" | "gbp";
+    if (currency !== "eur" && currency !== "gbp") continue;
+    const gross = (row.amount_minor as number) ?? 0;
+    const refunded = (row.refunded_minor as number) ?? 0;
+    const net = gross - refunded;
+    const paidAt = new Date(row.paid_at as string);
+
+    result.allTimeGross[currency] += gross;
+    result.allTimeNet[currency] += net;
+
+    if (paidAt >= windowFrom) {
+      result.windowGross[currency] += gross;
+      result.windowRefunded[currency] += refunded;
+      result.windowNet[currency] += net;
+    } else if (paidAt >= previousFrom) {
+      result.previousNet[currency] += net;
+    }
+  }
+
+  result.changeNet = {
+    eur: change(result.windowNet.eur, result.previousNet.eur),
+    gbp: change(result.windowNet.gbp, result.previousNet.gbp),
+  };
+  return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* Subscription health and trial conversion                            */
+/* ------------------------------------------------------------------ */
+
+export type SubscriptionHealth = {
+  statusCounts: {
+    active: number;
+    trial: number;
+    pastDue: number;
+    canceled: number;
+    free: number;
+  };
+  activeByCurrency: MoneyByCurrency;
+  /** Cancelled but still inside the paid period (cancels_at in the future). */
+  scheduledCancellations: number;
+  /** Trials whose free week ends within 7 days. */
+  trialsEndingSoon: number;
+  /** Every gym that has ever been given a trial. */
+  trialsEverStarted: number;
+  /** …of which, how many are paying now. */
+  trialsConverted: number;
+  trialConversionRate: number | null;
+};
+
+export async function subscriptionHealth(
+  now: Date = new Date(),
+): Promise<SubscriptionHealth> {
+  const empty: SubscriptionHealth = {
+    statusCounts: { active: 0, trial: 0, pastDue: 0, canceled: 0, free: 0 },
+    activeByCurrency: { ...ZERO_MONEY },
+    scheduledCancellations: 0,
+    trialsEndingSoon: 0,
+    trialsEverStarted: 0,
+    trialsConverted: 0,
+    trialConversionRate: null,
+  };
+
+  const { data, error } = await supabaseAdmin()
+    .from("gyms")
+    .select(
+      "subscription_status, plan_tier, plan_currency, trial_ends_at, cancels_at",
+    )
+    .eq("is_internal", false);
+
+  if (error) {
+    console.error("[admin-stats] subscription health lookup failed", error.message);
+    return empty;
+  }
+
+  const result: SubscriptionHealth = {
+    statusCounts: { active: 0, trial: 0, pastDue: 0, canceled: 0, free: 0 },
+    activeByCurrency: { ...ZERO_MONEY },
+    scheduledCancellations: 0,
+    trialsEndingSoon: 0,
+    trialsEverStarted: 0,
+    trialsConverted: 0,
+    trialConversionRate: null,
+  };
+
+  const soon = new Date(now);
+  soon.setUTCDate(soon.getUTCDate() + 7);
+
+  for (const row of data ?? []) {
+    const status = row.subscription_status as Gym["subscription_status"];
+    const plan = effectivePlan(
+      row as Pick<Gym, "subscription_status" | "trial_ends_at" | "plan_tier">,
+      now,
+    );
+    const paying = status === "active" || status === "past_due";
+
+    if (plan === "trial") result.statusCounts.trial += 1;
+    else if (status === "active") result.statusCounts.active += 1;
+    else if (status === "past_due") result.statusCounts.pastDue += 1;
+    else if (status === "canceled") result.statusCounts.canceled += 1;
+    else result.statusCounts.free += 1;
+
+    if (paying) {
+      const currency = row.plan_currency as "eur" | "gbp" | null;
+      if (currency === "eur" || currency === "gbp") {
+        result.activeByCurrency[currency] += 1;
+      }
+    }
+
+    const cancelsAt = row.cancels_at
+      ? new Date(row.cancels_at as string)
+      : null;
+    if (cancelsAt && cancelsAt > now && paying) {
+      result.scheduledCancellations += 1;
+    }
+
+    const trialEndsAt = row.trial_ends_at
+      ? new Date(row.trial_ends_at as string)
+      : null;
+    if (trialEndsAt) {
+      result.trialsEverStarted += 1;
+      if (paying) result.trialsConverted += 1;
+      if (plan === "trial" && trialEndsAt <= soon && trialEndsAt > now) {
+        result.trialsEndingSoon += 1;
+      }
+    }
+  }
+
+  result.trialConversionRate =
+    result.trialsEverStarted === 0
+      ? null
+      : Math.round((result.trialsConverted / result.trialsEverStarted) * 100);
+
+  return result;
 }
 
 /* ------------------------------------------------------------------ */
@@ -275,19 +495,19 @@ export async function mrr(): Promise<MrrByCurrency> {
 
 export type ChurnSummary = { current: number; previous: number };
 
-/** How many gyms went to `canceled` in the last `weeks` weeks, against the
- *  `weeks` before. Uses updated_at as the moment of cancellation: the
+/** How many gyms went to `canceled` in the last `days` days, against the
+ *  `days` before. Uses updated_at as the moment of cancellation: the
  *  gyms_touch trigger bumps it on every write, and the webhook is the only
  *  thing that flips subscription_status, so it is a fair proxy without a
  *  dedicated events table. */
 export async function churnSummary(
-  weeks = 12,
+  days = DEFAULT_DAYS,
   now: Date = new Date(),
 ): Promise<ChurnSummary> {
   const currentFrom = new Date(now);
-  currentFrom.setUTCDate(currentFrom.getUTCDate() - weeks * 7);
+  currentFrom.setUTCDate(currentFrom.getUTCDate() - days);
   const previousFrom = new Date(currentFrom);
-  previousFrom.setUTCDate(previousFrom.getUTCDate() - weeks * 7);
+  previousFrom.setUTCDate(previousFrom.getUTCDate() - days);
 
   const { data, error } = await supabaseAdmin()
     .from("gyms")
@@ -312,13 +532,281 @@ export async function churnSummary(
 }
 
 /* ------------------------------------------------------------------ */
+/* Activation: how far each gym has got through first-run setup        */
+/* ------------------------------------------------------------------ */
+
+export type ActivationFunnel = {
+  signedUp: number;
+  importedMembers: number;
+  pricedService: number;
+  choseOffer: number;
+  approvedCampaign: number;
+  paying: number;
+};
+
+/**
+ * The share of gyms that have reached each setup step. Counts are independent
+ * ("has done this at all"), not strictly nested, so a gym that priced a
+ * service before importing still shows in both — the setup checklist nudges a
+ * rough order but does not enforce one.
+ */
+export async function activationFunnel(
+  gymIds: string[],
+): Promise<ActivationFunnel> {
+  const zero: ActivationFunnel = {
+    signedUp: 0,
+    importedMembers: 0,
+    pricedService: 0,
+    choseOffer: 0,
+    approvedCampaign: 0,
+    paying: 0,
+  };
+  if (gymIds.length === 0) return zero;
+
+  const supabase = supabaseAdmin();
+
+  const { data: gyms, error } = await supabase
+    .from("gyms")
+    .select("id, subscription_status, offer_text")
+    .in("id", gymIds);
+
+  if (error) {
+    console.error("[admin-stats] activation gyms lookup failed", error.message);
+    return zero;
+  }
+
+  // One gym is a handful of head-count queries; casdey has tens of gyms, not
+  // thousands (the Resend domain cap alone holds it near ten), so N small
+  // "does this gym have any X" probes is fine here. Move to an RPC if that
+  // ever stops being true.
+  const perGym = await Promise.all(
+    (gyms ?? []).map(async (gym) => {
+      const id = gym.id as string;
+      const [members, services, campaigns] = await Promise.all([
+        supabase
+          .from("members")
+          .select("id", { count: "exact", head: true })
+          .eq("gym_id", id)
+          .eq("is_test", false),
+        supabase
+          .from("services")
+          .select("id", { count: "exact", head: true })
+          .eq("gym_id", id)
+          .eq("active", true)
+          .gt("price_minor", 0),
+        supabase
+          .from("campaigns")
+          .select("id", { count: "exact", head: true })
+          .eq("gym_id", id)
+          .not("approved_at", "is", null),
+      ]);
+      return {
+        members: (members.count ?? 0) > 0,
+        priced: (services.count ?? 0) > 0,
+        campaign: (campaigns.count ?? 0) > 0,
+        offer: Boolean(gym.offer_text),
+        paying:
+          gym.subscription_status === "active" ||
+          gym.subscription_status === "past_due",
+      };
+    }),
+  );
+
+  return {
+    signedUp: perGym.length,
+    importedMembers: perGym.filter((g) => g.members).length,
+    pricedService: perGym.filter((g) => g.priced).length,
+    choseOffer: perGym.filter((g) => g.offer).length,
+    approvedCampaign: perGym.filter((g) => g.campaign).length,
+    paying: perGym.filter((g) => g.paying).length,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Product reach: what casdey did for every gym, this period           */
+/* ------------------------------------------------------------------ */
+
+export type ProductReach = {
+  membersManaged: number;
+  membersReturned: { current: number; previous: number };
+  campaignsApproved: { current: number; previous: number };
+  messagesSent: { current: number; previous: number };
+  bookings: { current: number; previous: number };
+  revenueRecovered: { current: MoneyByCurrency; previous: MoneyByCurrency };
+};
+
+export async function productReach(
+  gymIds: string[],
+  days = DEFAULT_DAYS,
+  now: Date = new Date(),
+): Promise<ProductReach> {
+  const zero: ProductReach = {
+    membersManaged: 0,
+    membersReturned: { current: 0, previous: 0 },
+    campaignsApproved: { current: 0, previous: 0 },
+    messagesSent: { current: 0, previous: 0 },
+    bookings: { current: 0, previous: 0 },
+    revenueRecovered: {
+      current: { ...ZERO_MONEY },
+      previous: { ...ZERO_MONEY },
+    },
+  };
+  if (gymIds.length === 0) return zero;
+
+  const supabase = supabaseAdmin();
+  const windowFrom = new Date(now);
+  windowFrom.setUTCDate(windowFrom.getUTCDate() - days);
+  const previousFrom = new Date(windowFrom);
+  previousFrom.setUTCDate(previousFrom.getUTCDate() - days);
+  const wIso = windowFrom.toISOString();
+  const pIso = previousFrom.toISOString();
+
+  const num = (
+    res: { count: number | null; error: { message: string } | null },
+    label: string,
+  ): number => {
+    if (res.error) {
+      console.error(`[admin-stats] ${label} count failed`, res.error.message);
+      return 0;
+    }
+    return res.count ?? 0;
+  };
+
+  const recoveredIn = async (
+    from: string,
+    to: string | null,
+  ): Promise<MoneyByCurrency> => {
+    let q = supabase
+      .from("bookings")
+      .select("value_minor, gyms!inner(plan_currency, country)")
+      .in("gym_id", gymIds)
+      .in("status", ["booked", "completed"])
+      .gte("created_at", from);
+    if (to) q = q.lt("created_at", to);
+    const { data, error } = await q;
+    if (error) {
+      console.error("[admin-stats] recovered revenue lookup failed", error.message);
+      return { ...ZERO_MONEY };
+    }
+    const totals: MoneyByCurrency = { ...ZERO_MONEY };
+    for (const row of data ?? []) {
+      const gym = Array.isArray(row.gyms) ? row.gyms[0] : row.gyms;
+      if (!gym) continue;
+      const currency = gymCurrency(
+        gym as Pick<Gym, "plan_currency" | "country">,
+      );
+      totals[currency] += (row.value_minor as number | null) ?? 0;
+    }
+    return totals;
+  };
+
+  const [
+    membersManagedRes,
+    returnedCurrentRes,
+    returnedPreviousRes,
+    campaignsCurrentRes,
+    campaignsPreviousRes,
+    messagesCurrentRes,
+    messagesPreviousRes,
+    bookingsCurrentRes,
+    bookingsPreviousRes,
+    revenueCurrent,
+    revenuePrevious,
+  ] = await Promise.all([
+    supabase
+      .from("members")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .eq("is_test", false),
+    supabase
+      .from("members")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .eq("is_test", false)
+      .eq("status", "returned")
+      .gte("returned_at", wIso),
+    supabase
+      .from("members")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .eq("is_test", false)
+      .eq("status", "returned")
+      .gte("returned_at", pIso)
+      .lt("returned_at", wIso),
+    supabase
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .not("approved_at", "is", null)
+      .gte("approved_at", wIso),
+    supabase
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .not("approved_at", "is", null)
+      .gte("approved_at", pIso)
+      .lt("approved_at", wIso),
+    supabase
+      .from("campaign_messages")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .eq("status", "sent")
+      .gte("sent_at", wIso),
+    supabase
+      .from("campaign_messages")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .eq("status", "sent")
+      .gte("sent_at", pIso)
+      .lt("sent_at", wIso),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .in("status", ["booked", "completed"])
+      .gte("created_at", wIso),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .in("status", ["booked", "completed"])
+      .gte("created_at", pIso)
+      .lt("created_at", wIso),
+    recoveredIn(wIso, null),
+    recoveredIn(pIso, wIso),
+  ]);
+
+  const membersManaged = num(membersManagedRes, "members managed");
+  const returnedCurrent = num(returnedCurrentRes, "members returned");
+  const returnedPrevious = num(returnedPreviousRes, "members returned (prev)");
+  const campaignsCurrent = num(campaignsCurrentRes, "campaigns approved");
+  const campaignsPrevious = num(campaignsPreviousRes, "campaigns approved (prev)");
+  const messagesCurrent = num(messagesCurrentRes, "messages sent");
+  const messagesPrevious = num(messagesPreviousRes, "messages sent (prev)");
+  const bookingsCurrent = num(bookingsCurrentRes, "bookings");
+  const bookingsPrevious = num(bookingsPreviousRes, "bookings (prev)");
+
+  return {
+    membersManaged,
+    membersReturned: { current: returnedCurrent, previous: returnedPrevious },
+    campaignsApproved: {
+      current: campaignsCurrent,
+      previous: campaignsPrevious,
+    },
+    messagesSent: { current: messagesCurrent, previous: messagesPrevious },
+    bookings: { current: bookingsCurrent, previous: bookingsPrevious },
+    revenueRecovered: { current: revenueCurrent, previous: revenuePrevious },
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* The profit-or-nothing guarantee                                     */
 /* ------------------------------------------------------------------ */
 
 export type GuaranteeSummary = {
   totalClaims: number;
   pendingClaims: number;
-  refundedByCurrency: MrrByCurrency;
+  refundedByCurrency: MoneyByCurrency;
 };
 
 /** Every guarantee claim ever filed, and what it actually cost casdey. A
@@ -332,7 +820,7 @@ export async function guaranteeSummary(): Promise<GuaranteeSummary> {
     .select("status, refunded_minor, gyms!inner(plan_currency, is_internal)")
     .eq("gyms.is_internal", false);
 
-  const refundedByCurrency: MrrByCurrency = { eur: 0, gbp: 0 };
+  const refundedByCurrency: MoneyByCurrency = { ...ZERO_MONEY };
 
   if (error) {
     console.error("[admin-stats] guarantee lookup failed", error.message);
@@ -348,4 +836,151 @@ export async function guaranteeSummary(): Promise<GuaranteeSummary> {
   }
 
   return { totalClaims: data?.length ?? 0, pendingClaims, refundedByCurrency };
+}
+
+/* ------------------------------------------------------------------ */
+/* Feedback: what gyms are telling casdey from inside the product      */
+/* ------------------------------------------------------------------ */
+
+export type FeedbackNote = {
+  message: string;
+  path: string | null;
+  createdAt: string;
+  gymName: string;
+};
+
+export type FeedbackSummary = {
+  total: number;
+  recentCount: number;
+  latest: FeedbackNote[];
+};
+
+export async function feedbackSummary(
+  gymIds: string[],
+  days = DEFAULT_DAYS,
+  now: Date = new Date(),
+  limit = 6,
+): Promise<FeedbackSummary> {
+  if (gymIds.length === 0) {
+    return { total: 0, recentCount: 0, latest: [] };
+  }
+
+  const supabase = supabaseAdmin();
+  const from = new Date(now);
+  from.setUTCDate(from.getUTCDate() - days);
+
+  const [{ count: total }, recent, latest] = await Promise.all([
+    supabase
+      .from("feedback")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds),
+    supabase
+      .from("feedback")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", gymIds)
+      .gte("created_at", from.toISOString()),
+    supabase
+      .from("feedback")
+      .select("message, path, created_at, gyms!inner(name)")
+      .in("gym_id", gymIds)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  if (latest.error) {
+    console.error("[admin-stats] feedback lookup failed", latest.error.message);
+  }
+
+  const notes: FeedbackNote[] = (latest.data ?? []).map((row) => {
+    const gym = Array.isArray(row.gyms) ? row.gyms[0] : row.gyms;
+    return {
+      message: row.message as string,
+      path: (row.path as string | null) ?? null,
+      createdAt: row.created_at as string,
+      gymName: (gym?.name as string | undefined) ?? "a gym",
+    };
+  });
+
+  return {
+    total: total ?? 0,
+    recentCount: recent.count ?? 0,
+    latest: notes,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Test & dev: everything behind gyms.is_internal, quarantined         */
+/* ------------------------------------------------------------------ */
+
+export type TestAndDev = {
+  gymCount: number;
+  gymNames: string[];
+  members: number;
+  campaignsApproved: number;
+  messagesSent: number;
+  bookings: number;
+};
+
+/**
+ * What casdey's own dev/QA gyms have accumulated. All time, no period — this
+ * is noise being kept separate, not a trend anyone tracks. It stays visible
+ * because "is our own test data leaking into the real numbers" is a question
+ * the founder view should answer at a glance (it did leak once: a £120 fixture
+ * booking showed up as recovered revenue until migration 0036).
+ */
+export async function testAndDev(): Promise<TestAndDev> {
+  const empty: TestAndDev = {
+    gymCount: 0,
+    gymNames: [],
+    members: 0,
+    campaignsApproved: 0,
+    messagesSent: 0,
+    bookings: 0,
+  };
+
+  const supabase = supabaseAdmin();
+  const { data: gyms, error } = await supabase
+    .from("gyms")
+    .select("id, name")
+    .eq("is_internal", true)
+    .order("name");
+
+  if (error) {
+    console.error("[admin-stats] test/dev gyms lookup failed", error.message);
+    return empty;
+  }
+  if (!gyms || gyms.length === 0) return empty;
+
+  const ids = gyms.map((g) => g.id as string);
+  const [members, campaigns, messages, bookings] = await Promise.all([
+    supabase
+      .from("members")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", ids)
+      .eq("is_test", false),
+    supabase
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", ids)
+      .not("approved_at", "is", null),
+    supabase
+      .from("campaign_messages")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", ids)
+      .eq("status", "sent"),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .in("gym_id", ids)
+      .in("status", ["booked", "completed"]),
+  ]);
+
+  return {
+    gymCount: gyms.length,
+    gymNames: gyms.map((g) => g.name as string),
+    members: members.count ?? 0,
+    campaignsApproved: campaigns.count ?? 0,
+    messagesSent: messages.count ?? 0,
+    bookings: bookings.count ?? 0,
+  };
 }
