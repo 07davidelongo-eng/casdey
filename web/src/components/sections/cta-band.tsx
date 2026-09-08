@@ -23,7 +23,7 @@ export function CtaBand() {
                 <ButtonLink href="/login?mode=signup" variant="brightOnDeep">
                   Start your free week
                 </ButtonLink>
-                <ButtonLink href="/#how-it-works" variant="onDeep">
+                <ButtonLink href="/#what-it-does" variant="onDeep">
                   How it works
                 </ButtonLink>
               </div>

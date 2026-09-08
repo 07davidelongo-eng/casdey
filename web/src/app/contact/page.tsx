@@ -15,9 +15,9 @@ export const metadata: Metadata = {
  * Deliberately not a contact form.
  *
  * A form is the right pattern when the volume is high enough that routing
- * matters. casdey is two people, and a gym owner deciding whether to trust
- * them with a member list is better served by seeing who they would be
- * writing to than by dropping a message into a queue.
+ * matters. casdey is small, and a gym owner deciding whether to trust it
+ * with a member list is better served by seeing who they would be writing
+ * to than by dropping a message into a queue.
  */
 
 const CHANNELS = [
@@ -25,7 +25,7 @@ const CHANNELS = [
     label: "Email",
     value: "info@casdey.com",
     href: "mailto:info@casdey.com",
-    body: "Reaches both of us. The right one answers, usually the same day.",
+    body: "Comes to a person, not a queue. Answered the same day, usually.",
   },
   {
     label: "Instagram",

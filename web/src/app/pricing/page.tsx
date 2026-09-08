@@ -45,6 +45,10 @@ const FAQ = [
     q: "Can I change or cancel my plan?",
     a: "Any time, from your billing page. Moving between Standard and Pro takes effect immediately, and cancelling leaves you on the Free plan rather than locking you out of your own data.",
   },
+  {
+    q: "Can I get a refund?",
+    a: "Only through the Pro guarantee. If your first 30-day window on Pro does not recover more than it cost, you claim a full refund of what you paid in it, from your billing page. Everything else is paid in advance and non-refundable: cancelling stops the next renewal and keeps you on the plan until the period you have paid for runs out. The full refund policy is linked in the footer.",
+  },
 ];
 
 export default function PricingPage() {

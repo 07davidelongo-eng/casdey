@@ -29,6 +29,7 @@ const COLUMNS = [
       { href: "/contact", label: "Contact" },
       { href: "/privacy", label: "Privacy notice" },
       { href: "/terms/processing", label: "Data processing" },
+      { href: "/terms/refunds", label: "Refund policy" },
     ],
   },
 ];

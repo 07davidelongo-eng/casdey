@@ -65,7 +65,7 @@ export async function addToWaitlist(
   throw new Error(`Supabase insert failed: ${error.code} ${error.message}`);
 }
 
-/** Tells Davide and Abhi that someone joined. Best effort, never blocks a signup. */
+/** Tells Davide that someone joined. Best effort, never blocks a signup. */
 export async function notifyTeam(input: WaitlistInput): Promise<void> {
   await sendMail({
     to: process.env.WAITLIST_NOTIFY_TO ?? "info@casdey.com",
