@@ -67,36 +67,53 @@ export default async function DashboardPage(props: PageProps<"/app">) {
   const { gym, session } = await requireGym();
 
   const rule = ruleFor(gym);
-  const [recovered, priced] = await Promise.all([
-    recoveredRevenue(session.supabase, gym.id),
-    hasPricedServices(session.supabase, gym.id),
-  ]);
-  const stats = await gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym));
-  // Twelve weeks of what casdey did, and the twelve before them to compare
-  // against (#48, #61).
   // How far back the charts look. A URL rather than component state, so a
   // range can be linked to and survives a reload, and so the whole page is
   // still one server render.
   const range = RANGES.find((r) => String(r.weeks) === params.range) ?? RANGES[1];
 
-  const {
-    weeks,
-    total: totals,
-    previous,
-    previousWeeks,
-  } = await activityWithComparison(gym.id, range.weeks);
+  // One wave, not five. Every read below needs only the gym id and the range,
+  // both known here, so they fire together: a stack of round trips to a
+  // database in another region becomes a single wait. Order of the tuple
+  // matches the array below.
+  //   - recovered revenue + whether services are priced
+  //   - the dashboard counts
+  //   - twelve weeks of activity and the twelve before, to compare (#48, #61)
+  //   - approved-campaign count + calendar connection, for the setup checklist
+  //   - the most recent return, the one thing this page exists to show
+  const [
+    [recovered, priced],
+    stats,
+    { weeks, total: totals, previous, previousWeeks },
+    [{ count: approvedCampaigns }, calendar],
+    { data: returnedRows },
+  ] = await Promise.all([
+    Promise.all([
+      recoveredRevenue(session.supabase, gym.id),
+      hasPricedServices(session.supabase, gym.id),
+    ]),
+    gymStats(session.supabase, gym.id, rule, atRiskRuleFor(gym)),
+    activityWithComparison(gym.id, range.weeks),
+    Promise.all([
+      session.supabase
+        .from("campaigns")
+        .select("id", { count: "exact", head: true })
+        .eq("gym_id", gym.id)
+        .not("approved_at", "is", null),
+      calendarConnectionView(gym.id),
+    ]),
+    session.supabase
+      .from("members")
+      .select("*")
+      .eq("gym_id", gym.id)
+      .eq("is_test", false)
+      .eq("status", "returned")
+      .order("returned_at", { ascending: false })
+      .limit(1),
+  ]);
 
   // The first-run checklist. Derived from state the gym already has, so it
   // ticks itself off and disappears once setup is done, no flag to persist.
-  const [{ count: approvedCampaigns }, calendar] = await Promise.all([
-    session.supabase
-      .from("campaigns")
-      .select("id", { count: "exact", head: true })
-      .eq("gym_id", gym.id)
-      .not("approved_at", "is", null),
-    calendarConnectionView(gym.id),
-  ]);
-
   const setup = buildSetupState({
     memberCount: stats.members,
     servicesPriced: priced,
@@ -112,17 +129,6 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     calendarConnected: calendar.connected,
     hasApprovedCampaign: (approvedCampaigns ?? 0) > 0,
   });
-
-  // The most recent return, if there is one. This is the only place the app
-  // gets to show the thing it exists to cause.
-  const { data: returnedRows } = await session.supabase
-    .from("members")
-    .select("*")
-    .eq("gym_id", gym.id)
-    .eq("is_test", false)
-    .eq("status", "returned")
-    .order("returned_at", { ascending: false })
-    .limit(1);
 
   const returned = (returnedRows?.[0] ?? null) as Member | null;
 
