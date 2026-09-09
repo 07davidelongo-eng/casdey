@@ -22,3 +22,7 @@ casdey-gws-cli-*.json
 # Next.js build output. The real app builds in web/, so anything at the repo
 # root is a stray from running next outside it.
 .next/
+
+# Alex Hormozi book PDFs — copyrighted, local reference only. The distilled
+# framework notes live in .claude/skills/hormozi/references/ and ARE committed.
+Alex Hormozi/
