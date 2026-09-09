@@ -234,18 +234,23 @@ Confirm specifics against the book before betting on them. Keep in sync with
   cover CAC + serve, ~2×? At €99–289/mo with low COGS, plausibly yes — which
   would make paid acquisition viable earlier than for a cheap SaaS. Compute it
   with real numbers before spending.
-- **The free week vs "Trial With Penalty"** — casdey's trial takes **no card**
-  and has **no penalty / no required actions**. That's exactly the no-stakes
-  free trial Hormozi is lukewarm on: people don't use it, don't get value,
-  don't convert. Options, in rising friction: (a) require defined activation
-  actions during the week (import list, set prices, approve first campaign) to
-  "keep" full features — pure Win-Your-Money-Back criteria logic, no card;
-  (b) card on file with a conditional cancel ("cancel before day 7 if you
-  imported and ran a campaign and it didn't find you £X"); (c) "first month
-  €1". (a) is the lowest-risk lever and fits casdey's model — the criteria
-  double as the onboarding checklist and as proof for the guarantee. This is a
-  live, unresolved tension with the Free tier's lead-magnet job — needs a
-  deliberate call.
+- **The free week is now a Trial With Penalty — DECIDED 2026-09-10.** It used to
+  take no card and require nothing, exactly the no-stakes trial Hormozi is
+  lukewarm on, and casdey has a live proof of the failure mode (BodyActive
+  signed up, imported nothing, sat out the week). The new shape: **€1 charged at
+  signup** (pg 129's "first month for $1" hedge, which justifies the card ask and
+  proves the card), card saved, a "will you stay if it works?" commitment step
+  (pg 125), and three activation criteria (import list → set prices → approve
+  first campaign) doubling as onboarding and as guarantee proof. Day 7:
+  criteria met → auto-converts to **Pro** with the 20% coupon; cancelled → Free,
+  **no fee**; criteria unmet → **€20 per unfinished step, €60 cap** (per-step per
+  pg 124), then Free. Waivable, and auto-refunded on late completion (pg 128).
+  Called a "free trial" in all copy (pg 129). The Free tier keeps its lead-magnet
+  job for anyone who never starts a trial; it stops being the default
+  destination. Full spec: `web/SAAS_V1_1_PLAN.md` Track H. Adaptation to note:
+  Hormozi takes the card by hand and explains the fee *after* (pg 126); casdey is
+  self-serve, so terms are shown up front and the design leans on nudge emails
+  and a waive-on-a-call hatch instead.
 - **Missing downsell — the clearest gap.** Book-shaped options that fit:
   - *Payment-plan / prepay:* annual prepay at a steeper discount (pulls cash
     forward, CFA-friendly) — this is really a Buy-X-Get-Y or prepay upsell,

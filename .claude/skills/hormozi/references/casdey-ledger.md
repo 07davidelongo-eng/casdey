@@ -67,24 +67,96 @@ Reason: Davide's request — make Hormozi's frameworks the working lens for
 casdey business decisions. Davide has read Offers and Leads; Money Models is
 still on his list, so lean on him less for that one.
 
+## 2026-09-10 — Diagnosis: the binding constraint is leads (volume + reply→activation), not the offer or the money model
+Framework: $100M Leads / constraint sequencing + More-Better-New + Rule of 100;
+$100M Offers / Value Equation (Perceived Likelihood); $100M Money Models /
+Trial With Penalty
+Decision: first full Hormozi-lens diagnosis of casdey. Verdict — monetisation
+is **not** the constraint (0 paying gyms; unit economics are strong: 92–96%
+gross margin, break-even at one gym). The offer is sound on paper and the
+CrossFit/box reply cluster (≈9 of 13 responders) shows real demand. The
+**binding constraint is leads**, in two parts: (a) absolute engaged-lead
+volume is tiny — 13 responses / ~677 first-touched ≈ 1.9%, only 1 ever marked
+"Interested"; (b) the fatal drop is **reply → activation** — 8 of 11 replies
+went Dead, and the one genuine signup (BodyActive Skibbereen, 2026-09-08)
+imported zero members, set no prices, ran no campaign, and is letting the free
+week run out. Agreed moves, run in parallel with holding the 100/day
+Rule-of-100 first-touch volume (already ramped 2026-09-08, leave it alone and
+go Open-to-Goal to the first 3 paying gyms):
+  1. Hand-hold gym #1 (BodyActive) to a first result and a testimonial —
+     done-for-you setup, treat as design partner. Time-critical: trial ends
+     2026-09-15.
+  2. Build a **reply → activation path**: onboarding checklist (import → prices
+     → offer → approve first campaign) + trial-window nudge emails + funnel
+     events so the drop-off is measurable. The free week is currently a
+     no-stakes trial, the exact version Hormozi (Trial With Penalty) says
+     people don't use and don't convert from.
+  3. Make the **guarantee louder and more concrete** on the reply side (it is
+     the only thing carrying Perceived Likelihood until a testimonial exists).
+Explicitly deferred as premature until there are a few paying gyms: downsell /
+upsell tiers, re-pricing, a named (MAGIC) offer, scarcity / urgency, the
+referral engine, paid ads, a second outreach channel ("New").
+Follows or diverges: **Follows**, with one deliberate nuance — Hormozi says
+under $1M profit do "More" then "Better" sequentially; casdey runs More
+(volume, already ramped) and the proof/activation fixes **in parallel**,
+because Perceived Likelihood is a structural zero (no testimonial, no case
+study) rather than a percentage optimisation, and a ~5-figure-ARR B2B purchase
+can't be brute-forced on raw volume the way a B2C challenge can.
+Reason: constraint analysis against real numbers pulled from the live
+`Casdey-Gym-Leads` sheet and the production database on 2026-09-10.
+
+## 2026-09-10 — Trial With Penalty replaces the no-stakes free week (reverses "no card")
+Framework: $100M Money Models / Trial With Penalty (pg 121-130)
+Decision: the 7-day free week becomes a Trial With Penalty. **€1 charged at
+signup** (Hormozi's own hedge, pg 129, so the card ask is justified and the card
+is proven before real billing), card saved, an affirmative "if casdey brings
+members back, will you stay on?" commitment step, and terms stating the week is
+free as long as setup is completed. Three activation criteria: import the member
+list, set service prices, approve the first campaign. At day 7: all three done
+and not cancelled → **auto-converts to Pro €289/mo** with the 20% early-adopter
+coupon (convert to what they trialled, per "always sell staying and paying",
+pg 125); cancelled at any point → drops to Free with **no fee**; steps unfinished
+and not cancelled → **€20 per unfinished step, €60 cap**, then Free. Fees are
+per-step not lump (pg 124), waivable from `/admin`, and auto-refunded if the step
+is completed within 7 days (pg 128, "let people make up for goofs"). Called a
+"free trial" in all gym-facing copy (pg 129). Full spec: `web/SAAS_V1_1_PLAN.md`
+Track H.
+Follows or diverges: **Follows**, with one adaptation. Hormozi sells this on a
+call, taking the card by hand and explaining the fee *after* the card is down
+(pg 126). casdey's signup is self-serve, so the fee terms must be shown plainly
+up front instead, and the design leans harder on nudge emails (trial days 2/5/6)
+and the waive-on-a-call hatch. Weaker than the in-person version, far stronger
+than what it replaces. Also a deliberate softening: a gym that **cancels** owes
+no fee even with steps unfinished, because the fee targets the ghost who sat on a
+free week, not the decliner, and billing a decliner is the "not worth a 1-star
+review" case (pg 128). Accepted loophole: use Pro six days, cancel, pay €1.
+Reason: **this reverses the settled 2026-08-14 billing decision** ("7-day free
+week, no card taken, then drops to Free"). That design is precisely the
+no-stakes free trial Hormozi says people do not use and do not convert from, and
+casdey now has a live proof of the failure mode: BodyActive Skibbereen signed up
+2026-09-08, signed in once, imported nothing, and would have reached day 7 having
+seen the product do nothing. The Free tier is not retired, it stops being the
+default destination and becomes the cancel-landing and downsell, while remaining
+the lead magnet for anyone who never starts a trial. Davide's call, made
+explicitly ("I would go full Hormozi... I want to stick with Alex's advice"),
+with the €20 step fee his own adjustment from the €24 proposed.
+
 ---
 
 ## Standing gaps (not yet decided — candidates for a Hormozi-lens session)
 Ranked roughly by leverage.
 
-- **Proof / perceived-likelihood — the weak Value-Equation variable.** No
-  case study, no testimonial, one unactivated real signup (BodyActive
-  Skibbereen). The whole offer leans on the Pro guarantee for believability.
-  Highest-leverage fix: get the first real gym to a first result, then a
-  testimonial. Gates referrals too (Leads: product good enough for referrals
-  before scaling paid).
-- **The free week is a no-stakes free trial** — no card, no required actions.
-  Exactly the version Hormozi (Money Models, Trial With Penalty) says people
-  don't use and don't convert from. Lowest-risk lever: require activation
-  actions during the week (import → price → approve first campaign) to keep
-  full features — Win-Your-Money-Back criteria logic, still no card, and the
-  criteria double as onboarding + guarantee proof. Live tension with the Free
-  tier's lead-magnet job; needs a deliberate call.
+- **Proof / perceived-likelihood — the weak Value-Equation variable.**
+  **IN FLIGHT 2026-09-10 as V1.1 Track K.** No case study, no testimonial. The
+  whole offer leans on the Pro guarantee for believability. Fix in progress: get
+  BodyActive Skibbereen to a first result via done-for-you setup, then a
+  testimonial. Still the highest-leverage open item until that lands. Gates
+  referrals too (Leads: product good enough for referrals before scaling paid).
+- ~~**The free week is a no-stakes free trial**~~ — **DECIDED 2026-09-10**, see
+  the Trial With Penalty entry above and `web/SAAS_V1_1_PLAN.md` Track H. €1 +
+  card + three activation criteria + €20/step fee, auto-converting to Pro. The
+  Free tier keeps its lead-magnet job for anyone who never starts a trial and
+  becomes the cancel-landing rather than the default destination.
 - **No downsell** in the money model. A gym that balks at €99 has no
   structured step below Free. Candidates (Money Models): feature-downsell to a
   Standard-minus (email only, smaller cap), a single-campaign / seasonal
@@ -108,6 +180,13 @@ Ranked roughly by leverage.
 - **LTGP:CAC / CFA never computed from real data.** Must be done before any
   paid acquisition. CFA question: does a new gym's month-one gross profit
   cover CAC + serve ~2×? Plausibly yes at €99–289/mo with low COGS.
-- **The constraint is reply → engaged** (~2.0% vs 3% target). The weekly
-  "better" tests should concentrate there (hook, subject, first-touch offer
-  framing), not further down the funnel.
+- ~~**The constraint is reply → engaged**~~ — **SUPERSEDED 2026-09-10.** Fresh
+  numbers moved it: the reply rate (~1.9%) is producing responses, but 8 of 11
+  replies went Dead and the single signup activated nothing. The binding drop is
+  **reply → activation**, not reply → engaged. Track H attacks the activation
+  half; the reply half is still open (see below).
+- **Why 8 of 11 replies died is unknown.** The sheet records status, not reason.
+  If they were genuine "not interested", that is a targeting signal; if they went
+  cold after one exchange, it is a reply-side process gap and more urgent than
+  Track H, because those people had already raised their hand. Davide has the
+  inbox context. Unanswered as of 2026-09-10.

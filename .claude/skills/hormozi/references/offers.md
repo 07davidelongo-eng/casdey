@@ -241,13 +241,17 @@ Keep in sync with `casdey-ledger.md`, `CLAUDE.md`, `web/SAAS_V1_PLAN.md` §F0,
 - **Value Equation read**
   - Dream outcome: strong, and *quantified per gym* via the price list (this
     is a real edge — most win-back tools can't show the number first).
-  - Likelihood: the **thin** variable. No case study, no testimonial, one
-    unactivated real signup (BodyActive Skibbereen). Currently carried
-    entirely by the Pro guarantee. This is casdey's biggest offer weakness —
-    fixing it (first real result, first testimonial) should rank high.
-  - Time delay: good. Import → first send is fast; first bookings land inside
-    the guarantee's 30-day window. The Free tier's "see who lapsed and what
-    they're worth" *is* the fast early win — lean on it.
+  - Likelihood: the **thin** variable. No case study, no testimonial. Currently
+    carried entirely by the Pro guarantee. Still casdey's biggest offer
+    weakness. Fix in flight as V1.1 Track K: BodyActive Skibbereen to a first
+    real result via done-for-you setup, then a testimonial.
+  - Time delay: good **in principle, and silently broken in practice until V1.1
+    Track I lands.** Import → first send is fast and first bookings land inside
+    the guarantee's 30-day window, but `gyms.lapsed_after_months` defaults to
+    **12** (a dental recall cycle that survived the pivot), so a new gym's first
+    screen flags only members gone a whole year and the fast early win, the Free
+    tier's "see who lapsed and what they're worth", arrives near-empty. Default
+    should be gym-native (~90 days) and set deliberately during onboarding.
   - Effort & sacrifice: casdey's core strength. It finds, writes per-member,
     follows up, replies, and books. The one job left with the gym is the
     import. "The only step that needs you" is the offer's spine — protect it.

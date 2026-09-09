@@ -281,10 +281,16 @@ Keep in sync with the "Marketing plan (Hormozi)" and "Stage 1" sections of
   asset + a cumulative Test Log; 4 unbeaten weekly tests = established winner,
   move to the next asset. **New** = explicitly deferred. Followed closely.
   casdey is under $1M profit, so "more first" is the right ordering.
-- **Constraint** — casdey's funnel drop-off is at *reply → engaged*
-  (2.0% engaged vs. 3% target as of the last snapshot). That's where the
-  weekly "better" tests should concentrate (hook, subject, offer framing,
-  first-touch CTA), not further down.
+- **Constraint (revised 2026-09-10 against live data)** — the reply rate
+  (~1.9%: 13 responses from ~730 first-touched) is producing responses. The
+  fatal drop is *reply → activation*: 8 of 11 replies went Dead, and the single
+  real signup (BodyActive) imported nothing and let the free week run down. So
+  the constraint is **volume first** (13 engaged leads is not a sample; the
+  100/day ramp of 2026-09-08 is the right move and should be held Open to Goal
+  to the first 3 paying gyms) and **activation second** (V1.1 Track H, Trial
+  With Penalty). The weekly "better" tests still belong at the front of the
+  funnel, but that is not where the business is currently breaking. Why 8
+  replies died is still unknown and worth answering before more tuning.
 - **LTGP:CAC** — not yet computable (no paying gym; CAC is founder time
   only). Must be computed before any paid ads. The plan already gates ads on
   "first customers prove where they come from" — on-model (paid ads last).
