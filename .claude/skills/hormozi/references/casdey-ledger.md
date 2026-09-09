@@ -185,8 +185,18 @@ Ranked roughly by leverage.
   replies went Dead and the single signup activated nothing. The binding drop is
   **reply → activation**, not reply → engaged. Track H attacks the activation
   half; the reply half is still open (see below).
-- **Why 8 of 11 replies died is unknown.** The sheet records status, not reason.
-  If they were genuine "not interested", that is a targeting signal; if they went
-  cold after one exchange, it is a reply-side process gap and more urgent than
-  Track H, because those people had already raised their hand. Davide has the
-  inbox context. Unanswered as of 2026-09-10.
+- ~~**Why 8 of 11 replies died**~~ — **ANSWERED 2026-09-10.** Davide read them:
+  they say "no thanks", "not interested", "not for me". Genuine disinterest,
+  **not** a reply-side process gap, so the V1.1 build order stands (Track I, then
+  Track H). The second-order finding is the useful one: the cold email is
+  feedback-first *precisely so it gathers data*, and a brush-off is not data.
+  Nobody replied "interesting, but X" or "we already use Y". In Hormozi's terms a
+  feedback request is an **ask**, not a give, so value flows the wrong way for a
+  stranger who owes you nothing (Leads pg 169-171). His own worked example is
+  this exact swap, from a "game planning session" to "as much free service as we
+  could possibly afford", which 3x'd take rates. casdey already has the give as
+  first-touch **variant B**, and **T0 is literally testing ask (A) vs give (B)**,
+  so let it run rather than acting now. Expect B. If B wins, the "more" move is
+  to make B's give *bigger*, not to keep A around. Caveat against over-reading
+  any of this: n=11 is nothing, and Hormozi says his own first four months of
+  cold outreach "felt like torture".

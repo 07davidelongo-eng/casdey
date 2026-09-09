@@ -261,11 +261,16 @@ Do not retune it on weekly noise.
 
 ## Open questions
 
-- **Why did 8 of 11 replies die?** The sheet records the status, not the reason.
-  Davide has the inbox context. If they were genuine "not interested", that is a
-  targeting signal. If they went cold after one exchange, that is a reply-side
-  process gap and it is more urgent than anything in Track H, because those
-  people had already raised their hand. Worth 20 minutes reading the thread.
+- ~~Why did 8 of 11 replies die?~~ **Answered 2026-09-10.** They say "no thanks",
+  "not interested", "not for me". Genuine disinterest, not a reply-side process
+  gap, so the build order here stands. The second-order finding matters more: the
+  cold email is feedback-first so that it gathers data, and a brush-off is not
+  data. Nobody said "interesting, but X" or "we already use Y". A feedback
+  request is an ask, not a give, and value flows the wrong way for a stranger
+  ($100M Leads pg 169-171). first-touch variant B is already the give, and test
+  T0 is testing ask against give right now, so let it run rather than acting.
+  Expect B to win; if it does, make B's give bigger rather than keeping A.
+  n=11 is far too small to read a verdict into either way.
 - **Does the €1 charge hurt signup rate?** Unknown and unknowable at n=1.
   Hormozi's hedge if a free-plus-card ask gets weird reactions is exactly this
   €1 (MM pg 129), so it is already the mitigation. Watch it once there is volume.
