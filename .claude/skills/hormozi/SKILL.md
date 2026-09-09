@@ -107,13 +107,15 @@ Hormozi move is harder or less comfortable, that's not a reason.
 
 The reference files are summaries. When a decision needs more than a summary:
 
-- **The books.** Full PDFs are in `Alex Hormozi/` at the repo root
-  (`100M-Offers.pdf`, `100M-Leads.pdf`, `100M-Money-Models.pdf`, plus the two
-  `...-Outreach-pack.pdf` companion files). They are gitignored (copyright) and
-  are **image-only scans with no text layer**, so they can't be grepped; read
-  the specific pages you need with the Read tool's PDF page range. Use them to
-  confirm an exact framework detail or lift a worked example, not for casual
-  reading.
+- **The books.** In `Alex Hormozi/` at the repo root: the PDFs
+  (`100M-Offers.pdf`, `100M-Leads.pdf`, `100M-Money-Models.pdf`, plus two
+  `...-Outreach-pack.pdf` companion files) and, alongside them, OCR'd
+  `100M-*.txt` versions with page markers (`===== [100M-Offers pg-042] =====`)
+  — the PDFs are image-only scans, the `.txt` files are the searchable copy.
+  All gitignored (copyright). Grep the `.txt` for a term, then read that page
+  span to confirm an exact framework detail or lift a worked example. The
+  `references/` notes were distilled from a full read of these; go to source
+  only when a decision turns on a detail the notes don't carry.
 - **His videos.** Hormozi's YouTube (@AlexHormozi) and podcast restate the
   books and sometimes go more current and more tactical. Use WebSearch/WebFetch
   when the books are thin on a specific tactic, when casdey's question is about
