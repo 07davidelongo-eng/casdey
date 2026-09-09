@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireGym } from "@/lib/dal";
 import { gymStats } from "@/lib/stats";
 import { hasPricedServices, recoveredRevenue } from "@/lib/revenue";
+import { lapsedOpportunity } from "@/lib/opportunity";
 import {
   atRiskRuleFor,
   describeRule,
@@ -132,6 +133,16 @@ export default async function DashboardPage(props: PageProps<"/app">) {
 
   const returned = (returnedRows?.[0] ?? null) as Member | null;
 
+  // Forward-looking: roughly what the lapsed members are worth per month, taken
+  // from the gym's own membership prices. Needs the lapsed count from the batch
+  // above, so it is the one read that cannot join it. An estimate, shown as
+  // one, and it never feeds the guarantee. See src/lib/opportunity.ts.
+  const opportunity = await lapsedOpportunity(
+    session.supabase,
+    gym.id,
+    stats.lapsed,
+  );
+
   const currency = gymCurrency(gym);
 
   if (stats.members === 0) {
@@ -226,6 +237,32 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           hint="came back after we wrote"
         />
       </div>
+
+      {/* The forward figure, paired with Recovered below it: what the quiet
+          half of the list is worth per month, against what casdey has pulled
+          back so far. An estimate from the gym's own membership prices, shown
+          on every tier (the size of the opportunity is never hidden) and
+          deliberately set smaller than Recovered so it does not compete with
+          the number the product is actually judged on. */}
+      {opportunity.priced && opportunity.lapsedMembers > 0 ? (
+        <Card className="mt-4">
+          <p className="label text-stone">Recurring revenue lapsed</p>
+          <p className="literal mt-2 text-[1.75rem] leading-none font-medium text-ink">
+            {formatMoney(opportunity.monthlyMinor, currency)}
+            <span className="text-[0.9375rem] font-normal text-stone">
+              /month
+            </span>
+          </p>
+          <p className="mt-3 max-w-xl text-[0.8125rem] text-stone">
+            Your {opportunity.lapsedMembers} lapsed{" "}
+            {opportunity.lapsedMembers === 1 ? "member" : "members"} represent
+            about this much a month between them, at your typical membership of{" "}
+            {formatMoney(opportunity.typicalMonthlyMinor, currency)}. A rough
+            measure of the opportunity, not a promise, and some may already have
+            cancelled with you.
+          </p>
+        </Card>
+      ) : null}
 
       {/* Recovered revenue belongs with the counts above it, not at the bottom
           of the page: it is the one number the whole product is judged on and
