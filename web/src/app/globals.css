@@ -126,34 +126,42 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --paper: #16160f;
-  --white: #1f1f18;
-  --mist: #26261e;
-  --ash: #34342a;
-  --stone: #8e8a7c;
-  --graphite: #c9c5b7;
-  --ink: #f4f2ea;
+  /* A true-black ground: an OLED "off pixel" #000, asked for directly. The
+     dark palette was a warm near-black (#16160f) carried over from v3 Iron &
+     Brass, and on a real screen that read as brown rather than as black. The
+     neutrals below are pulled to a clean grey with the warmth taken out, so
+     the only warm thing left on the page is still the gold. Depth is built the
+     way it always was here, by each raised surface being LIGHTER than the page
+     rather than by a shadow, which on pure black means a short ladder of greys. */
+  --paper: #000000;
+  --white: #141414; /* raised card */
+  --mist: #1e1e1e; /* quiet fill, hover */
+  --ash: #313131; /* hairline, divider */
+  --stone: #8c8c88; /* tertiary text, 6.2:1 on black */
+  --graphite: #c8c8c4; /* body text, 12:1 */
+  --ink: #f4f4f1; /* headlines, 19:1 */
+  --sea: #c8c8c4; /* body text on the sidebar, was a warm parchment from light */
 
-  /* The inverted plane is now the whole page, so the band that used to be the
-     exception has to lift off it rather than sink into it. */
-  --deep: #0f0f0a;
-  --deep-raised: #1f1f18;
-  --deep-line: #34342a;
+  /* The inverted band (the sidebar) lifts OFF pure black: just above #000,
+     a shade below card level, so the three planes still read apart. */
+  --deep: #0b0b0b;
+  --deep-raised: #171717;
+  --deep-line: #313131;
 
-  --teal: #d4af37;
+  --teal: #d4af37; /* Leaf reads at 10:1 on black, better than it did on #16160f */
   --teal-hover: #f0cd7d;
   --teal-bright: #d4af37;
-  --shallow: #2a2418;
+  --shallow: color-mix(in srgb, var(--teal-bright) 14%, #000000); /* faint gold badge tint */
 
   --amber: #e0a34a;
   --danger: #e2836f;
   --danger-soft: #e2836f;
 
-  /* A shadow is light that failed to arrive, and on a dark ground there was
-     never much of it to block. Depth comes from the raised surface being
-     lighter than the page, so these only need to keep an edge. */
-  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.45), 0 18px 40px rgba(0, 0, 0, 0.5);
+  /* A shadow is light that failed to arrive, and on pure black there is none
+     of it to block, so depth is entirely the lighter raised surface. These
+     stay only to keep a faint edge under floating elements. */
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.6), 0 18px 40px rgba(0, 0, 0, 0.7);
 }
 
 @theme inline {
@@ -219,6 +227,12 @@
     font-size: 17px;
     line-height: 1.7;
     -webkit-font-smoothing: antialiased;
+    /* Stop the rubber-band overscroll at the top and bottom of the page. The
+       dark app shell fills the viewport but the <body> behind it stays the
+       light ground (dark mode is scoped to the shell, by design), so bouncing
+       past the edge used to flash a chalk band above a black page. Also
+       disables pull-to-refresh, which an app-like surface is better without. */
+    overscroll-behavior-y: none;
   }
 
   ::selection {
@@ -260,6 +274,16 @@
     --danger: #e2836f;
     --danger-soft: #e2836f;
     color: var(--sea);
+  }
+
+  /* On the true-black product ground, the sidebar's own neutrals should match
+     the rest of the dark app, not the warm values .on-deep hardcodes for the
+     marketing page's one inverted band (which still renders on light Chalk and
+     is left alone). Scoped to the themed shell so the marketing site is
+     untouched. */
+  [data-theme="dark"] .on-deep {
+    --stone: #8c8c88;
+    --ink: #f4f4f1;
   }
 
   /* Focus on the inverted plane needs the luminous gold to stay visible. */
