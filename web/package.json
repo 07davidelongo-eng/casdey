@@ -15,7 +15,9 @@
     "check:stripe": "node scripts/stripe-check.mjs",
     "setup:stripe": "node scripts/stripe-setup.mjs",
     "check:stripe:prod": "node scripts/stripe-check-prod.mjs",
-    "doc:push": "node scripts/google-doc.mjs"
+    "doc:push": "node scripts/google-doc.mjs",
+    "checkup:marketing": "node scripts/check-up-marketing.mjs",
+    "checkup:numbers": "node scripts/check-up-numbers.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
