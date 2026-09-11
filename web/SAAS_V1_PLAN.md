@@ -447,7 +447,10 @@ anywhere):**
   it reaches Davide only.
 
 ### B9. Confirm JD's gym software — `closed 2026-09-04: LegitFit, no API → E2 to V2`
-JD runs **LegitFit** (Irish gym/studio booking + membership platform). The open
+JD is **Jonathan Davis**, owner and coach of **BodyActive** (Skibbereen, Co. Cork;
+www.BodyActive.ie) — the gym behind the "BodyActive Skibbereen" signup of
+2026-09-08. He runs **LegitFit** (Irish gym/studio booking + membership
+platform). The open
 sub-question (can they share API credentials?) is **answered: there is nothing
 to share.** LegitFit publishes no developer API, and its Zapier app is
 trigger-only, so there is no way to pull an existing member list out
