@@ -28,37 +28,52 @@ function env(name) {
 }
 
 // ---------- Supabase ----------
-const dbUrl = env("SUPABASE_DB_URL");
-const db = new pg.Client({ connectionString: dbUrl });
-await db.connect();
+// Degrades to null (with a reason), same as stripeSnapshot/postHogSnapshot
+// below, rather than a bare crash — an unset SUPABASE_DB_URL used to surface
+// as a bare ECONNREFUSED on 127.0.0.1:5432 (pg's default when the
+// connection string is undefined), which said nothing about the real cause.
+async function supabaseSnapshot() {
+  const dbUrl = env("SUPABASE_DB_URL");
+  if (!dbUrl) return { error: "SUPABASE_DB_URL is not set" };
 
-const q = async (sql) => (await db.query(sql)).rows;
+  const db = new pg.Client({ connectionString: dbUrl });
+  try {
+    await db.connect();
+  } catch (e) {
+    return { error: `SUPABASE_DB_URL set but connect failed: ${e.message}` };
+  }
+  const q = async (sql) => (await db.query(sql)).rows;
 
-const [gymTotals] = await q(`
-  select
-    count(*) filter (where not is_internal) as real_gyms,
-    count(*) filter (where is_internal) as internal_gyms,
-    count(*) filter (where not is_internal and subscription_status = 'active') as paying,
-    count(*) filter (where not is_internal and trial_ends_at > now() and subscription_status <> 'active') as trialing,
-    count(*) filter (where not is_internal and plan_tier = 'standard' and subscription_status = 'active') as standard_paying,
-    count(*) filter (where not is_internal and plan_tier = 'pro' and subscription_status = 'active') as pro_paying,
-    count(*) filter (where not is_internal and created_at > now() - interval '7 days') as new_this_week
-  from gyms
-`);
+  try {
+    const [gymTotals] = await q(`
+      select
+        count(*) filter (where not is_internal) as real_gyms,
+        count(*) filter (where is_internal) as internal_gyms,
+        count(*) filter (where not is_internal and subscription_status = 'active') as paying,
+        count(*) filter (where not is_internal and trial_ends_at > now() and subscription_status <> 'active') as trialing,
+        count(*) filter (where not is_internal and plan_tier = 'standard' and subscription_status = 'active') as standard_paying,
+        count(*) filter (where not is_internal and plan_tier = 'pro' and subscription_status = 'active') as pro_paying,
+        count(*) filter (where not is_internal and created_at > now() - interval '7 days') as new_this_week
+      from gyms
+    `);
 
-const [productTotals] = await q(`
-  select
-    (select count(*) from members m join gyms g on g.id = m.gym_id where not g.is_internal and not m.is_test) as members,
-    (select count(*) from members m join gyms g on g.id = m.gym_id where not g.is_internal and not m.is_test and m.status = 'returned') as returned,
-    (select count(*) from campaigns c join gyms g on g.id = c.gym_id where not g.is_internal and c.approved_at is not null) as campaigns_approved,
-    (select count(*) from campaign_messages cm join gyms g on g.id = cm.gym_id where not g.is_internal and cm.status = 'sent') as messages_sent,
-    (select count(*) from bookings b join gyms g on g.id = b.gym_id where not g.is_internal and b.status <> 'cancelled') as bookings,
-    (select coalesce(sum(b.value_minor), 0) from bookings b join gyms g on g.id = b.gym_id where not g.is_internal and b.status in ('booked','completed')) as revenue_recovered_minor
-`);
+    const [productTotals] = await q(`
+      select
+        (select count(*) from members m join gyms g on g.id = m.gym_id where not g.is_internal and not m.is_test) as members,
+        (select count(*) from members m join gyms g on g.id = m.gym_id where not g.is_internal and not m.is_test and m.status = 'returned') as returned,
+        (select count(*) from campaigns c join gyms g on g.id = c.gym_id where not g.is_internal and c.approved_at is not null) as campaigns_approved,
+        (select count(*) from campaign_messages cm join gyms g on g.id = cm.gym_id where not g.is_internal and cm.status = 'sent') as messages_sent,
+        (select count(*) from bookings b join gyms g on g.id = b.gym_id where not g.is_internal and b.status <> 'cancelled') as bookings,
+        (select coalesce(sum(b.value_minor), 0) from bookings b join gyms g on g.id = b.gym_id where not g.is_internal and b.status in ('booked','completed')) as revenue_recovered_minor
+    `);
 
-const [waitlist] = await q(`select count(*) as n from waitlist_signups`);
+    const [waitlist] = await q(`select count(*) as n from waitlist_signups`);
 
-await db.end();
+    return { gyms: gymTotals, product: productTotals, waitlist: waitlist.n };
+  } finally {
+    await db.end();
+  }
+}
 
 // ---------- Stripe (live) ----------
 async function stripeSnapshot() {
@@ -117,11 +132,22 @@ async function postHogSnapshot() {
   return { visitors, pageviews };
 }
 
-const [stripe, traffic] = await Promise.all([stripeSnapshot(), postHogSnapshot()]);
+const [supabase, stripe, traffic] = await Promise.all([
+  supabaseSnapshot(),
+  stripeSnapshot(),
+  postHogSnapshot(),
+]);
 
 console.log(
   JSON.stringify(
-    { gyms: gymTotals, product: productTotals, waitlist: waitlist.n, stripe, traffic },
+    {
+      gyms: supabase.gyms ?? null,
+      product: supabase.product ?? null,
+      waitlist: supabase.waitlist ?? null,
+      supabaseError: supabase.error ?? null,
+      stripe,
+      traffic,
+    },
     null,
     1,
   ),
