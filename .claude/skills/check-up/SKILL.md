@@ -125,6 +125,10 @@ the `schedule` skill, same mechanism as the two outreach routines in
 existing outreach routine). It has no chat to reply into, so the delivery
 step is different from an on-demand run:
 
+0. **`cd web && npm ci` first.** A cloud routine's checkout has no
+   `node_modules` (found the hard way on the first live run, 2026-09-11:
+   `checkup:numbers` failed with `Cannot find package 'pg'`). Local runs
+   already have it installed, so this is a no-op there.
 1. Do everything above (four sections, compose chat-style summary text,
    publish/redeploy the artifact).
 2. Instead of printing the summary to a conversation, write it to a temp
