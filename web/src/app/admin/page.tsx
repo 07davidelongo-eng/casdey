@@ -26,6 +26,7 @@ import {
 import { formatMoney } from "@/lib/money";
 import { Funnel, LineChart, Split } from "@/components/app/chart";
 import {
+  ButtonLink,
   Card,
   CardTitle,
   PageHeader,
@@ -35,6 +36,17 @@ import {
 import { PeriodNav, RankedList, Section, periodFrom } from "./parts";
 
 export const metadata = { title: "Business overview" };
+
+/**
+ * The /check-up report: a separate, broader snapshot (marketing + these same
+ * numbers + engineering + casdey-hq.md), published as a Claude Artifact and
+ * kept up to date in place by the /check-up skill and its weekly routine —
+ * see .claude/skills/check-up/SKILL.md "Artifact URL". Linked out to, not
+ * embedded: it is Davide's own private artifact, opened in his own
+ * claude.ai session, not something casdey's server can fetch or render.
+ */
+const CHECK_UP_URL =
+  "https://claude.ai/code/artifact/e527486a-6a23-4267-8d4e-f9722adbdbbe";
 
 /**
  * casdey's own Shopify/Baremetrics-style founder view: the numbers a founder
@@ -142,7 +154,19 @@ export default async function AdminPage(props: PageProps<"/admin">) {
         eyebrow="casdey HQ"
         title="Business overview"
         lede="Every gym, not one. Money is read straight from Stripe; signups, activation and product output are counted from casdey's own tables; visitors come from PostHog. Nothing here is a summary table that can drift."
-        actions={<PeriodNav current={period} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <ButtonLink
+              href={CHECK_UP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="quiet"
+            >
+              Check-up report ↗
+            </ButtonLink>
+            <PeriodNav current={period} />
+          </div>
+        }
       />
 
       {/* Headline */}
