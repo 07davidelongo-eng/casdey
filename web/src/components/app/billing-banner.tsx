@@ -34,30 +34,30 @@ export function BillingBanner({ gym }: { gym: Gym }) {
   }
 
   if (isPaidPlan(plan)) {
-    // Two different problems that both pause sending, and they need different
-    // instructions. A card that was refused needs replacing; a card waiting on
-    // 3-D Secure is perfectly good and needs one tap in a banking app. Telling
-    // the second gym to update its card sends it looking for a fault that is
-    // not there.
-    if (gym.subscription_status === "incomplete") {
-      return (
-        <Banner tone="warn">
-          <span>
-            Your bank needs you to approve the first payment. Sending is paused
-            until you do.
-          </span>
-          <BannerLink href="/app/settings/billing">Approve payment</BannerLink>
-        </Banner>
-      );
+    // Both `past_due` and `incomplete` mean a payment has not been collected,
+    // and the two usual reasons need opposite instructions: a refused card
+    // needs replacing, a card awaiting 3-D Secure is perfectly good and needs
+    // one tap. Telling the second gym to update its card sends it hunting for
+    // a fault that is not there.
+    //
+    // Which one it is can only be answered by asking Stripe for the open
+    // invoice, and this banner renders on every page of the product, so it
+    // deliberately does not ask. It states the part that is true either way
+    // and sends the gym to the billing page, which does ask and shows the
+    // right button. See src/lib/payment-action.ts.
+    if (
+      gym.subscription_status !== "past_due" &&
+      gym.subscription_status !== "incomplete"
+    ) {
+      return null;
     }
-    if (gym.subscription_status !== "past_due") return null;
     return (
       <Banner tone="warn">
         <span>
-          The last payment did not go through. Sending is paused until the card
-          is updated.
+          A payment has not gone through yet, so sending is paused. It usually
+          needs one tap to approve.
         </span>
-        <BannerLink href="/app/settings/billing">Update card</BannerLink>
+        <BannerLink href="/app/settings/billing">Sort out payment</BannerLink>
       </Banner>
     );
   }

@@ -21,6 +21,7 @@ import {
   formatDate,
 } from "@/components/app/ui";
 import { IconShield } from "@/components/marks/icons";
+import { pendingPaymentAction } from "@/lib/payment-action";
 import { GuaranteeClaimForm } from "./guarantee-claim-form";
 
 export const metadata = { title: "Billing" };
@@ -33,6 +34,10 @@ export default async function BillingPage(
 
   const plan = effectivePlan(gym);
   const caps = capabilities(gym);
+  // A payment the gym's bank wants approved. Expected rather than exceptional
+  // here: see the note at the top of src/lib/payment-action.ts.
+  const paymentAction = await pendingPaymentAction(gym);
+  const awaitingAuth = paymentAction != null;
   const currency = currencyFor(gym.country);
   const daysLeft = trialDaysLeft(gym);
   const discounted = gym.early_adopter && earlyAdopterProgramActive();
@@ -249,12 +254,13 @@ export default async function BillingPage(
           </p>
         ) : (
           <p className="text-[0.9375rem] text-graphite">
-            {gym.subscription_status === "incomplete" ? (
-              /* Not a refusal. The card works and the bank simply wants the
-                 owner to approve the first charge, which European cards ask
-                 for routinely. Sending "update your card" here would send a
-                 gym hunting for a fault that does not exist. */
-              "Your bank needs you to approve the first payment before it goes through. Open the billing portal below to confirm it. Sending is paused until then, and nothing else you have set up is affected."
+            {awaitingAuth ? (
+              /* Not a refusal, and not a broken card. The bank has declined to
+                 waive authentication on an off-session charge, which European
+                 issuers do routinely, so it needs one tap from the owner.
+                 Telling them to update the card would send them hunting for a
+                 fault that does not exist. The button is below. */
+              `Your bank wants you to approve this payment before it goes through. Nothing is wrong with your card. Sending is paused until you confirm it, and everything you have set up is untouched.`
             ) : gym.subscription_status === "past_due" ? (
               "Your last payment did not go through. Sending is paused until the card is updated."
             ) : gym.cancels_at ? (
@@ -286,6 +292,27 @@ export default async function BillingPage(
             )}
           </p>
         )}
+
+        {/* The one thing that unblocks the account, so it gets the primary
+            button and sits above "Manage billing". An anchor rather than a
+            form: the 3-D Secure challenge can only run on Stripe's own hosted
+            page, so there is nothing for casdey to post to. */}
+        {paymentAction ? (
+          <div className="mt-5">
+            <a
+              href={paymentAction.url}
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] bg-teal px-5 py-3 text-[0.9375rem] font-semibold text-white transition-[transform,background-color] duration-200 ease-out hover:-translate-y-px hover:bg-teal-hover active:translate-y-0 active:scale-[0.98]"
+            >
+              Approve{" "}
+              {formatMoney(paymentAction.amountMinor, paymentAction.currency)}{" "}
+              payment
+            </a>
+            <p className="field-hint">
+              Opens Stripe, where your bank will ask you to confirm. Sending
+              switches back on as soon as it clears.
+            </p>
+          </div>
+        ) : null}
 
         {isPaidPlan(plan) && role === "owner" ? (
           <form action="/api/stripe/portal" method="post" className="mt-5">
