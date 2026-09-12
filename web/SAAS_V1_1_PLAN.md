@@ -42,6 +42,11 @@ calls the customers he lost to it "thousands".
 
 ## Track H, Trial With Penalty
 
+**BUILT 2026-09-12, commit `534f8b0`, behind `CASDEY_TRIAL_PENALTY` (default
+OFF). Not pushed. Migration `0038` applied to the live DB.** Everything below
+describes what was built; the differences from this spec and what is still
+owed are in "Track H, what is still owed" at the end of this section.
+
 The main build. Replaces the current "7 free days, no card, then drop to Free"
 with Hormozi's Trial With Penalty, adapted for self-serve signup.
 
@@ -151,7 +156,43 @@ this track.
 
 ---
 
+## Track H, what is still owed
+
+Four things, and the first two gate turning the flag on.
+
+1. **The terms pages do not mention the fee.** It is disclosed at signup, in
+   numbers, behind a required checkbox, which is the disclosure that matters
+   most. But `/terms/*` says nothing about a setup fee or about a trial that
+   auto-converts, and those pages are what a gym would be pointed at in a
+   dispute. Write it there before the flag goes on.
+2. **Nothing has been through the LIVE Stripe path.** Everything is verified in
+   test mode. The live catalogue and coupon exist (F2) and the live webhook is
+   registered on `www`, but no live €1 has ever been taken and no live
+   conversion has run. Do a real one on a real card first, the way C1 was done.
+3. **Legal shape of the fee is unexamined.** casdey has no legal entity, sells
+   B2B across the EU, and would be charging a fee for an omission rather than
+   for a service. Worth a look before it bills a stranger; it is not a blocker
+   for a test-mode build.
+4. **`?started=1` on the Overview** still says "Nothing is charged for seven
+   days", which the €1 makes false. Nothing links to it any more, so it is
+   unreachable rather than wrong on screen. Delete it or fix it.
+
+Also worth knowing: a fee charged to an `is_internal` gym is invisible
+everywhere, because `/admin` excludes internal gyms from every number
+including this one. Correct for business figures, mildly confusing while
+testing.
+
+---
+
 ## Track I, the lapse window default
+
+**DONE 2026-09-12, commit `83a4713`. Migration `0037` applied to the live DB.**
+The default is now 90 days, it is an explicit choice rather than an
+inheritance (`gyms.lapse_rule_set_at`), and Settings counts what each
+candidate window would catch in the gym's own members. Two bugs were found
+while verifying it: the "not set yet" notice named the shipped default rather
+than the gym's own window, and the settings form came out of every save with
+its unit reset to "months". Not pushed.
 
 **A real bug, found 2026-09-10.** `gyms.lapsed_after_months` defaults to **12**
 (`supabase/migrations/0002_saas.sql:117`). That is a dental recall cycle that
