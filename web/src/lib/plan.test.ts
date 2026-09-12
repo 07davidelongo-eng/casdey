@@ -131,6 +131,22 @@ describe("effectivePlan", () => {
     ).toBe("pro");
   });
 
+  /**
+   * A day-7 trial conversion whose first payment needs 3-D Secure lands here.
+   * Reading it as "free" dropped a gym that had done everything asked of it
+   * onto the Free plan, holding a subscription nothing had told it to
+   * authenticate. See conversionResultFor in ./trial.ts.
+   */
+  it("keeps an incomplete subscription on its tier rather than free", () => {
+    const p = gym({
+      subscription_status: "incomplete",
+      plan_tier: "pro",
+      // The trial that just converted has, by definition, run out.
+      trial_ends_at: "2026-08-10T00:00:00Z",
+    });
+    expect(effectivePlan(p, NOW)).toBe("pro");
+  });
+
   it("returns to free after a subscription is cancelled", () => {
     const p = gym({
       subscription_status: "canceled",
@@ -194,6 +210,22 @@ describe("capabilities", () => {
     // The grant is still Pro's; only the send is held pending the card.
     expect(c.canUseWhatsApp).toBe(true);
     expect(c.hasGuarantee).toBe(true);
+  });
+
+  it("holds sending while a first payment waits on the bank", () => {
+    const c = capabilities(
+      gym({
+        subscription_status: "incomplete",
+        plan_tier: "pro",
+        trial_ends_at: "2026-08-10T00:00:00Z",
+      }),
+      NOW,
+    );
+    expect(c.plan).toBe("pro");
+    // Not on Free, so nothing the gym set up disappears, but nothing goes out
+    // under the gym's name until the money actually moves.
+    expect(c.canSendCampaigns).toBe(false);
+    expect(c.canUseWhatsApp).toBe(true);
   });
 });
 

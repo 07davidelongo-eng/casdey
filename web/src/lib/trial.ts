@@ -222,6 +222,37 @@ export function trialOutcome(
 }
 
 /**
+ * What creating the conversion subscription actually achieved.
+ *
+ * Stripe returning a subscription object is not the same as the gym having
+ * paid. When the first payment needs 3-D Secure, which European banks ask for
+ * routinely, `subscriptions.create` succeeds and hands back a subscription
+ * sitting at `incomplete` with the charge unconfirmed. Treating that as a
+ * conversion is how a gym that finished every step ends up on the Free plan
+ * holding an unpaid subscription, with casdey's own records claiming it
+ * converted and nothing anywhere telling it to go and authenticate.
+ *
+ * Stripe's test cards never trigger 3-D Secure, so this cannot be caught by
+ * driving the test-mode path; it is only reachable with a real card at a real
+ * European bank. Hence a named function with its own test rather than an
+ * inline status check.
+ *
+ *   converted             Paid. The gym is on Pro.
+ *   needs_authentication  The bank wants the owner to approve the charge.
+ *                         Recoverable, and the gym has to be told.
+ *   failed                Declined or unusable. Nothing to authenticate.
+ */
+export type ConversionResult = "converted" | "needs_authentication" | "failed";
+
+export function conversionResultFor(subscriptionStatus: string): ConversionResult {
+  if (subscriptionStatus === "active" || subscriptionStatus === "trialing") {
+    return "converted";
+  }
+  if (subscriptionStatus === "incomplete") return "needs_authentication";
+  return "failed";
+}
+
+/**
  * Which nudge, if any, is due today.
  *
  * Returns the highest nudge day that has passed and has not been sent, so a

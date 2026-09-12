@@ -111,9 +111,21 @@ export function effectivePlan(gym: PlanInput, now: Date = new Date()): Plan {
   // A live (or lapsed-but-in-grace) Stripe subscription: whichever tier it is
   // paying for. plan_tier is written by the webhook; default to the safer
   // (fuller) tier if a subscription somehow exists without one recorded yet.
+  //
+  // `incomplete` is in here for a reason worth stating. It is what Stripe
+  // returns when the first payment needs 3-D Secure, which European cards ask
+  // for routinely, and it is the state a day-7 trial conversion lands in when
+  // the bank wants the owner to approve the charge. Reading it as "free"
+  // would drop a gym that did everything asked of it onto the Free plan,
+  // holding a subscription it was never told to authenticate. The exposure
+  // that comes with the other reading is bounded: Stripe expires an
+  // unconfirmed subscription within about a day, the webhook then writes
+  // `canceled`, and capabilities() blocks sending throughout, because only
+  // `active` clears that gate. See trial-close.ts convert().
   if (
     gym.subscription_status === "active" ||
-    gym.subscription_status === "past_due"
+    gym.subscription_status === "past_due" ||
+    gym.subscription_status === "incomplete"
   ) {
     return gym.plan_tier ?? "pro";
   }
@@ -178,9 +190,10 @@ export function capabilities(
   const plan = effectivePlan(gym, now);
   const grants = GRANTS[plan];
 
-  // A paid tier that is past_due (card needs fixing) keeps its feature grants
-  // but cannot SEND until the payment clears. Trial and a clean active sub
-  // send freely. Free never sends.
+  // A paid tier that is past_due (card needs fixing) or incomplete (the first
+  // payment is waiting on 3-D Secure) keeps its feature grants but cannot SEND
+  // until the payment clears, because only `active` satisfies the test below.
+  // Trial and a clean active sub send freely. Free never sends.
   const paidAndCurrent =
     isPaidPlan(plan) && gym.subscription_status === "active";
   const canSend =

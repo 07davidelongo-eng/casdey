@@ -67,7 +67,12 @@ async function run(request: NextRequest): Promise<Response> {
     // report and touches nothing while CASDEY_TRIAL_PENALTY is off.
     const trials = await runTrialJob();
     if (
-      trials.converted + trials.charged + trials.nudged + trials.madeGood >
+      trials.converted +
+        trials.charged +
+        trials.nudged +
+        trials.madeGood +
+        trials.pendingAuth +
+        trials.conversionFailed >
       0
     ) {
       console.log("[cron] trials", JSON.stringify(trials));

@@ -249,7 +249,13 @@ export default async function BillingPage(
           </p>
         ) : (
           <p className="text-[0.9375rem] text-graphite">
-            {gym.subscription_status === "past_due" ? (
+            {gym.subscription_status === "incomplete" ? (
+              /* Not a refusal. The card works and the bank simply wants the
+                 owner to approve the first charge, which European cards ask
+                 for routinely. Sending "update your card" here would send a
+                 gym hunting for a fault that does not exist. */
+              "Your bank needs you to approve the first payment before it goes through. Open the billing portal below to confirm it. Sending is paused until then, and nothing else you have set up is affected."
+            ) : gym.subscription_status === "past_due" ? (
               "Your last payment did not go through. Sending is paused until the card is updated."
             ) : gym.cancels_at ? (
               /* Cancelled, but paid up to the end of the period. Saying

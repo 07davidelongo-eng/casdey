@@ -11,10 +11,12 @@ import {
   stripeClient,
 } from "./stripe";
 import { sendTrialNudge } from "./email/trial-nudge";
+import { sendTrialAuthNeeded } from "./email/trial-auth";
 import {
   ACTIVATION_LABELS,
   SETUP_FEE_MINOR,
   activationFor,
+  conversionResultFor,
   feeForUnfinished,
   madeGood,
   nudgeDue,
@@ -22,6 +24,7 @@ import {
   unfinishedSteps,
   type ActivationEvidence,
   type ActivationStep,
+  type ConversionResult,
 } from "./trial";
 import type { Gym, TrialPenalty } from "./types";
 
@@ -39,7 +42,8 @@ import type { Gym, TrialPenalty } from "./types";
  *
  *   1. Nudges, to trials still running with steps outstanding.
  *   2. Make-good refunds, for fees whose step has since been finished.
- *   3. Conversions, for trials that did all three.
+ *   3. Conversions, for trials that did all three. Note that "converted" and
+ *      "charged the card" are not the same event: see convert().
  *   4. Setup fees, for trials that ghosted.
  *
  * The whole job is gated on trialPenaltyEnabled(). With the flag off it does
@@ -53,6 +57,12 @@ export type TrialJobReport = {
   converted: number;
   charged: number;
   released: number;
+  /** Conversions Stripe accepted but has not collected, because the bank
+   *  wants the owner to approve the charge. Counted apart from `converted`
+   *  precisely so a stalled payment cannot be read as a sale. */
+  pendingAuth: number;
+  /** Conversions the card refused outright. Nothing to authenticate. */
+  conversionFailed: number;
   failures: string[];
 };
 
@@ -62,6 +72,8 @@ const EMPTY: TrialJobReport = {
   converted: 0,
   charged: 0,
   released: 0,
+  pendingAuth: 0,
+  conversionFailed: 0,
   failures: [],
 };
 
@@ -216,8 +228,10 @@ async function processGym(
   }
 
   if (outcome.kind === "convert") {
-    await convert(gym);
-    report.converted += 1;
+    const result = await convert(gym);
+    if (result === "converted") report.converted += 1;
+    else if (result === "needs_authentication") report.pendingAuth += 1;
+    else report.conversionFailed += 1;
     return;
   }
 
@@ -251,7 +265,7 @@ async function closeTrial(
  * customer.subscription.created and writes subscription_status and plan_tier,
  * so this does not duplicate any of that.
  */
-async function convert(gym: TrialGymRow): Promise<void> {
+async function convert(gym: TrialGymRow): Promise<ConversionResult> {
   if (!gym.stripe_customer_id || !gym.trial_payment_method_id) {
     // trialOutcome already guarantees a card, so this is belt and braces.
     await closeTrial(gym.id, {});
@@ -278,16 +292,66 @@ async function convert(gym: TrialGymRow): Promise<void> {
     // a null tier on an active subscription as Pro.
     metadata: { gym_id: gym.id, plan_tier: "pro", source: "trial_conversion" },
     ...(coupon ? { discounts: [{ coupon }] } : {}),
+    // Expanded so the hosted invoice page is in hand without a second round
+    // trip. It is the link a gym needs when its bank asks for 3-D Secure, and
+    // it is only reachable from the invoice.
+    expand: ["latest_invoice"],
   });
 
-  await closeTrial(gym.id, { trial_converted_at: new Date().toISOString() });
+  const result = conversionResultFor(subscription.status);
 
-  await captureServerEvent(gym.id, "trial_converted", {
+  // The trial closes either way: it genuinely ended, and leaving it open would
+  // have tomorrow's run create a SECOND subscription for the same gym.
+  // trial_converted_at is stamped only on a real conversion, so casdey's own
+  // records can never claim a payment that did not happen.
+  await closeTrial(
+    gym.id,
+    result === "converted"
+      ? { trial_converted_at: new Date().toISOString() }
+      : {},
+  );
+
+  if (result === "converted") {
+    await captureServerEvent(gym.id, "trial_converted", {
+      tier: "pro",
+      currency,
+      discounted: Boolean(coupon),
+      subscription_id: subscription.id,
+    });
+    return result;
+  }
+
+  if (result === "needs_authentication") {
+    const invoice = subscription.latest_invoice;
+    const authUrl =
+      invoice && typeof invoice !== "string"
+        ? (invoice.hosted_invoice_url ?? null)
+        : null;
+    // A failed send must not lose the outcome: the subscription exists and the
+    // gym still needs telling, so this is logged loudly rather than thrown.
+    try {
+      await sendTrialAuthNeeded({ gym, authUrl });
+    } catch (err) {
+      console.error(
+        `[trial] could not send auth email ${gym.id}`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  await captureServerEvent(gym.id, "trial_conversion_stalled", {
     tier: "pro",
     currency,
-    discounted: Boolean(coupon),
+    result,
+    stripe_status: subscription.status,
     subscription_id: subscription.id,
   });
+
+  console.warn(
+    `[trial] conversion incomplete ${gym.id}: ${subscription.status} (${result})`,
+  );
+
+  return result;
 }
 
 /**

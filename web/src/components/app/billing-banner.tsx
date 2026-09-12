@@ -34,6 +34,22 @@ export function BillingBanner({ gym }: { gym: Gym }) {
   }
 
   if (isPaidPlan(plan)) {
+    // Two different problems that both pause sending, and they need different
+    // instructions. A card that was refused needs replacing; a card waiting on
+    // 3-D Secure is perfectly good and needs one tap in a banking app. Telling
+    // the second gym to update its card sends it looking for a fault that is
+    // not there.
+    if (gym.subscription_status === "incomplete") {
+      return (
+        <Banner tone="warn">
+          <span>
+            Your bank needs you to approve the first payment. Sending is paused
+            until you do.
+          </span>
+          <BannerLink href="/app/settings/billing">Approve payment</BannerLink>
+        </Banner>
+      );
+    }
     if (gym.subscription_status !== "past_due") return null;
     return (
       <Banner tone="warn">

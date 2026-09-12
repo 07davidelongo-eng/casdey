@@ -6,6 +6,7 @@ import {
   SETUP_FEE_MAX_STEPS,
   SETUP_FEE_MINOR,
   activationFor,
+  conversionResultFor,
   feeForUnfinished,
   madeGood,
   nudgeDue,
@@ -301,5 +302,37 @@ describe("madeGood", () => {
 
   it("ignores a completion that predates the charge", () => {
     expect(madeGood(charged, "2026-09-01T09:00:00Z", NOW)).toBe(false);
+  });
+});
+
+describe("conversionResultFor", () => {
+  it("treats an active subscription as a real conversion", () => {
+    expect(conversionResultFor("active")).toBe("converted");
+    expect(conversionResultFor("trialing")).toBe("converted");
+  });
+
+  /**
+   * The bug this exists to stop, found 2026-09-12 and fixed the same day.
+   *
+   * Stripe returns `incomplete` when the first payment needs 3-D Secure, which
+   * European cards ask for routinely. The job used to read any created
+   * subscription as a conversion: it stamped trial_converted_at and reported
+   * success, while effectivePlan() read `incomplete` as Free. So a gym that
+   * finished every activation step landed on the Free plan holding an unpaid
+   * subscription, with casdey's records saying it had converted and nothing
+   * anywhere telling it to authenticate.
+   *
+   * Stripe's test cards never trigger 3-D Secure, which is why test-mode
+   * verification could not surface it.
+   */
+  it("does not call an unauthenticated payment a conversion", () => {
+    expect(conversionResultFor("incomplete")).toBe("needs_authentication");
+  });
+
+  it("separates a refusal from something recoverable", () => {
+    expect(conversionResultFor("incomplete_expired")).toBe("failed");
+    expect(conversionResultFor("canceled")).toBe("failed");
+    expect(conversionResultFor("unpaid")).toBe("failed");
+    expect(conversionResultFor("past_due")).toBe("failed");
   });
 });
