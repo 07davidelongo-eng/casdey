@@ -5,9 +5,11 @@ import {
   armsGuaranteeClock,
   guaranteeStatus,
   guaranteeWindow,
+  paidTierOnInvoice,
   paymentsFundingWindow,
+  qualifyingCampaignsFrom,
 } from "./guarantee";
-import type { GuaranteeClaim } from "./types";
+import type { GuaranteeClaim, PlanTier } from "./types";
 
 const DAY = 86_400_000;
 
@@ -30,6 +32,75 @@ describe("guaranteeWindow", () => {
     expect(window!.end.getTime() - window!.start.getTime()).toBe(
       GUARANTEE_WINDOW_DAYS * DAY,
     );
+  });
+
+  it("never starts before the payment, even for a campaign from the paid week", () => {
+    const window = guaranteeWindow(
+      "2026-09-19T21:20:00Z",
+      "2026-09-15T10:00:00Z",
+    );
+    expect(window!.start.toISOString()).toBe("2026-09-19T21:20:00.000Z");
+  });
+});
+
+describe("paidTierOnInvoice", () => {
+  const tiers: Record<string, PlanTier> = { price_pro: "pro", price_std: "standard" };
+  const lookup = (id: string | undefined) => (id ? (tiers[id] ?? null) : null);
+
+  it("does not count the paid first week's 1 euro invoice", () => {
+    // The live run of 2026-09-12: the euro as a one-off line first, then Pro at
+    // 0 because it is on a Stripe trial. This used to start the clock.
+    const lines = [
+      { amountMinor: 100, fromSubscription: false, priceId: "price_week" },
+      { amountMinor: 0, fromSubscription: true, priceId: "price_pro" },
+    ];
+    expect(paidTierOnInvoice(100, lines, lookup, "pro")).toBeNull();
+  });
+
+  it("counts the Pro renewal that ends the week", () => {
+    const lines = [{ amountMinor: 28900, fromSubscription: true, priceId: "price_pro" }];
+    expect(paidTierOnInvoice(23120, lines, lookup, "pro")).toBe("pro");
+  });
+
+  it("reads Standard as Standard", () => {
+    const lines = [{ amountMinor: 9900, fromSubscription: true, priceId: "price_std" }];
+    expect(paidTierOnInvoice(7920, lines, lookup, null)).toBe("standard");
+  });
+
+  it("falls back to the recorded tier for an unresolvable price on a real charge", () => {
+    const lines = [{ amountMinor: 28900, fromSubscription: true, priceId: "price_unknown" }];
+    expect(paidTierOnInvoice(23120, lines, lookup, "pro")).toBe("pro");
+  });
+
+  it("ignores an invoice where no money moved", () => {
+    const lines = [{ amountMinor: 28900, fromSubscription: true, priceId: "price_pro" }];
+    expect(paidTierOnInvoice(0, lines, lookup, "pro")).toBeNull();
+  });
+});
+
+describe("qualifyingCampaignsFrom", () => {
+  it("is the payment for a gym with no paid week", () => {
+    expect(qualifyingCampaignsFrom("2026-09-19T00:00:00Z", null).toISOString()).toBe(
+      "2026-09-19T00:00:00.000Z",
+    );
+  });
+
+  it("reaches back to the paid week that converted", () => {
+    expect(
+      qualifyingCampaignsFrom("2026-09-19T00:00:00Z", "2026-09-12T00:00:00Z").toISOString(),
+    ).toBe("2026-09-12T00:00:00.000Z");
+  });
+
+  it("still counts the week when the bank held the renewal for days", () => {
+    expect(
+      qualifyingCampaignsFrom("2026-09-30T00:00:00Z", "2026-09-12T00:00:00Z").toISOString(),
+    ).toBe("2026-09-12T00:00:00.000Z");
+  });
+
+  it("does not count a week from long before, after a spell on Free", () => {
+    expect(
+      qualifyingCampaignsFrom("2027-01-10T00:00:00Z", "2026-09-12T00:00:00Z").toISOString(),
+    ).toBe("2027-01-10T00:00:00.000Z");
   });
 });
 

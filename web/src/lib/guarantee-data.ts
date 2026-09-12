@@ -6,6 +6,7 @@ import {
   guaranteeStatus,
   guaranteeWindow,
   paymentsFundingWindow,
+  qualifyingCampaignsFrom,
   type GuaranteeStatus,
   type GuaranteeWindow,
 } from "./guarantee";
@@ -26,7 +27,7 @@ export async function loadGuaranteeStatus(
   supabase: SupabaseClient,
   gym: Pick<
     Gym,
-    "id" | "premium_started_at"
+    "id" | "premium_started_at" | "trial_card_setup_at"
   >,
   now: Date = new Date(),
 ): Promise<GuaranteeStatus> {
@@ -58,14 +59,21 @@ export async function loadGuaranteeStatus(
     });
   }
 
-  // The first campaign started on or after the first real payment. Anything
-  // sent during the free week does not count; see ./guarantee.ts.
+  // The first campaign started on or after the first real payment, or during
+  // the paid first week that converted into it. Anything earlier does not
+  // count; see qualifyingCampaignsFrom() in ./guarantee.ts.
   const { data: campaignRow } = await supabase
     .from("campaigns")
     .select("started_at")
     .eq("gym_id", gym.id)
     .not("started_at", "is", null)
-    .gte("started_at", gym.premium_started_at)
+    .gte(
+      "started_at",
+      qualifyingCampaignsFrom(
+        gym.premium_started_at,
+        gym.trial_card_setup_at,
+      ).toISOString(),
+    )
     .order("started_at", { ascending: true })
     .limit(1)
     .maybeSingle();

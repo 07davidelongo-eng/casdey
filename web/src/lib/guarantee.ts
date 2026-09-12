@@ -1,3 +1,4 @@
+import { TRIAL_DAYS } from "./plan";
 import type { GuaranteeClaim, PlanTier } from "./types";
 
 /**
@@ -7,16 +8,18 @@ import type { GuaranteeClaim, PlanTier } from "./types";
  * billing page) needs three things before it means anything:
  *
  *   1. The gym must be actually paying (see gyms.premium_started_at
- *      in migration 0007 — the free week is casdey's to give and is never the
- *      guarantee's clock).
+ *      in migration 0007). The first week is never the guarantee's clock,
+ *      whether it was given free or sold for 1 euro: see paidTierOnInvoice().
  *   2. Real work must have started: a campaign, approved and sent. Paying
  *      alone is not enough, that would let someone claim a refund having
  *      never actually used the product.
  *   3. 30 days of that work must have passed, so there was time for a member
  *      to actually return.
  *
- * The window is the FIRST campaign a gym starts on or after its first
- * real payment. That is deliberate, not an oversight: under this rule a
+ * The window opens with the FIRST campaign a gym starts on or after its first
+ * real payment, or during the paid first week that led to that payment (see
+ * qualifyingCampaignsFrom()), and its 30 days never start before the payment
+ * itself. That is deliberate, not an oversight: under this rule a
  * gym gets exactly one guarantee window, ever, which is what makes a
  * fully self-service, no-review refund safe to offer (see
  * src/app/api/guarantee/claim/route.ts) — there is no way to keep re-arming
@@ -51,6 +54,83 @@ export function armsGuaranteeClock(
   return paidTier === "pro";
 }
 
+/** One invoice line, reduced to what deciding the guarantee clock needs. */
+export type InvoiceLineForGuarantee = {
+  amountMinor: number;
+  /** A line billing the subscription itself, rather than a one-off item. */
+  fromSubscription: boolean;
+  priceId: string | null;
+};
+
+/**
+ * The paid tier an invoice actually charged for, or null if it charged for no
+ * tier at all.
+ *
+ * **The paid first week is the case this exists for, found 2026-09-12 on a
+ * live run.** Its invoice has two lines: the one-off 1 euro, and the Pro
+ * subscription at 0 because it is on a Stripe trial. The old reading took the
+ * first line's price, which is the euro, resolved no tier from it, fell back
+ * to the gym's recorded tier (already Pro from checkout) and started the one
+ * lifetime guarantee clock on a 1 euro payment. A gym that then launched a
+ * campaign during the week and cancelled spent its guarantee on the Free plan.
+ *
+ * So only a subscription line that charged something counts, and only on an
+ * invoice where money actually moved. The recorded tier is still the fallback
+ * for a price id the env vars cannot resolve, the misconfiguration it was
+ * added for, but never a reason on its own.
+ */
+export function paidTierOnInvoice(
+  amountPaidMinor: number,
+  lines: InvoiceLineForGuarantee[],
+  tierForPriceId: (priceId: string | undefined) => PlanTier | null,
+  recordedTier: PlanTier | null,
+): PlanTier | null {
+  if (amountPaidMinor <= 0) return null;
+  const line = lines.find((l) => l.fromSubscription && l.amountMinor > 0);
+  if (!line) return null;
+  return tierForPriceId(line.priceId ?? undefined) ?? recordedTier;
+}
+
+/**
+ * How long after its paid first week a gym's first Pro payment can land and
+ * still count as that week converting. The week itself is TRIAL_DAYS; the rest
+ * covers a renewal the bank held for approval, which Stripe keeps retrying for
+ * weeks.
+ */
+export const PAID_WEEK_CONVERSION_GRACE_DAYS = 30;
+
+/**
+ * The earliest a campaign can have started and still open the guarantee
+ * window.
+ *
+ * Normally the first real payment. The exception is a gym whose paid first week
+ * converted into that payment: the week's checklist asks it to approve its
+ * first campaign, so a campaign launched then counts. Without this, a gym that
+ * did exactly what it was told would have no guarantee until it launched a
+ * second one. The window's 30 days still start at the payment, see
+ * guaranteeWindow().
+ *
+ * A week from long before the payment does not count. Free cannot send, so a
+ * gym that cancelled its week and came back to Pro months later has had no
+ * campaign since, and one from that old week is not work done on this
+ * subscription.
+ */
+export function qualifyingCampaignsFrom(
+  premiumStartedAt: string,
+  paidWeekStartedAt: string | null,
+): Date {
+  const premium = new Date(premiumStartedAt);
+  if (!paidWeekStartedAt) return premium;
+  const week = new Date(paidWeekStartedAt);
+  const latestConversion =
+    week.getTime() +
+    (TRIAL_DAYS + PAID_WEEK_CONVERSION_GRACE_DAYS) * 86_400_000;
+  const converted =
+    week.getTime() <= premium.getTime() &&
+    premium.getTime() <= latestConversion;
+  return converted ? week : premium;
+}
+
 
 export type GuaranteeWindow = { start: Date; end: Date };
 
@@ -83,17 +163,26 @@ export function paymentsFundingWindow<T extends { paid_at: string }>(
  * The one lifetime guarantee window, or null if it has not started yet.
  *
  * `firstPaidCampaignStartedAt` must already be filtered to campaigns started
- * on or after `premiumStartedAt` — see loadGuaranteeStatus in
+ * on or after qualifyingCampaignsFrom() — see loadGuaranteeStatus in
  * ./guarantee-data.ts, which is the only real caller. This function does not
- * re-check that ordering itself; it trusts its input, the same way
+ * re-check that itself; it trusts its input, the same way
  * `estimatedRecoveredMinor` trusts the returned count it is handed.
+ *
+ * The window starts at whichever is later, the campaign or the payment. A
+ * campaign from the paid first week qualifies, but the 30 days are only ever
+ * measured while Pro is actually being paid for.
  */
 export function guaranteeWindow(
   premiumStartedAt: string | null,
   firstPaidCampaignStartedAt: string | null,
 ): GuaranteeWindow | null {
   if (!premiumStartedAt || !firstPaidCampaignStartedAt) return null;
-  const start = new Date(firstPaidCampaignStartedAt);
+  const start = new Date(
+    Math.max(
+      new Date(firstPaidCampaignStartedAt).getTime(),
+      new Date(premiumStartedAt).getTime(),
+    ),
+  );
   const end = new Date(start.getTime() + GUARANTEE_WINDOW_DAYS * 86_400_000);
   return { start, end };
 }

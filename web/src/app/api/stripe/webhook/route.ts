@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 
-import { armsGuaranteeClock } from "@/lib/guarantee";
+import { armsGuaranteeClock, paidTierOnInvoice } from "@/lib/guarantee";
 import { planTierForPriceId, stripeClient } from "@/lib/stripe";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import { captureServerEvent } from "@/lib/posthog-server";
@@ -329,12 +329,24 @@ async function recordInvoicePayment(invoice: Stripe.Invoice): Promise<void> {
   // A gym that then upgraded to Pro — the upgrade the billing page sells with
   // "stand behind the results" — would have had no guarantee, ever, and no way
   // to tell. So the clock only starts on a tier that actually carries it.
-  const invoicePrice = invoice.lines?.data[0]?.pricing?.price_details?.price;
-  const paidTier =
-    planTierForPriceId(
-      typeof invoicePrice === "string" ? invoicePrice : invoicePrice?.id,
-    ) ??
-    (gym.plan_tier as PlanTier | null);
+  //
+  // And it has to be a payment FOR that tier. The paid first week's 1 euro
+  // invoice also carries the Pro subscription, at 0 on a Stripe trial, and
+  // reading its first line started the clock on the euro. See
+  // paidTierOnInvoice().
+  const paidTier = paidTierOnInvoice(
+    invoice.amount_paid,
+    (invoice.lines?.data ?? []).map((line) => {
+      const price = line.pricing?.price_details?.price;
+      return {
+        amountMinor: line.amount,
+        fromSubscription: line.parent?.type === "subscription_item_details",
+        priceId: typeof price === "string" ? price : (price?.id ?? null),
+      };
+    }),
+    planTierForPriceId,
+    gym.plan_tier as PlanTier | null,
+  );
 
   if (armsGuaranteeClock(gym.premium_started_at, paidTier)) {
     await supabaseAdmin()

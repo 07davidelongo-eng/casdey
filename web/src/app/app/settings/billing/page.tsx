@@ -82,7 +82,7 @@ export default async function BillingPage(
           {guarantee.state === "not_started" ? (
             <p className="text-[0.9375rem] leading-relaxed text-graphite">
               {guarantee.reason === "not_premium"
-                ? "Your 30-day window opens with the first campaign you run after your first Pro payment. Everything is unlocked during the free week, but the guarantee is something casdey owes you once you are paying for it."
+                ? "Your 30-day window opens once you are paying for Pro and have launched a campaign. A campaign you launch during your first week counts, and the 30 days start the day Pro begins, because the guarantee is something casdey owes you once you are paying for it."
                 : "Your 30-day guarantee starts the moment you launch your first campaign. Nothing to do until then."}
             </p>
           ) : guarantee.state === "running" ? (
