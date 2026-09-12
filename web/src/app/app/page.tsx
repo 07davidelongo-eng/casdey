@@ -191,10 +191,15 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         }
       />
 
+      {/* Nothing links here any more (signup lands on ?welcome=1), so this is
+          unreachable rather than wrong on screen. Kept because a stale query
+          string in somebody's history should not greet them with a claim about
+          their bill: under Trial With Penalty €1 IS taken at signup, which is
+          what the old wording denied. */}
       {params.started ? (
         <div className="mb-6">
           <Notice>
-            Your free week has started. Nothing is charged for seven days.
+            Your free week has started, with every feature unlocked.
           </Notice>
         </div>
       ) : null}

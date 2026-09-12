@@ -4,9 +4,20 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Container } from "@/components/ui";
+import { formatMoney } from "@/lib/money";
+import { trialPenaltyEnabled } from "@/lib/plan";
+import {
+  SETUP_FEE_MAX_STEPS,
+  SETUP_FEE_MINOR,
+  TRIAL_DEPOSIT_MINOR,
+} from "@/lib/trial";
 
 /*
  * The refund policy. One exception, everything else non-refundable.
+ *
+ * The free-week section reads CASDEY_TRIAL_PENALTY and src/lib/trial.ts
+ * directly, rather than restating their numbers, for the same reason: a fee
+ * this page understates is a fee casdey should not be charging.
  *
  * Every claim here is checked against lib/guarantee.ts and the billing page
  * copy (src/app/app/settings/billing/page.tsx): it is a promise about money,
@@ -25,7 +36,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = "8 September 2026";
+const LAST_UPDATED = "12 September 2026";
 
 function H2({ children }: { children: React.ReactNode }) {
   return <h2 className="display mt-14 text-[1.5rem] text-ink">{children}</h2>;
@@ -110,12 +121,74 @@ export default function RefundPolicyPage() {
             />
 
             <H2>The free plan and the free week</H2>
-            <P>
-              Every account starts with a free week that takes no card, and the
-              Free plan afterwards costs nothing. There is nothing to refund on
-              either. If the free week ends and you do not upgrade, you are not
-              charged.
-            </P>
+            {trialPenaltyEnabled() ? (
+              <>
+                <P>
+                  Every account starts with a free week on the full Pro feature
+                  set. Starting it takes a card and a{" "}
+                  <span className="literal">
+                    {formatMoney(TRIAL_DEPOSIT_MINOR, "eur")}
+                  </span>{" "}
+                  charge, which confirms the card works. That is the only
+                  amount taken at signup.
+                </P>
+                <P>
+                  The week is free if you finish the three setup steps casdey
+                  asks for: import your member list, add what you charge, and
+                  approve your first campaign. What happens at the end of the
+                  week depends only on that:
+                </P>
+                <List
+                  items={[
+                    "All three finished: the account moves onto Pro and starts billing monthly at the standard rate, less any discount you hold. You can cancel before then and it will not.",
+                    <>
+                      Any step unfinished: a setup fee of{" "}
+                      <span className="literal">
+                        {formatMoney(SETUP_FEE_MINOR.eur, "eur")}
+                      </span>{" "}
+                      per unfinished step is charged, capped at{" "}
+                      <span className="literal">
+                        {formatMoney(
+                          SETUP_FEE_MINOR.eur * SETUP_FEE_MAX_STEPS,
+                          "eur",
+                        )}
+                      </span>
+                      , and the account moves to the Free plan. UK accounts are
+                      charged the same figures in pounds.
+                    </>,
+                    "Cancelled at any point during the week: no setup fee at all, whatever is unfinished, and no Pro charge. The account moves to the Free plan when the week ends.",
+                  ]}
+                />
+                <P>
+                  A setup fee is not a charge for casdey. It exists so accounts
+                  get set up, and casdey would rather never charge one. Two
+                  things follow from that, and both are automatic or free:
+                  finish a step within seven days of being billed for it and
+                  that step&apos;s fee is refunded without you asking, and any
+                  setup fee will be waived on request. Email{" "}
+                  <span className="literal">info@casdey.com</span> and say the
+                  week got away from you. That is enough.
+                </P>
+                <P>
+                  Reminders naming the steps still outstanding are sent during
+                  the week, including one on the last day stating the exact
+                  amount at stake, so no setup fee is ever the first you hear
+                  of it.
+                </P>
+                <P>
+                  Accounts opened before this came into effect keep the terms
+                  they signed up to: a free week with no card, no setup fee,
+                  and no automatic conversion to a paid plan.
+                </P>
+              </>
+            ) : (
+              <P>
+                Every account starts with a free week that takes no card, and
+                the Free plan afterwards costs nothing. There is nothing to
+                refund on either. If the free week ends and you do not upgrade,
+                you are not charged.
+              </P>
+            )}
 
             <H2>The early-adopter discount</H2>
             <P>
