@@ -31,7 +31,9 @@ practice / patient / appointment / dormant — was renamed throughout in the
   auth works in prod; auth transactional email routes through Resend custom
   SMTP. **The 3-tier Stripe config is now live too (F2 done 2026-09-04):**
   the live catalogue (casdey Standard, casdey Pro, 8 prices, the
-  `casdey_early_20pct` 20%-forever coupon) exists, and all 9 vars
+  `casdey_early_20pct` 20%-forever coupon, replaced on 2026-09-12 by
+  `casdey_early_20pct_plans`, which is restricted to the two paid products)
+  exists, and all 9 vars
   (`STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}` +
   `STRIPE_COUPON_PERCENT`) are set in Vercel Production and Preview. The 6
   retired vars were removed, so Production carries exactly 11 `STRIPE_*` vars:
@@ -103,15 +105,18 @@ the mapping, the 8-price table and `couponIdFor`, half-configured cases
 included), which needed `server-only` aliased to `test/server-only-stub.ts` in
 `vitest.config.mts` to make `stripe.ts` importable under vitest.
 
-- **Free week (trial):** 7 days of the **full Pro feature set**, **no card**.
-  Set at onboarding (`trial_ends_at`), casdey-managed, not a Stripe trial.
-  **V1.1 Track H replaces this, but is switched off:** with
-  `CASDEY_TRIAL_PENALTY=true` the week instead takes a card and €1 at signup,
-  starts when that card is saved, and at day 7 either converts to Pro or
-  charges €20 per unfinished setup step (€60 cap). Built, deployed and
-  dormant; the flag is not set in Vercel, so the no-card line above is what
-  production does. See `SAAS_V1_1_PLAN.md` Track H, and note gyms who signed
-  up under the no-card terms keep them.
+- **First week (trial):** 7 days of the **full Pro feature set**. **Since
+  2026-09-12 production sells it for €1** (V1.1 Track H, `CASDEY_PAID_TRIAL`
+  set in Vercel Production). Signup is one Stripe Checkout session in
+  subscription mode: it takes a card, charges €1 on-session, and creates the
+  Pro subscription with a 7-day Stripe trial and the early-adopter coupon.
+  Stripe bills day 7 itself. Cancelling during the week costs nothing
+  (`cancelTrial()` cancels in Stripe before writing casdey's own flag). If a
+  renewal needs 3-D Secure, the gym gets an email from
+  `invoice.payment_action_required` and an "Approve €X payment" button on the
+  billing page (`src/lib/payment-action.ts`). With the flag off, the old
+  casdey-managed week runs instead: no card, then Free. Gyms who signed up
+  under the no-card terms keep them. See `SAAS_V1_1_PLAN.md` Track H.
 - **Free plan** (after the week): import + see the lapsed **count**, **cannot
   send**; only the first `FREE_MEMBER_LIST_LIMIT` (5) members shown by name;
   `MEMBER_IMPORT_LIMIT.free` = **50** total (net-new cap at import).
@@ -128,17 +133,18 @@ included), which needed `server-only` aliased to `test/server-only-stub.ts` in
 - **Existing "Premium" accounts → Pro** (backfilled by `0016`).
 - **Three env levers, not code:** `CASDEY_TRIAL_ENABLED` and
   `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` for V2),
-  plus `CASDEY_TRIAL_PENALTY` (default **off**, the odd one out, because it
-  changes what a real card is charged at signup).
+  plus `CASDEY_PAID_TRIAL` (default **off** in code, the odd one out, because it
+  changes what a real card is charged at signup; **set in Vercel Production
+  since 2026-09-12**).
   `early_adopter` is persisted per-gym so eligibility survives into V2.
 - **Live as of 2026-09-04 (F2):** the products, prices and coupon exist in
   Stripe live mode and their 9 env vars are in Vercel. Built by
   `npm run setup:stripe -- --live` (the old blanket live-key refusal is now an
   explicit opt-in flag), verified by `npm run check:stripe`.
-- **Test mode is still empty**, because the only Stripe key on the dev machine
-  is the live one. Paste the test secret key into `web/.env.local` and run
-  `npm run setup:stripe` (no flag) before doing any local billing work — a
-  local checkout against the current config would charge a real card.
+- **Test mode exists** (corrected 2026-09-12): `STRIPE_SECRET_KEY` in
+  `web/.env.local` is a `sk_test_` key and its catalogue resolves, so a local
+  checkout charges nobody. The live key is kept separately, as
+  `STRIPE_SECRET_KEY_LIVE`.
 
 ## Sending identity: the gym, never casdey (Track G, 2026-09-04)
 
@@ -186,10 +192,14 @@ In `web/.env.local` (local) or Vercel (production):
 - **Google OAuth (sign-in):** an OAuth client in Supabase → Auth → Providers →
   Google. Email/password works without it; the Google button needs it. The
   consent screen must be published/verified (plan B1) for real prospects.
-- **Stripe:** `STRIPE_SECRET_KEY`, four `STRIPE_PRICE_*`, two `STRIPE_COUPON_*`,
-  and `STRIPE_WEBHOOK_SECRET`. The webhook endpoint must include **`invoice.paid`**
-  (feeds `premium_started_at` + `subscription_payments`, which the guarantee
-  needs) and the handler fetches invoices with `expand: ["payments"]`.
+- **Stripe:** `STRIPE_SECRET_KEY`, eight
+  `STRIPE_PRICE_{STANDARD,PRO}_{EUR,GBP}_{MONTH,YEAR}`, `STRIPE_COUPON_PERCENT`
+  (`casdey_early_20pct_plans` since 2026-09-12), and `STRIPE_WEBHOOK_SECRET`.
+  The webhook endpoint sits on `www.casdey.com`, never the apex. It must include
+  **`invoice.paid`** (feeds `premium_started_at` + `subscription_payments`,
+  which the guarantee needs) and, since 2026-09-12,
+  **`invoice.payment_action_required`** (the paid week's authentication email).
+  The handler fetches invoices with `expand: ["payments"]`.
 - **`RESEND_API_KEY`** + **`CASDEY_SENDING_ADDRESS`**: campaign + auth email via
   Resend (`mail.casdey.com`). Without the key, campaign email falls back to Zoho,
   which can't set a per-gym reply-to. This key is Sending-access-only on purpose.
@@ -205,14 +215,14 @@ In `web/.env.local` (local) or Vercel (production):
   `GOOGLE_CALENDAR_CLIENT_SECRET` (reuse the "casdey web" OAuth client with the
   Calendar scopes + redirect URIs added), and `CALENDAR_TOKEN_KEY` (AES-256 key
   encrypting stored Google tokens: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
-  Set locally; **not on Vercel yet** (B2). Without them, Settings → Booking shows
+  Set locally and in Vercel Production (B2, done 2026-09-03). Without them, Settings → Booking shows
   "not set up" and booking runs on casdey's own records only. The requested
   scope is `calendar.app.created` + `calendar.freebusy` (narrowed 2026-09-03).
 - **Offer flags:** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT` —
-  unset for V1, `"false"` for V2. `CASDEY_TRIAL_PENALTY` — unset (off) is the
-  current production state; `"true"` switches on the V1.1 card-and-fee trial,
-  and needs a redeploy, not just the variable, because `/terms/refunds` reads
-  it at build time.
+  unset for V1, `"false"` for V2. `CASDEY_PAID_TRIAL`: set in Vercel
+  Production since 2026-09-12 (the €1 paid week). Changing it needs a real
+  rebuild, `npx vercel --prod --force` from the repo root, because
+  `/terms/refunds` is prerendered and `vercel redeploy` reuses the build cache.
 
 ## Local testing
 

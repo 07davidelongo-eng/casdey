@@ -220,7 +220,9 @@ Confirm specifics against the book before betting on them. Keep in sync with
 
 - **Current model shape** — basically **attraction + continuity**, no active
   upsell, no downsell:
-  - Attraction: free week (full Pro, no card) → Free tier.
+  - Attraction: first week of Pro for €1, card at signup, then Pro continues
+    unless cancelled (cancel → Free). Live since 2026-09-12; gyms that signed
+    up before then keep the old free week (no card → Free).
   - Continuity: Standard €99/mo or Pro €289/mo.
   - Upsell: only the passive Free→Standard→Pro path and Standard→Pro. No
     point-of-sale upsell.
@@ -234,6 +236,12 @@ Confirm specifics against the book before betting on them. Keep in sync with
   cover CAC + serve, ~2×? At €99–289/mo with low COGS, plausibly yes — which
   would make paid acquisition viable earlier than for a cheap SaaS. Compute it
   with real numbers before spending.
+- **Update 2026-09-12: the fee below was dropped before it ever ran, and a paid
+  first week is LIVE instead.** €1 and a card buy seven days of Pro, with the
+  commitment ask, checklist and nudges kept, and at day 7 Stripe starts Pro
+  unless the gym cancelled. There is no per-step fee, cap, waiver or make-good.
+  This is a deliberate divergence; see the ledger entry of 2026-09-12. The
+  paragraph below is the original 2026-09-10 decision, kept for its reasoning.
 - **The free week is now a Trial With Penalty — DECIDED 2026-09-10.** It used to
   take no card and require nothing, exactly the no-stakes trial Hormozi is
   lukewarm on, and casdey has a live proof of the failure mode (BodyActive

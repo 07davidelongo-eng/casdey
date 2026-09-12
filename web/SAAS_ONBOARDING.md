@@ -25,7 +25,7 @@ self-serve breaks:
 
 | Step | Gym does | Product must deliver |
 |---|---|---|
-| 1. Sign up | Clicks link, creates account, free week starts | Frictionless signup, no card, clear "your 7 days start now" |
+| 1. Sign up | Clicks link, creates account, free week starts | Frictionless signup, clear "your 7 days start now". (Since 2026-09-12 signup takes a card and €1 for the week, see `SAAS_V1_1_PLAN.md` Track H.) |
 | 2a. Import members | Uploads CSV export from their gym software | **The #1 failure point.** Dead-clear per-platform export instructions (Mindbody / Glofox / TeamUp / ABC), forgiving parser, human error messages, email/phone normalization |
 | 2b. Confirm lapsed | Sees "here are your X lapsed members" | Sensible default lapse window, editable, a preview that feels right |
 | 2c. Set prices | Enters membership tiers | Simple entry (drives revenue-recovered + the guarantee) |

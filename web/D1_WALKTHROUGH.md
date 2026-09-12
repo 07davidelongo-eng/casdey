@@ -1050,6 +1050,11 @@ Note the bank did **not** prompt for 3-D Secure, so the fix for the
 `incomplete`-subscription hole is still unexercised; the conversion charge is
 the next chance to hit it.
 
+**Later the same night, it did.** At conversion, the same card refused the
+off-session exemption, both on the original design and on the redesign that
+lets Stripe own day 7 (`bc1997e`). That is why a renewal challenge now has an
+in-product approve button (`8e0e89c`). See `SAAS_V1_1_PLAN.md` Track H.
+
 ### 71. "the email for the confirmation from casdey doesn't have a logo"
 
 **Open, and not a code change.** The signup confirmation is sent by Supabase

@@ -3,7 +3,7 @@
 The one page that says what casdey sells, what it costs to run, and what it earns.
 Everything else lives in the repo. Keep this short.
 
-Last updated: 7 September 2026 · Sole founder: Davide · No legal entity yet (no P.IVA)
+Last updated: 12 September 2026 · Sole founder: Davide · No legal entity yet (no P.IVA)
 
 ---
 
@@ -15,8 +15,9 @@ and books them back in. The gym's only job is the import.
 
 What a new gym gets, in order:
 
-1. A free week. Everything casdey does, no card, no commitment.
-2. Then the Free plan, not a bill. Import and see who lapsed, forever, at no cost.
+1. A first week of Pro for €1. Card at signup, everything casdey does for seven days.
+2. Then Pro simply continues, unless the gym cancels during the week, which costs
+   nothing and leaves them on the Free plan: import and see who lapsed, forever, free.
 3. A lifetime 20% discount on either paid tier, kept for as long as they stay.
 4. Profit or nothing, Pro only. One 30-day window. If casdey recovers less than it
    charged, the gym refunds itself in one click. No review, no argument. Once per gym, ever.
@@ -90,11 +91,13 @@ Infrastructure is not the constraint. Customers are.
 
 ---
 
-## 6. Where it stands, 7 September 2026
+## 6. Where it stands, 12 September 2026
 
 - casdey.com is published. The product is live and open to anyone.
 - V1 is complete. Every gate closed, including a live card checkout end to end.
-- Paying customers: 0. Waitlist signups: 3.
+- V1.1 is live: the first week is sold for €1, and Pro starts on day 7 unless cancelled.
+- Paying customers: 0. Real signups: 1, BodyActive Skibbereen, not yet imported.
+  The waitlist's 3 rows were test signups and have been removed.
 - Built: import, lapse detection, campaigns, per-member writing, follow-ups, replies,
   booking into Google Calendar, the guarantee, three tiers, per-gym sending domains.
 - Outreach live at 100 first-touch emails a day plus every due follow-up, and a weekly
@@ -111,6 +114,7 @@ Infrastructure is not the constraint. Customers are.
 | WhatsApp needs a Meta-approved sender per gym, manual until casdey has a legal entity | per gym |
 | Vercel Pro, for hourly sending rather than once a day | when a gym is sending |
 | Direct integrations, Mindbody and TeamUp | later |
+| Partita IVA, likely required already for recurring revenue. Parked until money comes in | Davide |
 
 Next milestone: the first paying gym. Everything above is sized for it.
 

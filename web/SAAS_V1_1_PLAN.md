@@ -42,10 +42,12 @@ calls the customers he lost to it "thousands".
 
 ## Track H, Trial With Penalty
 
-**BUILT 2026-09-12, commit `534f8b0`, behind `CASDEY_TRIAL_PENALTY` (default
-OFF). Not pushed. Migration `0038` applied to the live DB.** Everything below
-describes what was built; the differences from this spec and what is still
-owed are in "Track H, what is still owed" at the end of this section.
+**LIVE in production since 2026-09-12 (`CASDEY_PAID_TRIAL` set in Vercel
+Production, not Preview), but not in the shape this first section describes.**
+This is the original Trial With Penalty spec, kept for its reasoning. It was
+built the same day (commit `534f8b0`, migration `0038`) and never switched on:
+the setup fee was dropped, and then day 7 was handed to Stripe. The two
+sections after this one describe what production runs.
 
 The main build. Replaces the current "7 free days, no card, then drop to Free"
 with Hormozi's Trial With Penalty, adapted for self-serve signup.
@@ -199,6 +201,31 @@ move would have recreated the exact bug the redesign came out of.
 `active`, not by the job when it hands over, because only the webhook knows the
 money moved.
 
+**The launch discount rides on the Checkout session after all** (commit
+`a918841`). Attaching the coupon in the webhook left Stripe's Checkout page
+reading "then €289 per month" while the gym was about to be billed €231.20.
+Davide caught it on the live page. The fix is a coupon restricted to the two
+paid products, `casdey_early_20pct_plans`, which discounts the Pro line and
+cannot touch the one-off euro. `STRIPE_COUPON_PERCENT` points at it in both
+Stripe modes and in Vercel Production and Preview. The webhook no longer
+attaches a coupon, because doing both would stack two discounts. One trap:
+`applies_to` is not returned on the pinned API version, so the restriction can
+only be confirmed by behaviour (a live session's `amount_total` comes back 100,
+not 80).
+
+**A challenge at the first renewal is expected, so the product shows it**
+(commit `8e0e89c`). Stripe's exemption for recurring charges is the fixed-amount
+one, and casdey's series is €1 followed by a few hundred, so the shape argues
+against itself. `src/lib/payment-action.ts` reads the open invoice live from
+Stripe, and the billing page shows an "Approve €X payment" button linking to
+Stripe's hosted page. The email from `invoice.payment_action_required` stays as
+the second channel. Davide's call, with that trade on the table: keep the euro.
+
+**Live run, 2026-09-12.** A real Revolut card refused the off-session exemption
+on both architectures, the original and this one. Total taken across the tests:
+€2, from two €1 signups. The test subscription was cancelled and its invoice
+voided (`amount_paid: 0`), and every gym from the run is `is_internal`.
+
 ---
 
 ## Track H, redesigned earlier the same day: the setup fee is gone
@@ -267,8 +294,8 @@ next time activation is the binding constraint.
 
 ## Track H, what is still owed
 
-**Updated 2026-09-12.** Two of the four are closed; the two left both need
-Davide rather than code.
+**Updated 2026-09-12, late.** Items 0, 1, 2 and 4 are closed, and item 3 is parked.
+What is left is two deferred live tests under item 2, plus the P.IVA.
 
 **The build itself is complete and was audited against the spec table above on
 2026-09-12**, row by row, after the 3-D Secure fix: signup deposit, commitment,
@@ -276,8 +303,7 @@ terms figures, full Pro during the week, cancel-owes-nothing, day-7 convert with
 the 20% coupon, per-step fees under the cap, nudges on 2/5/6, the make-good
 sweep and the `/admin` waiver are all present and wired. The three activation
 stamps fire from the real action sites (import route, services form, campaign
-approval), first-write-wins. **There is no code left to write for Track H.** The
-two items below are not build work.
+approval), first-write-wins. **There is no code left to write for Track H.**
 
 0. ~~The marketing copy still says "free week, no card".~~ **Done 2026-09-12**,
    see above. Every public price claim now branches on the flag.
@@ -285,15 +311,20 @@ two items below are not build work.
    rewritten again on 2026-09-12 for the paid week: the fee paragraphs are gone
    and it now states the 1 euro, that it is non-refundable because the week
    begins immediately, the renewal, and that cancelling costs nothing.
-   `/terms/refunds` now reads `CASDEY_TRIAL_PENALTY` and `src/lib/trial.ts`
-   directly, so it states the €1, the €20-a-step fee, the €60 cap, the waiver
-   and the make-good refund, and says plainly that accounts opened before the
-   change keep the no-card terms. With the flag off it renders exactly what it
-   said before. The page is statically prerendered, so flipping the flag needs
-   a redeploy for the page to change as well as the behaviour.
-2. **Nothing has been through the LIVE Stripe path.** Still open, and it is the
-   real gate. Everything is verified in test mode. Do one real €1 and one real
-   conversion on a real card, the way C1 was done.
+   `/terms/refunds` reads `CASDEY_PAID_TRIAL` and `src/lib/trial.ts` directly,
+   and says plainly that accounts opened before the change keep the no-card
+   terms. The page is statically prerendered, so a flag change needs a real
+   rebuild: `npx vercel --prod --force` from the repo root. `vercel redeploy`
+   reuses the build cache and keeps serving the stale page.
+2. ~~Nothing has been through the LIVE Stripe path.~~ **Done 2026-09-12**, see
+   "Live run" above: two real €1 signups, and the real card was challenged for
+   3-D Secure at conversion on both architectures. **Still unproven, deferred on
+   cost:** the recovery path, where the gym authenticates, the subscription goes
+   `active` and sending turns back on. Proving it live costs a real €231.20, and
+   Stripe documents the transition. **Also deferred:** a hybrid that might avoid
+   the renewal challenge, a €0 SetupIntent for the mandate plus a separate €1
+   under the sub-€30 low-value exemption. Unproven, and it needs another live
+   test.
 3. ~~Legal shape of the fee is unexamined.~~ **Researched 2026-09-12, and it is
    why the fee was dropped.** See the ledger for Ireland (Dunlop, not Makdessi)
    and Germany (307 BGB voids an unfair B2B standard term entirely). **What the
@@ -303,8 +334,9 @@ two items below are not build work.
    subscriptions with a published site and daily outreach is habitual and
    organised, which makes a P.IVA obligatory regardless of amount (Agenzia delle
    Entrate interpello 63/2024 treats repetition over time, even with one client,
-   as a strong indicator). That gates real revenue whether or not the flag ever
-   goes on, and it needs a commercialista rather than more research.
+   as a strong indicator). That gates real revenue, and it needs a
+   commercialista rather than more research. **Parked 2026-09-12, Davide's
+   explicit call: revisit once money is coming in.**
 4. ~~`?started=1` claims nothing is charged.~~ **Done**, commit `6734bb1`.
 
 
@@ -313,11 +345,11 @@ two items below are not build work.
 Recorded because both were decisions taken while building, not things this plan
 asked for.
 
-- **The flag.** `CASDEY_TRIAL_PENALTY`, default off, is not in this plan. The
-  plan assumed Track H ships and runs. It was added because the mechanism takes
-  money off a real card at signup and the live Stripe path had never been
-  exercised. Consequence: Track H is deployed and inert, and switching it on is
-  one Vercel variable plus a redeploy.
+- **The flag.** `CASDEY_TRIAL_PENALTY` (renamed `CASDEY_PAID_TRIAL` when the fee
+  was dropped), default off, is not in this plan. The plan assumed Track H ships
+  and runs. It was added because the mechanism takes money off a real card at
+  signup and the live Stripe path had never been exercised. It was switched on
+  in Vercel Production on 2026-09-12 for the live run, and has stayed on.
 - **The week now starts when the card is saved, not at signup.** This plan's
   table says "Signup: €1 charged now" and does not say when the seven days
   begin. `recordTrialCard()` starts them, on the reasoning that the card is the
@@ -392,7 +424,7 @@ inheritance (`gyms.lapse_rule_set_at`), and Settings counts what each
 candidate window would catch in the gym's own members. Two bugs were found
 while verifying it: the "not set yet" notice named the shipped default rather
 than the gym's own window, and the settings form came out of every save with
-its unit reset to "months". Not pushed.
+its unit reset to "months". Pushed and live in production.
 
 **A real bug, found 2026-09-10.** `gyms.lapsed_after_months` defaults to **12**
 (`supabase/migrations/0002_saas.sql:117`). That is a dental recall cycle that
@@ -428,7 +460,7 @@ The section needed more than a port: nearly every figure in it was stale
 it described a guarantee casdey never built ("100% refund plus free software
 until the condition is met"). Rewritten against what the product actually
 does, with the Standard-versus-Pro framing below as the reply-side script.
-Not pushed.
+Pushed on that branch.
 
 **Decided 2026-09-10.** Where risk reversal belongs, per the books.
 
@@ -473,7 +505,11 @@ and it is currently a structural zero: no case study, no testimonial, no number
 from a real gym.
 
 BodyActive Skibbereen is the only candidate. Davide emailed them on 2026-09-10
-offering done-for-you setup. Sequence from here:
+offering done-for-you setup. The owner, JD, replied on 2026-09-12 that he is busy
+and will look properly the following week. His trial was extended to
+2026-09-26, and a fresh full seven days, starting the day he engages, is still
+owed and has to be set by hand (see the BodyActive bullet in `CLAUDE.md`).
+Sequence from here:
 
 1. Get their real member export.
 2. Do the import, prices, offer and first campaign personally.
