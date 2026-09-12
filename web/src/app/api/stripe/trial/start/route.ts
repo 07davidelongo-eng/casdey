@@ -4,8 +4,17 @@ import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { currencyFor } from "@/lib/countries";
-import { TRIAL_DAYS, paidTrialEnabled } from "@/lib/plan";
-import { findPricePlan, priceIdFor, stripeClient } from "@/lib/stripe";
+import {
+  TRIAL_DAYS,
+  earlyAdopterProgramActive,
+  paidTrialEnabled,
+} from "@/lib/plan";
+import {
+  couponIdFor,
+  findPricePlan,
+  priceIdFor,
+  stripeClient,
+} from "@/lib/stripe";
 import { TRIAL_PRICE_MINOR } from "@/lib/trial";
 
 export const runtime = "nodejs";
@@ -31,12 +40,23 @@ export const dynamic = "force-dynamic";
  * Stripe documents this as the normal way to run a paid trial and its own
  * worked example is "a 7-day trial for 1 USD".
  *
- * **The coupon is deliberately NOT set on the session.** A session-level
- * discount applies to every line, so a 20% early-adopter coupon would quietly
- * turn the 1 euro into 80 cents. `subscription_data[discounts]` does not exist
- * on the pinned API version (checked, it is rejected as an unknown parameter),
- * so the webhook attaches the coupon to the subscription after checkout. There
- * is a week before the first real invoice, so there is plenty of slack.
+ * **The coupon has to be on the session, and it has to be product-restricted.**
+ * Attaching it after checkout instead was the first attempt and it was wrong in
+ * the one place it mattered: Stripe renders the Checkout page from the session,
+ * so a gym committing to the subscription read "Then 289.00 per month" while
+ * the webhook was about to make it 231.20. Agreeing to a higher number than you
+ * will be charged is not a cosmetic problem. Caught by Davide on the live page
+ * before paying.
+ *
+ * A plain session-level coupon discounts every line, including the euro, which
+ * is why it was moved off the session in the first place, and
+ * `subscription_data[discounts]` does not exist on the pinned API version. The
+ * answer is a coupon whose `applies_to.products` is limited to the two paid
+ * plans: it discounts the Pro line and cannot touch the one-off. Verified on
+ * the real Checkout page in test mode, which reads "1.00 today, then 231.20 per
+ * month", and against live, where the session's amount_total is 100 rather than
+ * 80. Note `applies_to` is not returned by this API version, so the restriction
+ * can only be confirmed by behaviour, never by reading the coupon back.
  *
  * Hosted Checkout rather than Stripe Elements, matching the upgrade path
  * already in this codebase: no card details ever reach casdey's own server.
@@ -102,6 +122,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     const plan = findPricePlan("pro", currency, "month");
     if (!plan) throw new Error(`no Pro month price for ${currency}`);
 
+    const coupon =
+      gym.early_adopter && earlyAdopterProgramActive()
+        ? couponIdFor(currency)
+        : undefined;
+
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -132,8 +157,9 @@ export async function POST(request: NextRequest): Promise<Response> {
         // which effectivePlan() would read as Pro.
         metadata: { gym_id: gym.id, plan_tier: "pro", source: "paid_trial" },
       },
-      // No `discounts` here on purpose: a session-level coupon discounts every
-      // line, including the euro. The webhook puts it on the subscription.
+      // Safe only because the coupon is restricted to the paid plans. An
+      // unrestricted one would discount the euro too. See the note above.
+      ...(coupon ? { discounts: [{ coupon }] } : {}),
       metadata: { gym_id: gym.id, kind: "paid_trial" },
       client_reference_id: gym.id,
       success_url: `${origin}/app/onboarding/trial/complete?session_id={CHECKOUT_SESSION_ID}`,

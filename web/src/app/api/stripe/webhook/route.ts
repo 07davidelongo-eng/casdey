@@ -2,9 +2,7 @@ import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 
 import { armsGuaranteeClock } from "@/lib/guarantee";
-import { couponIdFor, planTierForPriceId, stripeClient } from "@/lib/stripe";
-import { earlyAdopterProgramActive } from "@/lib/plan";
-import { currencyFor } from "@/lib/countries";
+import { planTierForPriceId, stripeClient } from "@/lib/stripe";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { recordTrialCard } from "@/lib/trial-start";
@@ -126,34 +124,12 @@ async function handle(event: Stripe.Event): Promise<void> {
         // the webhook payload.
         const trialSub = await stripe.subscriptions.retrieve(trialSubId);
 
-        // The early-adopter coupon goes on HERE rather than on the Checkout
-        // session, because a session-level discount applies to every line and
-        // would have turned the euro into 80 cents. There is a week before the
-        // first real invoice, so attaching it now is comfortably in time.
-        // A failure must not lose the signup, so it is logged and left: the
-        // gym is on Pro either way, and the discount can be applied by hand.
-        const { data: gymRow } = await supabaseAdmin()
-          .from("gyms")
-          .select("early_adopter, country")
-          .eq("id", gymId)
-          .maybeSingle();
-
-        if (gymRow?.early_adopter && earlyAdopterProgramActive()) {
-          const coupon = couponIdFor(currencyFor(gymRow.country as string));
-          if (coupon) {
-            try {
-              await stripe.subscriptions.update(trialSubId, {
-                discounts: [{ coupon }],
-              });
-            } catch (err) {
-              console.error(
-                `[trial] could not attach the launch coupon for gym ${gymId}`,
-                err instanceof Error ? err.message : String(err),
-              );
-            }
-          }
-        }
-
+        // The launch coupon is NOT attached here. It rides on the Checkout
+        // session instead, because that is what the gym reads before agreeing:
+        // attaching it afterwards left the page saying "then 289.00 per month"
+        // for a subscription that would bill 231.20. Doing both would stack two
+        // discounts on one subscription. See the note in
+        // src/app/api/stripe/trial/start/route.ts.
         const defaultPm = trialSub.default_payment_method;
         await recordTrialCard({
           gymId,
