@@ -95,21 +95,16 @@ export function trialEnabledForNewSignups(): boolean {
  * TRIAL_PENALTY guarding a mechanism with no penalty in it would have been
  * actively misleading to the next person.
  *
- * BEFORE TURNING THIS ON, read this. The public marketing site does NOT read
- * this flag, and it currently promises the opposite of what the flag does:
- * "Free first week, no card" in the hero, "Start with a free week, no card" in
- * the CTA band, "with no card, no setup fee" in the offer section, plus the
- * pricing page, the pricing table, the footer link and the signup button. All
- * of that is accurate today and becomes false the moment a card is required.
- * Flipping this without rewriting that copy puts the site, the terms page and
- * the checkout in three different stories, which is the same failure caught on
- * the day casdey.com was published (the homepage promised a Pro-only guarantee
- * with no qualifier). The copy is a deliberate rewrite, not a find-and-replace,
- * so it is listed as a prerequisite in SAAS_V1_1_PLAN.md rather than done
- * half-way here.
+ * The public marketing site follows this flag: every price claim on it reads
+ * `paidTrialEnabled()`, with the repeated strings in ./offer-copy.ts. Anything
+ * new that states a price has to do the same, or the site, the terms page and
+ * the checkout end up telling three different stories, which is the failure
+ * caught on the day casdey.com was published (the homepage promised a Pro-only
+ * guarantee with no qualifier). `SiteHeader`, `PricingTable` and `AuthForm` are
+ * client components and take the flag as a required prop instead.
  *
- * Also note /terms/refunds is statically prerendered, so the flag needs a
- * redeploy to change the page as well as the behaviour.
+ * Note /terms/refunds is statically prerendered, so the flag needs a redeploy
+ * to change the page as well as the behaviour.
  *
  * See src/lib/trial.ts for the mechanism and web/SAAS_V1_1_PLAN.md Track H.
  */

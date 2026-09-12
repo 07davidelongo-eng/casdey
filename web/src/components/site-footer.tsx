@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { Container } from "./ui";
 import { Logo } from "./wordmark";
+import { paidTrialEnabled } from "@/lib/plan";
+import { startCta } from "@/lib/offer-copy";
 
 /*
  * Restored for V1. The Product and Get started columns were removed while
  * casdey.com redirected everything to /waitlist, which made them dead ends.
  * They are live routes again, so they are back.
+ *
+ * The columns are built per render rather than being a module constant,
+ * because the signup label names the price of the first week and that moves
+ * with paidTrialEnabled().
  */
-const COLUMNS = [
+function columns() {
+  return [
   {
     heading: "Product",
     links: [
@@ -19,7 +26,7 @@ const COLUMNS = [
   {
     heading: "Get started",
     links: [
-      { href: "/login?mode=signup", label: "Start your free week" },
+      { href: "/login?mode=signup", label: startCta(paidTrialEnabled()) },
       { href: "/login", label: "Sign in" },
     ],
   },
@@ -32,9 +39,12 @@ const COLUMNS = [
       { href: "/terms/refunds", label: "Refund policy" },
     ],
   },
-];
+  ];
+}
 
 export function SiteFooter() {
+  const COLUMNS = columns();
+
   return (
     <footer className="mt-auto border-t border-ash/70 py-14">
       <Container>

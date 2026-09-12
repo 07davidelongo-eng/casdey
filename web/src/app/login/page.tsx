@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AuthForm } from "@/components/app/auth-form";
 import { Logo } from "@/components/wordmark";
 import { safeNextPath } from "@/lib/safe-redirect";
+import { paidTrialEnabled } from "@/lib/plan";
 
 import "@/styles/product.css";
 
@@ -34,7 +35,11 @@ export default async function LoginPage(props: PageProps<"/login">) {
           </p>
         ) : null}
 
-        <AuthForm initialMode={mode} next={next} />
+        <AuthForm
+          initialMode={mode}
+          next={next}
+          paidTrial={paidTrialEnabled()}
+        />
 
         <p className="mt-6 text-center text-[0.8125rem] text-stone">
           By continuing you agree to how casdey handles your data, set out in

@@ -66,7 +66,7 @@ function List({ items }: { items: React.ReactNode[] }) {
 export default function RefundPolicyPage() {
   return (
     <>
-      <SiteHeader sections={false} />
+      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
       <main className="py-20 sm:py-24">
         <Container>
           <div className="max-w-2xl">

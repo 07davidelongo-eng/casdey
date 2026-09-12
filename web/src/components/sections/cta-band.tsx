@@ -1,7 +1,11 @@
 import { Reveal } from "../motion";
 import { ButtonLink, Container, Eyebrow } from "../ui";
+import { paidTrialEnabled } from "@/lib/plan";
+import { startCta, trialPriceDisplay } from "@/lib/offer-copy";
 
 export function CtaBand() {
+  const paidTrial = paidTrialEnabled();
+
   return (
     <section className="pb-20 sm:pb-28">
       <Container>
@@ -14,14 +18,15 @@ export function CtaBand() {
                   Ready to work the quiet half of your list?
                 </h2>
                 <p className="mt-5 max-w-md text-[0.9375rem] leading-relaxed text-sea">
-                  Start with a free week, no card. Import your list and see
-                  casdey find who has gone quiet before you decide anything.
+                  {paidTrial
+                    ? `${trialPriceDisplay()} buys your first week. Import your list and see casdey find who has gone quiet before you decide anything.`
+                    : "Start with a free week, no card. Import your list and see casdey find who has gone quiet before you decide anything."}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-3 lg:justify-end">
                 <ButtonLink href="/login?mode=signup" variant="brightOnDeep">
-                  Start your free week
+                  {startCta(paidTrial)}
                 </ButtonLink>
                 <ButtonLink href="/#what-it-does" variant="onDeep">
                   How it works

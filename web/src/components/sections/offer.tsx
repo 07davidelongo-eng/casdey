@@ -3,6 +3,10 @@ import Link from "next/link";
 import { IconShield } from "../marks/icons";
 import { Reveal } from "../motion";
 import { ButtonLink, Container } from "../ui";
+import { paidTrialEnabled } from "@/lib/plan";
+import { startCta, trialPriceDisplay } from "@/lib/offer-copy";
+import { conversionAmountMinor } from "@/lib/trial";
+import { formatMoney } from "@/lib/money";
 
 /**
  * One surface, three facts.
@@ -15,6 +19,15 @@ import { ButtonLink, Container } from "../ui";
  * having it.
  */
 export function Offer() {
+  const paidTrial = paidTrialEnabled();
+  const price = trialPriceDisplay();
+  // Everyone signing up now is an early adopter, so the discounted figure is
+  // the one they will actually be charged. Showing the undiscounted 289 here
+  // and 231 at the till would be the wrong way round.
+  const proMonthlyMinor = conversionAmountMinor("eur", true);
+  const proMonthly =
+    proMonthlyMinor == null ? null : formatMoney(proMonthlyMinor, "eur");
+
   return (
     <section id="pricing" className="scroll-mt-24 pb-24 sm:pb-32">
       <Container>
@@ -23,11 +36,14 @@ export function Offer() {
               the paragraph gets a measure. */}
           <div>
             <h2 className="display text-[clamp(1.6rem,2.6vw,2.15rem)] text-ink text-pretty">
-              Free for a week. Then free until you say otherwise.
+              {paidTrial
+                ? `A week of everything for ${price}.`
+                : "Free for a week. Then free until you say otherwise."}
             </h2>
             <p className="mt-5 max-w-[34rem] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-              No card to start, and no bill when the week ends. You only pay
-              when you have seen what casdey found in your own list.
+              {paidTrial
+                ? "Long enough to import your list, see who has gone quiet, and write to them. Cancel before the week is out and that is all you pay."
+                : "No card to start, and no bill when the week ends. You only pay when you have seen what casdey found in your own list."}
             </p>
           </div>
 
@@ -36,23 +52,24 @@ export function Offer() {
               <div className="border-b border-ash p-8 sm:border-b-0 sm:border-r sm:p-10">
                 <p className="label text-stone">The first week</p>
                 <p className="display mt-4 text-[2.25rem] leading-none text-ink">
-                  Free
+                  {paidTrial ? price : "Free"}
                 </p>
                 <p className="mt-4 max-w-xs text-[0.9375rem] leading-relaxed text-graphite">
-                  Everything casdey does, with no card, no setup fee and no
-                  commitment at the end of it.
+                  {paidTrial
+                    ? "Everything casdey does, for seven days. One click cancels it, and nothing else is charged."
+                    : "Everything casdey does, with no card, no setup fee and no commitment at the end of it."}
                 </p>
               </div>
 
               <div className="p-8 sm:p-10">
                 <p className="label text-stone">After the week</p>
                 <p className="display mt-4 text-[2.25rem] leading-none text-ink">
-                  Still free
+                  {paidTrial ? (proMonthly ?? "Pro") : "Still free"}
                 </p>
                 <p className="mt-4 max-w-sm text-[0.9375rem] leading-relaxed text-graphite">
-                  Your account drops to the Free plan, not a bill. Upgrade
-                  whenever it earns it, and starting now locks a lifetime
-                  discount for when you do.
+                  {paidTrial
+                    ? "Pro continues monthly, at the lifetime early-adopter rate you lock in by starting now. Cancel during the week and it never starts."
+                    : "Your account drops to the Free plan, not a bill. Upgrade whenever it earns it, and starting now locks a lifetime discount for when you do."}
                 </p>
               </div>
             </div>
@@ -81,7 +98,7 @@ export function Offer() {
 
           <div className="mt-8 flex flex-wrap items-center gap-5">
             <ButtonLink href="/login?mode=signup" size="sm">
-              Start your free week
+              {startCta(paidTrial)}
             </ButtonLink>
             <Link
               href="/pricing"

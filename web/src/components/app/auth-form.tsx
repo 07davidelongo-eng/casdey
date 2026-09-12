@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { startCta } from "@/lib/offer-copy";
 import { Button } from "./ui";
 import { IconGoogle } from "./icons";
 
@@ -45,9 +46,12 @@ function canonicalOrigin(): string {
 export function AuthForm({
   initialMode,
   next,
+  paidTrial,
 }: {
   initialMode: Mode;
   next: string;
+  /** From the server page: a client component cannot read the flag itself. */
+  paidTrial: boolean;
 }) {
   const router = useRouter();
   const id = useId();
@@ -263,11 +267,13 @@ export function AuthForm({
   return (
     <div className="card p-7">
       <h1 className="display text-[1.5rem]">
-        {mode === "signup" ? "Start your free week" : "Sign in"}
+        {mode === "signup" ? startCta(paidTrial) : "Sign in"}
       </h1>
       <p className="mt-2 text-[0.9375rem] text-graphite">
         {mode === "signup"
-          ? "Seven days free. Set up your gym, import your list, see who has gone quiet."
+          ? paidTrial
+            ? "Seven days of Pro. Set up your gym, import your list, see who has gone quiet."
+            : "Seven days free. Set up your gym, import your list, see who has gone quiet."
           : "Welcome back."}
       </p>
 
@@ -364,7 +370,7 @@ export function AuthForm({
           }}
           className="font-semibold text-teal underline underline-offset-4 hover:no-underline"
         >
-          {mode === "signup" ? "Sign in" : "Start your free week"}
+          {mode === "signup" ? "Sign in" : startCta(paidTrial)}
         </button>
       </p>
     </div>

@@ -173,16 +173,25 @@ What this keeps is the property the diagnosis actually cared about: **day 7
 forces a decision.** The old free week expired quietly, the gym drifted to Free,
 and nothing happened, which is exactly what BodyActive did.
 
-**Prerequisite for turning `CASDEY_PAID_TRIAL` on, and it is not optional.** The
-public marketing site does not read the flag and currently promises the
-opposite: "Free first week, no card" in the hero, "Start with a free week, no
-card" in the CTA band, "with no card, no setup fee" in the offer section, plus
-the pricing page, the pricing table, the footer and the signup button. Flipping
-the flag without rewriting that copy puts the site, the terms page and the
-checkout in three different stories. It is a deliberate rewrite in Davide's
-voice, not a find-and-replace, which is why it was left rather than done
-half-way. `/terms/refunds` is statically prerendered, so the flag also needs a
-redeploy.
+**The marketing copy now follows the flag. Done 2026-09-12.** Every public
+price claim branches on `paidTrialEnabled()`: the hero pill and CTA, the header
+button, the closing band, the offer panel (both cards, the heading and the
+lede), the pricing page hero and its first FAQ answer, the pricing table's
+buttons, the footer link, and both states of the login form. The repeated
+strings live in `src/lib/offer-copy.ts`; the prose branches in place, next to
+the layout it belongs to.
+
+Two things worth knowing about the shape of it. `SiteHeader`, `PricingTable`
+and `AuthForm` are client components and cannot read the flag, so they take it
+as a required prop from their server parent, threaded through all seven pages
+that render a header. And the pricing page's static `metadata.description` no
+longer mentions the first week at all, because a claim baked into a search
+result cannot branch.
+
+Verified in both states by running the site with the flag on and off and
+diffing what each surface says. With it off, nothing changed. `/terms/refunds`
+is statically prerendered, so the flag still needs a redeploy, not just the
+variable.
 
 **Deferred, Davide's own idea (2026-09-12), explicitly not now:** if a penalty
 ever returns, it could cost something other than money, such as reduced
@@ -206,9 +215,8 @@ stamps fire from the real action sites (import route, services form, campaign
 approval), first-write-wins. **There is no code left to write for Track H.** The
 two items below are not build work.
 
-0. **The marketing copy still says "free week, no card".** New, and now the
-   first blocker: see the prerequisite above. Seven public surfaces contradict
-   the paid week.
+0. ~~The marketing copy still says "free week, no card".~~ **Done 2026-09-12**,
+   see above. Every public price claim now branches on the flag.
 1. ~~The terms pages do not mention the fee.~~ **Done**, commit `6734bb1`, then
    rewritten again on 2026-09-12 for the paid week: the fee paragraphs are gone
    and it now states the 1 euro, that it is non-refundable because the week

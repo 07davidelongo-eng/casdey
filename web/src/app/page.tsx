@@ -1,3 +1,4 @@
+import { paidTrialEnabled } from "@/lib/plan";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Hero } from "@/components/sections/hero";
@@ -10,7 +11,7 @@ import { CtaBand } from "@/components/sections/cta-band";
 export default function Home() {
   return (
     <>
-      <SiteHeader />
+      <SiteHeader paidTrial={paidTrialEnabled()} />
       <main>
         <Hero />
         <WhatItDoes />

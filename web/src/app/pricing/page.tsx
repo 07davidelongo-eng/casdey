@@ -6,12 +6,16 @@ import { Guarantee } from "@/components/sections/guarantee";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Container } from "@/components/ui";
-import { TRIAL_DAYS } from "@/lib/plan";
+import { TRIAL_DAYS, paidTrialEnabled } from "@/lib/plan";
+import { trialPriceDisplay } from "@/lib/offer-copy";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "casdey pricing: a free plan that finds your lapsed members, and two paid tiers that win them back. Free for the first week, no card.",
+    // Deliberately silent on how the first week is priced: this is static
+    // metadata and the offer moves with paidTrialEnabled(). A claim that can
+    // go stale in a search result is worse than no claim.
+    "casdey pricing: a free plan that finds your lapsed members, and two paid tiers that win them back.",
 };
 
 /**
@@ -24,10 +28,16 @@ export const metadata: Metadata = {
  * site.
  */
 
-const FAQ = [
+/** Built per render: the first question's answer depends on the offer. */
+function faq(paidTrial: boolean) {
+  return [
   {
-    q: "What happens when the free week ends?",
-    a: "Your account drops to the Free plan. Nothing is charged, nothing is deleted, and no card was taken to begin with. You keep your imported list and everything casdey found in it; what stops is the sending.",
+    q: paidTrial
+      ? "What happens when the first week ends?"
+      : "What happens when the free week ends?",
+    a: paidTrial
+      ? "Pro carries on and your card is charged monthly, at the early-adopter rate you locked in. You get an email the day before saying the exact amount. Cancel any time during the week and none of that happens: you keep Pro until the week runs out, then drop to the Free plan."
+      : "Your account drops to the Free plan. Nothing is charged, nothing is deleted, and no card was taken to begin with. You keep your imported list and everything casdey found in it; what stops is the sending.",
   },
   {
     q: "Is there a discount for joining early?",
@@ -49,12 +59,16 @@ const FAQ = [
     q: "Can I get a refund?",
     a: "Only through the Pro guarantee. If your first 30-day window on Pro does not recover more than it cost, you claim a full refund of what you paid in it, from your billing page. Everything else is paid in advance and non-refundable: cancelling stops the next renewal and keeps you on the plan until the period you have paid for runs out. The full refund policy is linked in the footer.",
   },
-];
+  ];
+}
 
 export default function PricingPage() {
+  const paidTrial = paidTrialEnabled();
+  const FAQ = faq(paidTrial);
+
   return (
     <>
-      <SiteHeader sections={false} />
+      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
       <main>
         <section className="relative overflow-hidden pt-14 sm:pt-20">
           <div
@@ -68,14 +82,14 @@ export default function PricingPage() {
                 Pay once it has already worked.
               </h1>
               <p className="mx-auto mt-5 max-w-[46ch] text-[1.0625rem] leading-relaxed text-graphite text-pretty">
-                Every plan starts with {TRIAL_DAYS} days of everything casdey
-                does, with no card. After that you decide, and the free plan is
-                a real one.
+                {paidTrial
+                  ? `Every account starts with ${TRIAL_DAYS} days of everything casdey does, for ${trialPriceDisplay()}. Cancel inside the week and that is all you pay.`
+                  : `Every plan starts with ${TRIAL_DAYS} days of everything casdey does, with no card. After that you decide, and the free plan is a real one.`}
               </p>
             </div>
 
             <div className="mt-12">
-              <PricingTable />
+              <PricingTable paidTrial={paidTrial} />
             </div>
 
             <p className="mt-5 text-center text-[0.8125rem] text-stone">

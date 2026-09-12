@@ -12,6 +12,7 @@ import {
   type PublicTier,
 } from "@/lib/pricing";
 import type { Currency } from "@/lib/countries";
+import { startCta } from "@/lib/offer-copy";
 import { ButtonLink } from "./ui";
 
 /**
@@ -96,7 +97,13 @@ function Cell({ value }: { value: boolean | string }) {
   return <Mark on={value} />;
 }
 
-export function PricingTable() {
+/**
+ * `paidTrial` arrives as a prop rather than being read here, because this is a
+ * client component and the flag lives in the server environment. The currency
+ * switch below is local state, so the price named in the button follows
+ * whichever currency the visitor is looking at.
+ */
+export function PricingTable({ paidTrial }: { paidTrial: boolean }) {
   const [currency, setCurrency] = useState<Currency>("eur");
   const [interval, setInterval] = useState<PlanInterval>("month");
 
@@ -173,7 +180,9 @@ export function PricingTable() {
                     size="sm"
                     variant={tier === "pro" ? "primary" : "quiet"}
                   >
-                    {tier === "free" ? "Start free" : "Start your free week"}
+                    {tier === "free"
+                      ? "Start free"
+                      : startCta(paidTrial, currency)}
                   </ButtonLink>
                 </div>
               </div>

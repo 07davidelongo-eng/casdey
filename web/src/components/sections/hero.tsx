@@ -3,6 +3,9 @@ import { Reveal, TiltWindow } from "../motion";
 import { ButtonLink, Container } from "../ui";
 import Link from "next/link";
 
+import { paidTrialEnabled } from "@/lib/plan";
+import { offerBadge, startCta } from "@/lib/offer-copy";
+
 const SOFTWARE = ["Mindbody", "Glofox", "TeamUp", "ABC Fitness"];
 
 /**
@@ -14,6 +17,10 @@ const SOFTWARE = ["Mindbody", "Glofox", "TeamUp", "ABC Fitness"];
  * under it is body size, and the object below is the thing being sold.
  */
 export function Hero() {
+  // Server component, so it reads the flag directly. The two claims below are
+  // the only price claims in the hero, and both have to move together.
+  const paidTrial = paidTrialEnabled();
+
   return (
     <section className="relative overflow-hidden pt-14 sm:pt-20">
       <div
@@ -27,7 +34,7 @@ export function Hero() {
             href="/login?mode=signup"
             className="inline-flex items-center gap-2 rounded-full border border-ash bg-white/70 px-3.5 py-1.5 text-[13px] text-graphite transition-colors duration-200 hover:border-stone hover:text-ink"
           >
-            Free first week, no card
+            {offerBadge(paidTrial)}
             <span aria-hidden="true" className="text-teal">
               &rarr;
             </span>
@@ -51,7 +58,7 @@ export function Hero() {
         <Reveal delay={210}>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <ButtonLink href="/login?mode=signup" size="sm">
-              Start your free week
+              {startCta(paidTrial)}
             </ButtonLink>
             <ButtonLink href="/#what-it-does" variant="quiet" size="sm">
               See how it works

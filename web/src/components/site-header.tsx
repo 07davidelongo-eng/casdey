@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ButtonLink, Container } from "./ui";
+import { startCtaShort } from "@/lib/offer-copy";
 import { Logo } from "./wordmark";
 
 /**
@@ -39,7 +40,16 @@ const PAGE_LINKS = [
   { href: "/pricing", label: "Pricing" },
   { href: "/contact", label: "Contact" },
 ];
-export function SiteHeader({ sections = true }: { sections?: boolean } = {}) {
+export function SiteHeader({
+  sections = true,
+  paidTrial,
+}: {
+  sections?: boolean;
+  /** From the server page: a client component cannot read the flag itself.
+   *  Required rather than defaulted, so a new page cannot silently ship the
+   *  wrong price claim in its header. */
+  paidTrial: boolean;
+}) {
   const [lifted, setLifted] = useState(false);
 
   useEffect(() => {
@@ -91,7 +101,7 @@ export function SiteHeader({ sections = true }: { sections?: boolean } = {}) {
                 Sign in
               </Link>
               <ButtonLink href="/login?mode=signup" size="sm">
-                Start free
+                {startCtaShort(paidTrial)}
               </ButtonLink>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { paidTrialEnabled } from "@/lib/plan";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -66,7 +67,7 @@ function List({ items }: { items: React.ReactNode[] }) {
 export default function ProcessingTermsPage() {
   return (
     <>
-      <SiteHeader sections={false} />
+      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
       <main className="py-20 sm:py-24">
         <Container>
           <div className="max-w-2xl">

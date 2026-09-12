@@ -1,3 +1,4 @@
+import { paidTrialEnabled } from "@/lib/plan";
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -91,7 +92,7 @@ export default async function WaitlistPage({
 
   return (
     <>
-      <SiteHeader sections={false} />
+      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
       <main>
         <section className="relative overflow-hidden py-14 sm:py-20">
           <div
