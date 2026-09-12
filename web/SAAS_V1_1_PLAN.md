@@ -161,6 +161,15 @@ this track.
 **Updated 2026-09-12.** Two of the four are closed; the two left both need
 Davide rather than code.
 
+**The build itself is complete and was audited against the spec table above on
+2026-09-12**, row by row, after the 3-D Secure fix: signup deposit, commitment,
+terms figures, full Pro during the week, cancel-owes-nothing, day-7 convert with
+the 20% coupon, per-step fees under the cap, nudges on 2/5/6, the make-good
+sweep and the `/admin` waiver are all present and wired. The three activation
+stamps fire from the real action sites (import route, services form, campaign
+approval), first-write-wins. **There is no code left to write for Track H.** The
+two items below are not build work.
+
 1. ~~The terms pages do not mention the fee.~~ **Done**, commit `6734bb1`.
    `/terms/refunds` now reads `CASDEY_TRIAL_PENALTY` and `src/lib/trial.ts`
    directly, so it states the €1, the €20-a-step fee, the €60 cap, the waiver
