@@ -4,12 +4,13 @@ description: >-
   Pulls a live, single-pass snapshot of how casdey is actually doing right
   now — marketing/outreach performance, product and revenue numbers, what
   shipped in the codebase lately plus what's still open, and the business
-  summary (unit economics, break-even). Invoke on "/check-up", or when Davide
-  asks how the business is going, wants a status check, a pulse check, a
-  health check, or "where do things stand". Also runs automatically every
-  Sunday via a scheduled routine (see "The weekly routine" below) — when
-  invoked that way there is no chat to reply into, so deliver by email
-  instead of narrating.
+  summary (unit economics, break-even) — then closes with a verdict: what's
+  overdue, what's off target, and 1-3 concrete actions for the week ahead.
+  Invoke on "/check-up", or when Davide asks how the business is going,
+  wants a status check, a pulse check, a health check, or "where do things
+  stand". Also runs automatically every Sunday via a scheduled routine (see
+  "The weekly routine" below) — when invoked that way there is no chat to
+  reply into, so deliver by email instead of narrating.
 ---
 
 # casdey check-up
@@ -20,6 +21,19 @@ a live dashboard, and goes stale between sessions). Built 2026-09-11 at
 Davide's request, output "both" (chat summary + a redeployed artifact link
 each run) and cadence "on-demand + every Sunday" — see the two scripts and
 the artifact this skill maintains for how that's wired.
+
+**Audience: Davide and Claude both, not Davide alone (Davide, 2026-09-13).**
+This isn't a report to skim and file away — it's the shared, current picture
+of the business that any casdey session (interactive or a cloud routine)
+should treat as live context for deciding what to work on next, the same way
+`CLAUDE.md` is treated as the decision record. When a session opens and
+Davide wants to continue casdey work without saying exactly what, checking
+whether a check-up artifact exists and reading its "Signals & recommended
+actions" (section 5 below) is a reasonable way to ground that, the same way
+this session read `web/SAAS_V1_PLAN.md` for open tracks. Write section 5
+accordingly: concrete and specific enough (file paths, track names, tab
+names) that a fresh Claude session with no other context could pick one of
+its actions up and start, not just a headline a human would nod at.
 
 ## The four sections, and where each number comes from
 
@@ -100,18 +114,66 @@ the artifact this skill maintains for how that's wired.
    says "Paying customers: 0" but Numbers just found 1, that document is due
    an edit — say so, don't silently carry the contradiction).
 
+5. **Signals & recommended actions — synthesized, not sourced.** Distinct
+   from the four above: nothing here comes from an API, it's what the other
+   four sections mean taken together. Skipping it (or reducing it to a
+   generic "keep going") defeats the point of running this weekly — a
+   snapshot with no verdict is trivia, not a check-up. This section is what
+   makes the check-up worth Davide's attention rather than something he
+   skims past: the four data sections say what happened, this says what to
+   do about it.
+
+   Always run these specific checks, since they recur and are easy to miss
+   just by eyeballing the raw numbers:
+   - **Weekly A/B test review cadence** (`CLAUDE.md` "Marketing plan"): the
+     `Test Log` tab's most recently filled-in review is due every Sunday.
+     If it's more than 7 days old, say so explicitly and by how many days
+     overdue — this slipped silently for over a week before 2026-09-12, and
+     nobody noticed until a check-up said it out loud instead of just
+     listing the tab's contents.
+   - **Engagement rate vs the stated 3% target** (`CLAUDE.md` "Marketing
+     plan", set 2026-09-02): state the gap in percentage points, not just
+     the raw rate on its own.
+   - **`casdey-hq.md` vs what Numbers/Marketing just found**: already
+     flagged in section 4 above — surface it again here if it changes what
+     Davide should actually do (e.g. a real paying gym now exists but the
+     doc still says "0 paying customers", which is worth a `/update-project`
+     pass, not just a footnote).
+   - **Plan-doc items stuck across multiple runs**: before overwriting the
+     artifact, `Artifact action:"read"` the current version (already a
+     required step below) and compare its open-items/action list against
+     what this run just found in `SAAS_V1_PLAN.md`/`SAAS_V1_1_PLAN.md`. An
+     item that reads "still open"/"todo" two check-ups running is itself a
+     signal worth naming, distinct from an item that's simply new this week.
+
+   Close with **1-3 ranked, concrete actions**, addressed to Davide
+   directly, in imperative language ("Run the T0/T1 weekly review, it's N
+   days overdue" not "the review could be looked at sometime"). Order by
+   leverage, not by section order, and when Hormozi's framing genuinely
+   applies (More/Better/New, the Value Equation, LTGP:CAC) name it, the way
+   `.claude/skills/hormozi/` already does elsewhere — don't force it onto
+   something that's just an ops gap. If nothing rises to the level of an
+   action this week, say that plainly ("no action needed, still running
+   clean") rather than inventing busywork: a check-up that always finds
+   three things to worry about stops being trusted the moment nothing is
+   actually wrong.
+
 ## Composing the output
 
-**Chat summary** (every on-demand run): short, headline numbers only, one or
-two lines of takeaway per section, and call out anything that looks wrong or
+**Chat summary** (every on-demand run): lead with section 5's ranked actions
+(or its "no action needed" line), not buried at the end — that's the part
+worth reading first. Then short, headline numbers only, one or two lines of
+takeaway per section, and call out anything that looks wrong or
 contradictory across sources (the Stripe-vs-`is_internal` MRR check above is
 exactly this kind of thing). End with the artifact link.
 
 **Artifact** (every run, on-demand or weekly): the fuller version, one page,
-same four sections, with the actual figures rather than just the takeaway.
-Load `artifact-design` before writing it, same as any artifact. Keep it
-skimmable on a phone, since that's the point of publishing it rather than
-only printing to chat.
+all five sections, with the actual figures rather than just the takeaway.
+Give section 5 its own clearly separated block (not folded into the
+Business section) since it's the part both Davide and a future Claude
+session should be able to find at a glance. Load `artifact-design` before
+writing it, same as any artifact. Keep it skimmable on a phone, since
+that's the point of publishing it rather than only printing to chat.
 
 **Same URL every time.** Before publishing, check whether this skill has
 already published one: `Artifact action:"list"` and look for the title
@@ -138,14 +200,15 @@ step is different from an on-demand run:
    `node_modules` (found the hard way on the first live run, 2026-09-11:
    `checkup:numbers` failed with `Cannot find package 'pg'`). Local runs
    already have it installed, so this is a no-op there.
-1. Do everything above (four sections, compose chat-style summary text,
-   publish/redeploy the artifact).
+1. Do everything above (all five sections including the recommended
+   actions, compose chat-style summary text, publish/redeploy the artifact).
 2. Instead of printing the summary to a conversation, write it to a temp
    file and send it by email:
    `node scripts/send-email.mjs davide@casdey.com "casdey check-up — <date>" <path>`
    (`web/scripts/send-email.mjs`, the same Zoho OAuth account
    `src/lib/zoho-mail.ts` already sends from). Put the artifact link at the
-   top of the email body, then the same headline-numbers summary.
+   top of the email body, then the recommended actions, then the same
+   headline-numbers summary.
 
 Set up once via `/schedule`, weekly, Sunday, a time that doesn't collide with
 the two outreach routines' `05:05`/`06:00` UTC slots — see `CLAUDE.md`
@@ -177,9 +240,14 @@ populate with real data and the email sends cleanly.
 - It does not run the weekly outreach A/B test review (picking a winner,
   updating the `Test Log` tab) — that stays the manual Davide+Claude session
   `CLAUDE.md`'s "Marketing plan" describes. This skill only surfaces the
-  current standing.
+  current standing (and, per section 5, whether that review is overdue).
 - It does not edit `CLAUDE.md`, the plan docs, or `casdey-hq.md` — it reads
   them. Use `/update-project` for that, separately, if a check-up surfaces
   something worth recording.
 - It does not write to the outreach sheet, Stripe, or Supabase. Every source
   above is read-only.
+- **Section 5 recommends, it does not execute.** Naming an overdue review or
+  a stuck plan item is not the same as doing it — that still needs an
+  explicit follow-through, by Davide or in a separate session/turn, the same
+  as any other finding this skill surfaces. Adding the recommendations
+  section does not loosen the read-only rule above.
