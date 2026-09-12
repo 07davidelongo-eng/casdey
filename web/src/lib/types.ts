@@ -127,7 +127,7 @@ export type Gym = {
   plan_interval: "month" | "year" | null;
   trial_ends_at: string | null;
   /* Trial With Penalty (Track H, migration 0038). All null for a gym that
-   * signed up before it, and for every gym while CASDEY_TRIAL_PENALTY is off.
+   * signed up before it, and for every gym while CASDEY_PAID_TRIAL is off.
    * The logic that reads these lives in src/lib/trial.ts. */
   /** The €1 landed and a reusable card is saved. Null means nothing to charge. */
   trial_card_setup_at: string | null;

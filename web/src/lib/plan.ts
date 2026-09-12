@@ -77,8 +77,9 @@ export function trialEnabledForNewSignups(): boolean {
 }
 
 /**
- * Trial With Penalty (Track H): the free week takes a card, asks for a
- * commitment, and bills a setup fee for steps left unfinished at day 7.
+ * The paid first week (Track H): signup takes a card, charges 1 euro for seven
+ * days of Pro, asks for a commitment, and converts to Pro at day 7 unless the
+ * gym cancelled.
  *
  * Defaults OFF, unlike the two flags around it, and that asymmetry is the
  * point. This one changes what happens to a real card at signup, so it ships
@@ -86,11 +87,34 @@ export function trialEnabledForNewSignups(): boolean {
  * walked end to end. With it off, signup behaves exactly as it did before:
  * free week, no card, drop to Free.
  *
- * See src/lib/trial.ts for the mechanism and web/SAAS_V1_1_PLAN.md Track H
- * for why it exists.
+ * Named for what it is now. It was `trialPenaltyEnabled` /
+ * `CASDEY_TRIAL_PENALTY` until 2026-09-12, when the setup fee was removed from
+ * the design (see the note at the top of src/lib/trial.ts). Renaming an env var
+ * is usually not worth the churn; it was here because the variable had never
+ * been set in any environment, so nothing had to be migrated, and a flag called
+ * TRIAL_PENALTY guarding a mechanism with no penalty in it would have been
+ * actively misleading to the next person.
+ *
+ * BEFORE TURNING THIS ON, read this. The public marketing site does NOT read
+ * this flag, and it currently promises the opposite of what the flag does:
+ * "Free first week, no card" in the hero, "Start with a free week, no card" in
+ * the CTA band, "with no card, no setup fee" in the offer section, plus the
+ * pricing page, the pricing table, the footer link and the signup button. All
+ * of that is accurate today and becomes false the moment a card is required.
+ * Flipping this without rewriting that copy puts the site, the terms page and
+ * the checkout in three different stories, which is the same failure caught on
+ * the day casdey.com was published (the homepage promised a Pro-only guarantee
+ * with no qualifier). The copy is a deliberate rewrite, not a find-and-replace,
+ * so it is listed as a prerequisite in SAAS_V1_1_PLAN.md rather than done
+ * half-way here.
+ *
+ * Also note /terms/refunds is statically prerendered, so the flag needs a
+ * redeploy to change the page as well as the behaviour.
+ *
+ * See src/lib/trial.ts for the mechanism and web/SAAS_V1_1_PLAN.md Track H.
  */
-export function trialPenaltyEnabled(): boolean {
-  return process.env.CASDEY_TRIAL_PENALTY === "true";
+export function paidTrialEnabled(): boolean {
+  return process.env.CASDEY_PAID_TRIAL === "true";
 }
 
 /**

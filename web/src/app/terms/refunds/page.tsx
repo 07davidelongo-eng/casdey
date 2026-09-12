@@ -5,17 +5,13 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Container } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
-import { trialPenaltyEnabled } from "@/lib/plan";
-import {
-  SETUP_FEE_MAX_STEPS,
-  SETUP_FEE_MINOR,
-  TRIAL_DEPOSIT_MINOR,
-} from "@/lib/trial";
+import { paidTrialEnabled } from "@/lib/plan";
+import { TRIAL_PRICE_MINOR } from "@/lib/trial";
 
 /*
  * The refund policy. One exception, everything else non-refundable.
  *
- * The free-week section reads CASDEY_TRIAL_PENALTY and src/lib/trial.ts
+ * The first-week section reads CASDEY_PAID_TRIAL and src/lib/trial.ts
  * directly, rather than restating their numbers, for the same reason: a fee
  * this page understates is a fee casdey should not be charging.
  *
@@ -120,65 +116,38 @@ export default function RefundPolicyPage() {
               ]}
             />
 
-            <H2>The free plan and the free week</H2>
-            {trialPenaltyEnabled() ? (
+            <H2>The free plan and the first week</H2>
+            {paidTrialEnabled() ? (
               <>
                 <P>
-                  Every account starts with a free week on the full Pro feature
-                  set. Starting it takes a card and a{" "}
+                  A new account buys its first week of Pro for{' '}
                   <span className="literal">
-                    {formatMoney(TRIAL_DEPOSIT_MINOR, "eur")}
-                  </span>{" "}
-                  charge, which confirms the card works. That is the only
-                  amount taken at signup.
+                    {formatMoney(TRIAL_PRICE_MINOR, 'eur')}
+                  </span>
+                  . That is the only amount taken at signup, and it is not
+                  refundable, because the week it pays for begins immediately.
                 </P>
                 <P>
-                  The week is free if you finish the three setup steps casdey
-                  asks for: import your member list, add what you charge, and
-                  approve your first campaign. What happens at the end of the
-                  week depends only on that:
-                </P>
-                <List
-                  items={[
-                    "All three finished: the account moves onto Pro and starts billing monthly at the standard rate, less any discount you hold. You can cancel before then and it will not.",
-                    <>
-                      Any step unfinished: a setup fee of{" "}
-                      <span className="literal">
-                        {formatMoney(SETUP_FEE_MINOR.eur, "eur")}
-                      </span>{" "}
-                      per unfinished step is charged, capped at{" "}
-                      <span className="literal">
-                        {formatMoney(
-                          SETUP_FEE_MINOR.eur * SETUP_FEE_MAX_STEPS,
-                          "eur",
-                        )}
-                      </span>
-                      , and the account moves to the Free plan. UK accounts are
-                      charged the same figures in pounds.
-                    </>,
-                    "Cancelled at any point during the week: no setup fee at all, whatever is unfinished, and no Pro charge. The account moves to the Free plan when the week ends.",
-                  ]}
-                />
-                <P>
-                  A setup fee is not a charge for casdey. It exists so accounts
-                  get set up, and casdey would rather never charge one. Two
-                  things follow from that, and both are automatic or free:
-                  finish a step within seven days of being billed for it and
-                  that step&apos;s fee is refunded without you asking, and any
-                  setup fee will be waived on request. Email{" "}
-                  <span className="literal">info@casdey.com</span> and say the
-                  week got away from you. That is enough.
+                  At the end of the week the subscription continues on Pro at
+                  the standard monthly rate, less any discount you hold, and
+                  your card is charged. Cancel at any point during the week and
+                  it does not: you keep Pro until the week runs out, move to the
+                  Free plan, and pay nothing beyond the first{' '}
+                  <span className="literal">
+                    {formatMoney(TRIAL_PRICE_MINOR, 'eur')}
+                  </span>
+                  . UK accounts are charged the equivalent figures in pounds.
                 </P>
                 <P>
-                  Reminders naming the steps still outstanding are sent during
-                  the week, including one on the last day stating the exact
-                  amount at stake, so no setup fee is ever the first you hear
-                  of it.
+                  Cancelling takes one click on your billing page. Emails during
+                  the week state what will happen, including one on the last day
+                  naming the exact amount and date, so the renewal is never the
+                  first you hear of it.
                 </P>
                 <P>
                   Accounts opened before this came into effect keep the terms
-                  they signed up to: a free week with no card, no setup fee,
-                  and no automatic conversion to a paid plan.
+                  they signed up to: a free week with no card and no automatic
+                  conversion to a paid plan.
                 </P>
               </>
             ) : (

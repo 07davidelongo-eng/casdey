@@ -2,13 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACTIVATION_STEPS,
-  MAKE_GOOD_DAYS,
-  SETUP_FEE_MAX_STEPS,
-  SETUP_FEE_MINOR,
   activationFor,
   conversionResultFor,
-  feeForUnfinished,
-  madeGood,
   nudgeDue,
   trialDayNumber,
   trialOutcome,
@@ -46,12 +41,6 @@ const NOTHING: ActivationEvidence = {
   hasApprovedCampaign: false,
 };
 
-const EVERYTHING: ActivationEvidence = {
-  hasMembers: true,
-  hasPricedServices: true,
-  hasApprovedCampaign: true,
-};
-
 describe("activationFor", () => {
   it("counts a step done from its timestamp", () => {
     const states = activationFor(
@@ -86,102 +75,71 @@ describe("activationFor", () => {
   });
 });
 
-describe("feeForUnfinished", () => {
-  it("charges per step", () => {
-    expect(feeForUnfinished(["prices"], "eur")).toBe(SETUP_FEE_MINOR.eur);
-    expect(feeForUnfinished(["prices", "campaign"], "eur")).toBe(
-      2 * SETUP_FEE_MINOR.eur,
-    );
-  });
-
-  it("charges nothing when nothing is outstanding", () => {
-    expect(feeForUnfinished([], "eur")).toBe(0);
-  });
-
-  it("never exceeds the cap", () => {
-    const many = ["import", "prices", "campaign", "import"] as const;
-    expect(feeForUnfinished([...many], "eur")).toBe(
-      SETUP_FEE_MAX_STEPS * SETUP_FEE_MINOR.eur,
-    );
-  });
-
-  it("keeps GBP as its own round number, not a conversion", () => {
-    expect(SETUP_FEE_MINOR.gbp).toBe(2000);
-  });
-
-  it("caps below a week of Pro, which is what the gym sat on", () => {
-    // Pro is €289/mo, so a week is roughly €72. The cap has to sit under it
-    // or the fee stops being a nudge and starts being a bill.
-    const capMinor = SETUP_FEE_MAX_STEPS * SETUP_FEE_MINOR.eur;
-    expect(capMinor).toBeLessThan(Math.round((28900 / 30) * 7));
-  });
-});
-
 describe("trialOutcome", () => {
-  it("waits while the trial is still running", () => {
-    const outcome = trialOutcome(gym({ trial_ends_at: RUNNING }), NOTHING, NOW);
-    expect(outcome.kind).toBe("wait");
+  it("waits while the week is still running", () => {
+    expect(trialOutcome(gym({ trial_ends_at: RUNNING }), NOW).kind).toBe(
+      "wait",
+    );
   });
 
-  it("waits on a trial it has already closed", () => {
+  it("waits on a week it has already closed", () => {
     // The idempotency guard. Without it a second run of the daily job would
-    // bill the same fees again.
+    // create a second subscription for the same gym.
     const outcome = trialOutcome(
       gym({ trial_closed_at: "2026-09-12T09:30:00Z" }),
-      NOTHING,
       NOW,
     );
     expect(outcome.kind).toBe("wait");
   });
 
-  it("waits on a gym that never had a trial", () => {
-    const outcome = trialOutcome(gym({ trial_ends_at: null }), NOTHING, NOW);
-    expect(outcome.kind).toBe("wait");
+  it("waits on a gym that never had a week", () => {
+    expect(trialOutcome(gym({ trial_ends_at: null }), NOW).kind).toBe("wait");
   });
 
-  it("converts a gym that did all three", () => {
-    expect(trialOutcome(gym(), EVERYTHING, NOW)).toEqual({ kind: "convert" });
+  it("converts at day 7 when there is a card and no cancellation", () => {
+    expect(trialOutcome(gym(), NOW)).toEqual({ kind: "convert" });
   });
 
-  it("charges a gym that ghosted, one fee per unfinished step", () => {
-    const outcome = trialOutcome(gym(), { ...NOTHING, hasMembers: true }, NOW);
-    expect(outcome).toEqual({ kind: "charge", steps: ["prices", "campaign"] });
+  /**
+   * The change of 2026-09-12. Under Trial With Penalty an unfinished step was
+   * a billable event, so a gym that did nothing was charged a setup fee and
+   * dropped to Free. The week is now sold rather than given, so what the gym
+   * did with it decides nothing: it bought a week of Pro and the subscription
+   * continues. Activation still drives the nudges, it just no longer touches
+   * anyone's money.
+   */
+  it("converts a gym that did nothing all week, same as one that did everything", () => {
+    expect(trialOutcome(gym(), NOW)).toEqual({ kind: "convert" });
+    expect(
+      trialOutcome(
+        gym({
+          activated_import_at: "2026-09-06T09:00:00Z",
+          activated_prices_at: "2026-09-06T09:00:00Z",
+          activated_campaign_at: "2026-09-06T09:00:00Z",
+        }),
+        NOW,
+      ),
+    ).toEqual({ kind: "convert" });
   });
 
-  it("charges nothing to a gym that cancelled, however little it did", () => {
-    // Opting out is not ghosting. This leaves a loophole (use Pro for six
-    // days, cancel, pay €1) and the plan accepts it deliberately.
+  it("charges nothing to a gym that cancelled", () => {
     const outcome = trialOutcome(
       gym({ trial_cancelled_at: "2026-09-08T09:00:00Z" }),
-      NOTHING,
       NOW,
     );
     expect(outcome.kind).toBe("release");
   });
 
-  it("charges nothing when there is no card on file", () => {
-    const outcome = trialOutcome(
-      gym({ trial_card_setup_at: null }),
-      NOTHING,
-      NOW,
-    );
-    expect(outcome.kind).toBe("release");
-  });
-
-  it("does not convert a fully set-up gym with no card, it just ends", () => {
-    const outcome = trialOutcome(
-      gym({ trial_card_setup_at: null }),
-      EVERYTHING,
-      NOW,
-    );
-    expect(outcome.kind).toBe("release");
-  });
-
-  it("never charges a gym whose steps are proved done by live state alone", () => {
-    // Same defensive reading as activationFor, asserted at the level that
-    // actually moves money.
-    const outcome = trialOutcome(gym(), EVERYTHING, NOW);
-    expect(outcome.kind).not.toBe("charge");
+  /**
+   * The branch BodyActive takes. Gyms that signed up before the paid week
+   * existed have no card and were promised a free week on the old terms, so
+   * theirs has to end without a charge. This is the guard that makes the whole
+   * change safe to deploy to an existing account.
+   */
+  it("releases, never converts, when there is no card on file", () => {
+    expect(
+      trialOutcome(gym({ trial_card_setup_at: null }), NOW).kind,
+    ).toBe("release");
   });
 });
 
@@ -238,15 +196,28 @@ describe("nudgeDue", () => {
     expect(nudgeDue(base, ["import"], new Date("2026-09-11T10:00:00Z"))).toBe(6);
   });
 
-  it("says nothing once every step is done", () => {
-    expect(nudgeDue(base, [], new Date("2026-09-11T10:00:00Z"))).toBeNull();
+  it("stays quiet on days 2 and 5 once every step is done", () => {
+    // The week starts 2026-09-05, so day 5 is the 9th and day 6 the 10th.
+    expect(nudgeDue(base, [], new Date("2026-09-09T10:00:00Z"))).toBeNull();
   });
 
-  it("says nothing to a gym with no card, which owes no fee", () => {
-    // A real incident, not a hypothetical. The first run of the day-7 job
-    // emailed casdey's only real customer about a £20-a-step setup fee it
-    // had never agreed to: it signed up weeks before Trial With Penalty
-    // existed and has no card on file, so it can never be charged one.
+  /**
+   * Day 6 is not a setup reminder, it is the only warning before a card is
+   * charged a few hundred euro, so it goes out to a gym that did everything
+   * right as well as one that did nothing. Under the old design it was correct
+   * to stay silent here, because the only thing to warn about was a setup fee
+   * a finished gym could no longer incur. Removing the fee inverted that.
+   */
+  it("still warns on day 6 even when there is nothing left to do", () => {
+    expect(nudgeDue(base, [], new Date("2026-09-11T10:00:00Z"))).toBe(6);
+  });
+
+  it("says nothing to a gym with no card, which cannot be charged", () => {
+    // A real incident, not a hypothetical. The first run of this job emailed
+    // casdey's only real customer about a setup fee it had never agreed to:
+    // it signed up weeks before any of this existed and has no card on file.
+    // The fee is gone now; the guard stays, because a gym with no card still
+    // cannot convert and must not be told it is about to be billed.
     expect(
       nudgeDue(
         { ...base, trial_card_setup_at: null },
@@ -264,44 +235,6 @@ describe("nudgeDue", () => {
         new Date("2026-09-11T10:00:00Z"),
       ),
     ).toBeNull();
-  });
-});
-
-describe("madeGood", () => {
-  const charged = "2026-09-12T09:00:00Z";
-
-  it("refunds a step finished the next day", () => {
-    expect(madeGood(charged, "2026-09-13T09:00:00Z", NOW)).toBe(false);
-    // ...as of NOW it has not happened yet; with a later clock it has.
-    expect(
-      madeGood(charged, "2026-09-13T09:00:00Z", new Date("2026-09-14T09:00:00Z")),
-    ).toBe(true);
-  });
-
-  it("refunds right up to the deadline", () => {
-    const atDeadline = new Date(
-      new Date(charged).getTime() + MAKE_GOOD_DAYS * 86_400_000,
-    ).toISOString();
-    expect(madeGood(charged, atDeadline, new Date("2026-09-20T00:00:00Z"))).toBe(
-      true,
-    );
-  });
-
-  it("does not refund after the deadline", () => {
-    const late = new Date(
-      new Date(charged).getTime() + (MAKE_GOOD_DAYS + 1) * 86_400_000,
-    ).toISOString();
-    expect(madeGood(charged, late, new Date("2026-09-25T00:00:00Z"))).toBe(false);
-  });
-
-  it("does not refund a step that was never stamped", () => {
-    // Evidence cannot answer "when", so there is nothing to measure against.
-    // The waiver covers this case instead.
-    expect(madeGood(charged, null, NOW)).toBe(false);
-  });
-
-  it("ignores a completion that predates the charge", () => {
-    expect(madeGood(charged, "2026-09-01T09:00:00Z", NOW)).toBe(false);
   });
 });
 

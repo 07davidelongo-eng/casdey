@@ -63,14 +63,13 @@ async function run(request: NextRequest): Promise<Response> {
   }
 
   try {
-    // Nudges, conversions, setup fees and make-good refunds. Returns an empty
-    // report and touches nothing while CASDEY_TRIAL_PENALTY is off.
+    // Nudges, conversions and releases. Returns an empty
+    // report and touches nothing while CASDEY_PAID_TRIAL is off.
     const trials = await runTrialJob();
     if (
       trials.converted +
-        trials.charged +
         trials.nudged +
-        trials.madeGood +
+        trials.released +
         trials.pendingAuth +
         trials.conversionFailed >
       0

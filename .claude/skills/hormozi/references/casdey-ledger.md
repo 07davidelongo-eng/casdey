@@ -261,3 +261,57 @@ Follows or diverges: **Follows.** The correction restores the 2026-09-10
 position; it does not change it. What remains gating the flag is a live Stripe
 run and the legal question, both real and neither about sequencing.
 Reason: source checked at `Alex Hormozi/100M-Offers.txt` rather than recalled.
+
+## 2026-09-12 — The setup fee is dropped. The week is sold for 1 euro instead
+Framework: $100M Money Models / Trial With Penalty (pg 121-130). DIVERGES.
+Decision: Track H ships without the fee. Signup takes a card and charges 1 euro
+for seven days of Pro; at day 7 the subscription begins unless the gym
+cancelled. The activation steps, the commitment ask, the checklist and the
+nudges all stay. What is deleted is the 20 euro per unfinished step, its cap,
+the make-good refund and the admin waiver.
+
+Davide's call, and the reasoning is his: he has never seen this in any software
+he uses, and was not convinced it fits casdey. That is not squeamishness, it is
+a category mismatch, and checking it out confirmed three things:
+
+1. **The fee has no cost basis in SaaS.** Trial With Penalty comes from Gym
+   Launch, where an unused trial consumes a coach's hour and the fee recovers a
+   real loss. A dormant casdey trial consumes no Anthropic tokens, no Resend
+   quota, no Twilio messages and no support. An earlier session claimed 60 euro
+   against "72 euro of Pro consumed" was clean proportionality; that is list
+   price, not cost, and the legal tests ask about loss.
+2. **Ireland, where casdey's only customer is, is the worst venue for it.**
+   Ireland has **not** adopted Cavendish v Makdessi (Sheehan v Breccia; bound by
+   Pat O'Donnell v Truck and Machinery Sales [1998]) and still applies Dunlop,
+   under which a deterrent clause is the classic unenforceable penalty. Makdessi
+   is the case that rescues deterrent clauses via "legitimate interest", and it
+   does not apply there. casdey's own stated rationale was explicitly deterrent.
+   Germany's 307 BGB polices B2B standard terms too, and voids an unfair clause
+   entirely rather than reducing it.
+3. **The thing that was doing the work is not the fee.** The diagnosis of
+   2026-09-10 condemned "a free trial with no card and no required actions". The
+   card, the 1 euro, the commitment and the checklist all remain, and day 7 still
+   forces a decision, which is the property the old free week lacked: it expired
+   quietly, the gym drifted to Free, and nothing happened. That is exactly what
+   BodyActive did.
+
+Follows or diverges: **Diverges, deliberately.** Hormozi's mechanism assumes a
+consumer, a human taking the card on a call, one jurisdiction, and a real cost
+incurred by a no-show. casdey is self-serve, B2B, cross-border and has no legal
+entity to defend a contested fee with. Per this skill's own rule, the facts
+differ from the book's assumptions, so the facts win. The 1 euro survives
+because it is Hormozi's own hedge (pg 129) and it does the commitment work.
+What this gives up, stated plainly: nothing now forces the three activation
+steps between day 1 and day 7 except an imminent Pro charge. The nudges are
+therefore the whole activation mechanism and were rewritten to lead with what
+the gym is not seeing, and day 6 became a conversion warning naming the exact
+amount.
+Reason: Davide's judgement on category fit, plus legal research into the Irish
+and German positions, plus the observation that the fee had no cost basis.
+
+**Not closed, for the future:** Davide's own idea, raised the same day and
+explicitly not for now, is that if a penalty ever returns it could cost
+something other than money, such as reduced functionality. That keeps the
+stakes without the chargeback, the cross-border enforceability question or the
+category weirdness. Worth taking seriously whenever activation is the
+constraint again.

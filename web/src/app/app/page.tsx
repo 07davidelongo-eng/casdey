@@ -13,7 +13,7 @@ import {
 } from "@/lib/lapse";
 import { formatMoney, gymCurrency } from "@/lib/money";
 import { buildSetupState } from "@/lib/setup";
-import { trialPenaltyEnabled } from "@/lib/plan";
+import { paidTrialEnabled } from "@/lib/plan";
 import { activationFor } from "@/lib/trial";
 import { activityWithComparison, change } from "@/lib/dashboard";
 import { Funnel, LineChart, MetricChart, Split } from "@/components/app/chart";
@@ -157,7 +157,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     hasPricedServices: priced,
     hasApprovedCampaign: (approvedCampaigns ?? 0) > 0,
   });
-  const trialPanel = trialPenaltyEnabled() ? (
+  const trialPanel = paidTrialEnabled() ? (
     <TrialPanel gym={gym} steps={trialSteps} />
   ) : null;
 
@@ -168,7 +168,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         {params.welcome ? (
           <div className="mb-6">
             <Notice>
-              {trialPenaltyEnabled()
+              {paidTrialEnabled()
                 ? "Your free week has started, everything unlocked. Work through the steps below to see it go, and there is nothing more to pay once they are done."
                 : "Your free week has started, everything unlocked and no card taken. Work through the steps below to see it go."}
             </Notice>

@@ -4,9 +4,9 @@ import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { currencyFor } from "@/lib/countries";
-import { trialPenaltyEnabled } from "@/lib/plan";
+import { paidTrialEnabled } from "@/lib/plan";
 import { stripeClient } from "@/lib/stripe";
-import { TRIAL_DEPOSIT_MINOR } from "@/lib/trial";
+import { TRIAL_PRICE_MINOR } from "@/lib/trial";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const { gym, session } = await requireOwner();
   const origin = request.nextUrl.origin;
 
-  if (!trialPenaltyEnabled()) {
+  if (!paidTrialEnabled()) {
     // Nothing to do: with the flag off the week is granted at signup and no
     // card is taken. Send them into the product rather than erroring.
     return NextResponse.redirect(new URL("/app", origin), 303);
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         {
           price_data: {
             currency,
-            unit_amount: TRIAL_DEPOSIT_MINOR,
+            unit_amount: TRIAL_PRICE_MINOR,
             product_data: {
               name: "casdey free week",
               description:

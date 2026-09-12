@@ -34,6 +34,10 @@ export type PricePlan = {
   monthlyDisplay: string;
   /** What actually leaves the account, and how often. */
   chargeDisplay: string;
+  /** What actually leaves the account, in minor units. The display strings
+   *  above are for reading; this is for arithmetic, such as telling a gym the
+   *  exact figure it is about to be charged at the end of its paid week. */
+  amountMinor: number;
   /** STRIPE_PRICE_<TIER>_<CURRENCY>_<INTERVAL> — the id lives in the env, not
    *  here, because test-mode and live-mode ids differ. */
   envVar: string;
@@ -47,6 +51,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "month",
     monthlyDisplay: "€99",
     chargeDisplay: "€99 a month",
+    amountMinor: 9900,
     envVar: "STRIPE_PRICE_STANDARD_EUR_MONTH",
   },
   {
@@ -55,6 +60,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "year",
     monthlyDisplay: "€83",
     chargeDisplay: "€990 a year",
+    amountMinor: 99000,
     envVar: "STRIPE_PRICE_STANDARD_EUR_YEAR",
   },
   {
@@ -63,6 +69,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "month",
     monthlyDisplay: "£89",
     chargeDisplay: "£89 a month",
+    amountMinor: 8900,
     envVar: "STRIPE_PRICE_STANDARD_GBP_MONTH",
   },
   {
@@ -71,6 +78,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "year",
     monthlyDisplay: "£74",
     chargeDisplay: "£890 a year",
+    amountMinor: 89000,
     envVar: "STRIPE_PRICE_STANDARD_GBP_YEAR",
   },
   // Pro
@@ -80,6 +88,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "month",
     monthlyDisplay: "€289",
     chargeDisplay: "€289 a month",
+    amountMinor: 28900,
     envVar: "STRIPE_PRICE_PRO_EUR_MONTH",
   },
   {
@@ -88,6 +97,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "year",
     monthlyDisplay: "€241",
     chargeDisplay: "€2,890 a year",
+    amountMinor: 289000,
     envVar: "STRIPE_PRICE_PRO_EUR_YEAR",
   },
   {
@@ -96,6 +106,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "month",
     monthlyDisplay: "£249",
     chargeDisplay: "£249 a month",
+    amountMinor: 24900,
     envVar: "STRIPE_PRICE_PRO_GBP_MONTH",
   },
   {
@@ -104,6 +115,7 @@ export const PRICE_PLANS: PricePlan[] = [
     interval: "year",
     monthlyDisplay: "£207",
     chargeDisplay: "£2,490 a year",
+    amountMinor: 249000,
     envVar: "STRIPE_PRICE_PRO_GBP_YEAR",
   },
 ];

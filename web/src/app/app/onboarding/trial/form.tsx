@@ -5,23 +5,27 @@ import { useId, useState } from "react";
 import { Button } from "@/components/app/ui";
 
 /**
- * The commitment ask and the fee terms.
+ * The commitment ask and the billing terms.
  *
  * Two checkboxes doing deliberately different jobs. The commitment is
- * optional, because it is an affirmative commitment and an answer extracted
- * by making it mandatory is not one: the value is in being asked, and in
- * whether the gym chooses to say yes. The terms are required, because a gym
- * cannot be charged on day 7 for something it never ticked.
+ * optional, because it is an affirmative commitment and an answer extracted by
+ * making it mandatory is not one: the value is in being asked, and in whether
+ * the gym chooses to say yes. The terms are required, because a gym cannot be
+ * charged on day 7 for something it never ticked.
+ *
+ * The terms used to describe a setup fee for activation steps left unfinished.
+ * That mechanism was removed on 2026-09-12 (see ../../../lib/trial.ts), so what
+ * is left is the ordinary thing: a week is bought, it renews, cancelling is
+ * free. The renewal figure is named rather than left to "then our normal
+ * price", because it is the number the gym is actually agreeing to.
  */
 export function TrialStartForm({
-  deposit,
-  perStep,
-  cap,
+  price,
+  monthly,
   error,
 }: {
-  deposit: string;
-  perStep: string;
-  cap: string;
+  price: string;
+  monthly: string | null;
   error: string | null;
 }) {
   const id = useId();
@@ -68,12 +72,16 @@ export function TrialStartForm({
           className="mt-1 h-4 w-4 shrink-0 accent-[var(--teal)]"
         />
         <span>
-          I understand the week is free if I finish the three steps above. If I
-          leave any unfinished, casdey charges a{" "}
-          <span className="literal">{perStep}</span> setup fee per unfinished
-          step, up to <span className="literal">{cap}</span>. If I cancel
-          during the week I pay nothing beyond today&apos;s{" "}
-          <span className="literal">{deposit}</span>.
+          I understand <span className="literal">{price}</span> is charged today
+          for my first week of Pro, and that it then continues
+          {monthly ? (
+            <>
+              {" "}
+              at <span className="literal">{monthly}</span> a month
+            </>
+          ) : null}{" "}
+          until I cancel. If I cancel during the week I pay nothing beyond
+          today&apos;s <span className="literal">{price}</span>.
         </span>
       </label>
 
@@ -92,7 +100,7 @@ export function TrialStartForm({
         disabled={!terms || pending}
         className="mt-6 w-full"
       >
-        {pending ? "Opening Stripe" : "Start my free week"}
+        {pending ? "Opening Stripe" : `Start my week for ${price}`}
       </Button>
 
       <p className="mt-3 text-center text-[0.8125rem] text-stone">

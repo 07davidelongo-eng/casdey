@@ -156,6 +156,42 @@ this track.
 
 ---
 
+## Track H, REDESIGNED 2026-09-12: the setup fee is gone
+
+**Read this before the rest of Track H, which still describes the fee.** Davide
+dropped the setup fee on 2026-09-12. What ships is a **paid first week**: 1 euro
+and a card at signup, the commitment ask, the activation checklist and the
+nudges, and at day 7 the Pro subscription begins unless the gym cancelled. There
+is no fee for unfinished steps, no cap, no make-good refund and no admin waiver.
+The full reasoning is in the ledger; the short version is that the mechanism
+comes from gym businesses where an unused trial costs a coach's hour, a dormant
+SaaS trial costs nothing, and Ireland (where casdey's only customer is) never
+adopted Makdessi and still treats a deterrent clause as an unenforceable penalty
+under Dunlop.
+
+What this keeps is the property the diagnosis actually cared about: **day 7
+forces a decision.** The old free week expired quietly, the gym drifted to Free,
+and nothing happened, which is exactly what BodyActive did.
+
+**Prerequisite for turning `CASDEY_PAID_TRIAL` on, and it is not optional.** The
+public marketing site does not read the flag and currently promises the
+opposite: "Free first week, no card" in the hero, "Start with a free week, no
+card" in the CTA band, "with no card, no setup fee" in the offer section, plus
+the pricing page, the pricing table, the footer and the signup button. Flipping
+the flag without rewriting that copy puts the site, the terms page and the
+checkout in three different stories. It is a deliberate rewrite in Davide's
+voice, not a find-and-replace, which is why it was left rather than done
+half-way. `/terms/refunds` is statically prerendered, so the flag also needs a
+redeploy.
+
+**Deferred, Davide's own idea (2026-09-12), explicitly not now:** if a penalty
+ever returns, it could cost something other than money, such as reduced
+functionality. That keeps the stakes without the chargeback, the cross-border
+enforceability problem or the category weirdness. Worth taking seriously the
+next time activation is the binding constraint.
+
+---
+
 ## Track H, what is still owed
 
 **Updated 2026-09-12.** Two of the four are closed; the two left both need
@@ -170,7 +206,13 @@ stamps fire from the real action sites (import route, services form, campaign
 approval), first-write-wins. **There is no code left to write for Track H.** The
 two items below are not build work.
 
-1. ~~The terms pages do not mention the fee.~~ **Done**, commit `6734bb1`.
+0. **The marketing copy still says "free week, no card".** New, and now the
+   first blocker: see the prerequisite above. Seven public surfaces contradict
+   the paid week.
+1. ~~The terms pages do not mention the fee.~~ **Done**, commit `6734bb1`, then
+   rewritten again on 2026-09-12 for the paid week: the fee paragraphs are gone
+   and it now states the 1 euro, that it is non-refundable because the week
+   begins immediately, the renewal, and that cancelling costs nothing.
    `/terms/refunds` now reads `CASDEY_TRIAL_PENALTY` and `src/lib/trial.ts`
    directly, so it states the €1, the €20-a-step fee, the €60 cap, the waiver
    and the make-good refund, and says plainly that accounts opened before the
@@ -180,8 +222,17 @@ two items below are not build work.
 2. **Nothing has been through the LIVE Stripe path.** Still open, and it is the
    real gate. Everything is verified in test mode. Do one real €1 and one real
    conversion on a real card, the way C1 was done.
-3. **Legal shape of the fee is unexamined.** Still open. No legal entity, B2B
-   across the EU, and a fee for an omission rather than for a service.
+3. ~~Legal shape of the fee is unexamined.~~ **Researched 2026-09-12, and it is
+   why the fee was dropped.** See the ledger for Ireland (Dunlop, not Makdessi)
+   and Germany (307 BGB voids an unfair B2B standard term entirely). **What the
+   research surfaced instead is bigger than Track H and is still open: casdey
+   almost certainly needs a Partita IVA already.** Italian *prestazione
+   occasionale* requires the activity to be non-abituale, and recurring
+   subscriptions with a published site and daily outreach is habitual and
+   organised, which makes a P.IVA obligatory regardless of amount (Agenzia delle
+   Entrate interpello 63/2024 treats repetition over time, even with one client,
+   as a strong indicator). That gates real revenue whether or not the flag ever
+   goes on, and it needs a commercialista rather than more research.
 4. ~~`?started=1` claims nothing is charged.~~ **Done**, commit `6734bb1`.
 
 

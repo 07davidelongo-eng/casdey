@@ -1,27 +1,37 @@
 import type { Gym } from "./types";
 import { TRIAL_DAYS } from "./plan";
+import { findPricePlan } from "./pricing";
+import type { Currency } from "./countries";
 
 /**
- * Trial With Penalty: what a trial is worth, what is still unfinished, and
- * what happens at day 7.
+ * The paid first week: what it costs, what a gym should have done by the end
+ * of it, and what happens on day 7.
  *
- * Track H of web/SAAS_V1_1_PLAN.md. Pure and dependency-free on purpose, the
- * same way src/lib/lapse.ts is: this is the one place that decides whether a
- * real card gets charged, so it has to be readable end to end and testable
- * without a database, a Stripe key or a clock.
+ * Pure and dependency-free on purpose, the same way src/lib/lapse.ts is: this
+ * decides what happens to a real card, so it has to be readable end to end and
+ * testable without a database, a Stripe key or a clock.
  *
- * Two rules run through all of it.
+ * **This replaced Hormozi's Trial With Penalty on 2026-09-12, deliberately.**
+ * That design charged a setup fee per activation step left unfinished at day 7.
+ * It was built, audited and never switched on. Davide's call was that it does
+ * not fit casdey, and the reasoning is in the ledger: the mechanism comes from
+ * gym businesses, where an unused trial consumes a coach's hour and the fee
+ * recovers a real loss. In SaaS a dormant trial costs almost nothing, so the
+ * fee had no cost basis, sat outside every norm a software buyer knows, and
+ * carried a legal and chargeback tail that one disputed 20 euro would have made
+ * expensive at casdey's size.
  *
- * The fee is not revenue. $100M Money Models pg 130: "You make money by
- * getting people results and turning them into customers, not nickeling and
- * diming people with fees." It exists to move the share of trials that get
- * set up. A week where every gym activates and no fee fires is the mechanism
- * working perfectly, not failing.
+ * What replaced it keeps the part that was doing the work. The week is SOLD,
+ * not given: 1 euro buys seven days of Pro. A gym that puts a card down and
+ * answers "yes, I'll stay if this works" is a different gym from one that
+ * clicks a button, and at day 7 the subscription simply begins. The forcing
+ * function is that a decision has to be made, which is what the old free week
+ * never asked for: it expired quietly, the gym drifted to Free, and nothing
+ * happened. That is what BodyActive did.
  *
- * And every uncertainty resolves in the gym's favour. A missing activation
- * stamp, an unreadable count, no saved card, a trial that was cancelled: all
- * of them mean no fee. Charging somebody €20 because casdey lost track of a
- * timestamp is exactly the 1-star review the book warns about (MM pg 128).
+ * The rule that survives both designs: every uncertainty resolves in the gym's
+ * favour. No card, a cancelled week, an unreadable count: all of them mean the
+ * week ends and nothing is charged.
  */
 
 /** The three things that turn a signup into a gym casdey can actually help. */
@@ -34,9 +44,11 @@ export const ACTIVATION_STEPS: readonly ActivationStep[] = [
 ];
 
 /**
- * What the gym is told each step is, in its own words. "Setup fee" is the
- * customer-facing word for the charge, and "free trial" is the only name the
- * trial itself ever gets (MM pg 129). Never "penalty", anywhere a gym reads.
+ * What the gym is told each step is, in its own words.
+ *
+ * These are no longer billing conditions, which is the point of the change.
+ * They are the onboarding checklist and what the nudges chase, so the wording
+ * is an instruction rather than an obligation.
  */
 export const ACTIVATION_LABELS: Record<ActivationStep, string> = {
   import: "Import your member list",
@@ -45,46 +57,53 @@ export const ACTIVATION_LABELS: Record<ActivationStep, string> = {
 };
 
 /**
- * The fee per unfinished step, and the cap.
+ * The price of the first week.
  *
- * Sized against what the gym actually sat on: a week of Pro is roughly €72
- * (€289/mo), so €60 at the cap sits just under it, and €20 a step is a
- * cleaner number than €24. GBP keeps its own round figure rather than a live
- * conversion, which is how every other price in casdey works.
- */
-export const SETUP_FEE_MINOR: Record<"eur" | "gbp", number> = {
-  eur: 2000,
-  gbp: 2000,
-};
-
-/** The cap, expressed as steps rather than a second number to keep in step. */
-export const SETUP_FEE_MAX_STEPS = 3;
-
-/**
- * The trial deposit: charged at signup, which is also what saves the card.
- *
- * €1 is Hormozi's own hedge (MM pg 129) for exactly the worry this raises,
- * that asking for a card on a free trial costs signups. It is small enough to
- * be a formality and real enough to prove the card works, which a €0
+ * 1 euro is Hormozi's own figure (MM pg 129), where it hedges the worry that
+ * asking for a card on a free trial costs signups. Here it does more than
+ * hedge: the week is not free, it is bought, so the gym is a customer from the
+ * first minute rather than a trialist who might become one. Small enough to be
+ * a formality, real enough to prove the card works, which a zero-value
  * authorisation does not.
  */
-export const TRIAL_DEPOSIT_MINOR = 100;
+export const TRIAL_PRICE_MINOR = 100;
 
-/** How long after being billed a gym can still finish a step and be refunded. */
-export const MAKE_GOOD_DAYS = 7;
+/** The lifetime early-adopter discount, as a percentage off a paid tier. */
+export const EARLY_ADOPTER_DISCOUNT_PERCENT = 20;
 
-/** Trial days on which a nudge goes out, ascending. */
+/** Days of the week on which a nudge goes out, ascending. */
 export const NUDGE_DAYS: readonly number[] = [2, 5, 6];
+
+/**
+ * What the gym will actually be charged when the week converts, in minor units.
+ *
+ * Exists so the day 6 email can name a real figure. That email is now the most
+ * important message casdey sends: it is the only warning before a card is
+ * charged a few hundred euro, and a charge nobody saw coming is the one outcome
+ * worth avoiding. Approximating it there would be a strange place to save
+ * effort.
+ */
+export function conversionAmountMinor(
+  currency: Currency,
+  earlyAdopter: boolean,
+): number | null {
+  const plan = findPricePlan("pro", currency, "month");
+  if (!plan) return null;
+  if (!earlyAdopter) return plan.amountMinor;
+  return Math.round(
+    (plan.amountMinor * (100 - EARLY_ADOPTER_DISCOUNT_PERCENT)) / 100,
+  );
+}
 
 /**
  * Whether a gym has finished each step.
  *
  * `evidence` is the live state (does a member exist, is anything priced, has a
  * campaign been approved), and it is not redundant with the timestamps. The
- * stamps are written at three separate action sites, and a step that is
- * plainly done must never cost a gym money because one of those writes was
- * missed. So a step counts as done if EITHER source says so, and only the
- * stamp is trusted for "when".
+ * stamps are written at three separate action sites, and a missed write should
+ * not make casdey nag a gym about something it has plainly already done. So a
+ * step counts as done if EITHER source says so, and only the stamp is trusted
+ * for "when".
  */
 export type ActivationEvidence = {
   hasMembers: boolean;
@@ -147,78 +166,55 @@ export function unfinishedSteps(states: StepState[]): ActivationStep[] {
 }
 
 /**
- * The fee a gym would owe right now, in minor units.
+ * What the day 7 job should do with a paid week.
  *
- * Capped at SETUP_FEE_MAX_STEPS, which with three steps means the cap can
- * never actually bind. It is written as a cap anyway so that adding a fourth
- * step is a one-line change rather than a silent price rise.
- */
-export function feeForUnfinished(
-  unfinished: ActivationStep[],
-  currency: "eur" | "gbp",
-): number {
-  const billable = Math.min(unfinished.length, SETUP_FEE_MAX_STEPS);
-  return billable * SETUP_FEE_MINOR[currency];
-}
-
-/**
- * What the day-7 job should do with a trial.
+ * Deliberately exhaustive and deliberately boring, because every branch either
+ * starts billing a card or decides not to.
  *
- * Deliberately exhaustive and deliberately boring, because every branch here
- * either charges a card or decides not to.
+ *   wait     Not day 7 yet, or already closed.
+ *   convert  Not cancelled, card on file. The Pro subscription begins.
+ *   release  The week ends and nothing is charged. Every "we are not sure"
+ *            answer lands here.
  *
- *   wait       Not day 7 yet, or the trial is already closed.
- *   convert    Three steps done, not cancelled, card on file. Becomes Pro.
- *   release    Drop to Free and charge nothing. Every "we are not sure"
- *              answer lands here: cancelled, no card, nothing owed.
- *   charge     Drop to Free and bill the unfinished steps.
+ * Note what is NOT a branch any more: how much of the setup got done. Under the
+ * old design that decided whether a fee fired. Now it decides nothing, because
+ * a gym bought a week of Pro and what it did with the week is its own business.
+ * Activation is still tracked and still chased by the nudges, it just no longer
+ * touches anyone's money.
  */
 export type TrialOutcome =
   | { kind: "wait"; reason: string }
   | { kind: "convert" }
-  | { kind: "release"; reason: string }
-  | { kind: "charge"; steps: ActivationStep[] };
+  | { kind: "release"; reason: string };
 
 export function trialOutcome(
   gym: TrialGym,
-  evidence: ActivationEvidence,
   now: Date = new Date(),
 ): TrialOutcome {
   if (gym.trial_closed_at) {
     return { kind: "wait", reason: "already closed" };
   }
   if (!gym.trial_ends_at) {
-    return { kind: "wait", reason: "no trial" };
+    return { kind: "wait", reason: "no paid week" };
   }
   if (new Date(gym.trial_ends_at).getTime() > now.getTime()) {
     return { kind: "wait", reason: "still running" };
   }
 
-  // Opting out is not the same as ghosting, and this is the difference.
-  // It leaves a loophole (use Pro for six days, cancel, pay €1) which is
-  // accepted: the card and the commitment ask at signup filter most of it,
-  // and the fee is not revenue anyway.
+  // Cancelling is one click and is signposted all week. A gym that used it has
+  // said no, and saying no is free.
   if (gym.trial_cancelled_at) {
-    return { kind: "release", reason: "cancelled during the trial" };
+    return { kind: "release", reason: "cancelled during the week" };
   }
 
-  const states = activationFor(gym, evidence);
-  const unfinished = unfinishedSteps(states);
-
-  if (unfinished.length === 0) {
-    // Converting needs a card. A trial that somehow ran without one (the flag
-    // was off at signup, or the €1 never completed) simply ends.
-    if (!gym.trial_card_setup_at) {
-      return { kind: "release", reason: "set up, but no card on file" };
-    }
-    return { kind: "convert" };
-  }
-
+  // Converting needs a card. Gyms that signed up before the paid week existed
+  // have none, and were promised a free week on the old terms, so theirs simply
+  // ends. This is the branch BodyActive takes.
   if (!gym.trial_card_setup_at) {
     return { kind: "release", reason: "no card on file" };
   }
 
-  return { kind: "charge", steps: unfinished };
+  return { kind: "convert" };
 }
 
 /**
@@ -228,7 +224,7 @@ export function trialOutcome(
  * paid. When the first payment needs 3-D Secure, which European banks ask for
  * routinely, `subscriptions.create` succeeds and hands back a subscription
  * sitting at `incomplete` with the charge unconfirmed. Treating that as a
- * conversion is how a gym that finished every step ends up on the Free plan
+ * conversion is how a gym that did everything right ends up on the Free plan
  * holding an unpaid subscription, with casdey's own records claiming it
  * converted and nothing anywhere telling it to go and authenticate.
  *
@@ -244,7 +240,9 @@ export function trialOutcome(
  */
 export type ConversionResult = "converted" | "needs_authentication" | "failed";
 
-export function conversionResultFor(subscriptionStatus: string): ConversionResult {
+export function conversionResultFor(
+  subscriptionStatus: string,
+): ConversionResult {
   if (subscriptionStatus === "active" || subscriptionStatus === "trialing") {
     return "converted";
   }
@@ -255,17 +253,19 @@ export function conversionResultFor(subscriptionStatus: string): ConversionResul
 /**
  * Which nudge, if any, is due today.
  *
- * Returns the highest nudge day that has passed and has not been sent, so a
- * job that misses a day (the cron runs once daily on Vercel's Hobby plan)
- * catches up with one message rather than three.
+ * Returns the highest nudge day that has passed and has not been sent, so a job
+ * that misses a day (the cron runs once daily on Vercel's Hobby plan) catches
+ * up with one message rather than three.
  *
- * A card on file is required, and that is not a technicality. The nudges say
- * what happens at day 7, including the setup fee, and a gym with no card
- * agreed to no fee and will never be charged one (see trialOutcome, which
- * releases it). Telling it otherwise would be a false statement about its own
- * bill. This was found the hard way: the first run of this job emailed
- * casdey's only real customer, a gym that signed up weeks before Trial With
- * Penalty existed, to tell it about a fee it had never agreed to.
+ * A card on file is required, and that is not a technicality. These emails
+ * describe what happens at day 7, and for a gym with no card the honest answer
+ * is "nothing": it cannot convert (see trialOutcome) and it was promised a free
+ * week on the old terms. Telling it otherwise would be a false statement about
+ * its own bill. This was found the hard way: the first run of this job emailed
+ * casdey's only real customer, a gym that signed up before any of this existed,
+ * about a charge it had never agreed to. The charge in question no longer
+ * exists and the guard still does, because the guard was always the right
+ * thing.
  */
 export function nudgeDue(
   gym: Pick<
@@ -281,22 +281,31 @@ export function nudgeDue(
   if (!gym.trial_ends_at) return null;
   if (!gym.trial_card_setup_at) return null;
   if (gym.trial_cancelled_at) return null;
-  // Nothing to nudge about.
-  if (unfinished.length === 0) return null;
 
   const day = trialDayNumber(gym.trial_ends_at, now);
   if (day == null) return null;
 
   const sent = gym.trial_last_nudge_day ?? 0;
   const due = NUDGE_DAYS.filter((d) => d <= day && d > sent);
-  return due.length > 0 ? Math.max(...due) : null;
+  if (due.length === 0) return null;
+  const next = Math.max(...due);
+
+  // Days 2 and 5 chase the setup, so a gym that has finished has nothing to
+  // hear from them. Day 6 is the conversion warning and goes out regardless: a
+  // gym is about to be charged a few hundred euro and is entitled to know,
+  // whether or not it ever imported anything. Under the old design this
+  // function returned null for a fully set-up gym on every day, which was right
+  // when the only thing to warn about was a fee it could no longer incur.
+  if (next < 6 && unfinished.length === 0) return null;
+
+  return next;
 }
 
 /**
- * Which day of the trial it is, 1-based, or null once the trial is over.
+ * Which day of the week it is, 1-based, or null once it is over.
  *
- * Derived from trial_ends_at because that is the column that exists; the
- * start is trial_ends_at minus TRIAL_DAYS.
+ * Derived from trial_ends_at because that is the column that exists; the start
+ * is trial_ends_at minus TRIAL_DAYS.
  */
 export function trialDayNumber(
   trialEndsAt: string,
@@ -309,27 +318,4 @@ export function trialDayNumber(
   if (elapsed < 0) return null;
   const day = Math.floor(elapsed / 86_400_000) + 1;
   return day > TRIAL_DAYS ? null : day;
-}
-
-/**
- * Whether a charged fee should be refunded because the gym went and did the
- * thing. MM pg 128, "make up for goofs".
- *
- * Needs the stamp, not the evidence: this asks when the step was completed,
- * and evidence cannot answer that. A gym whose stamp is missing keeps its fee
- * charged, which is the one place the defensive reading does not apply, and
- * the waiver exists for it.
- */
-export function madeGood(
-  chargedAt: string,
-  doneAt: string | null,
-  now: Date = new Date(),
-): boolean {
-  if (!doneAt) return false;
-  const charged = new Date(chargedAt).getTime();
-  const done = new Date(doneAt).getTime();
-  if (Number.isNaN(charged) || Number.isNaN(done)) return false;
-  if (done < charged) return false;
-  if (done > now.getTime()) return false;
-  return done - charged <= MAKE_GOOD_DAYS * 86_400_000;
 }

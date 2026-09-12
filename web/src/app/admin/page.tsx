@@ -1,6 +1,5 @@
 import { requireAdmin } from "@/lib/admin";
-import { trialPenaltyEnabled } from "@/lib/plan";
-import { waiveTrialPenaltyAction } from "./actions";
+import { paidTrialEnabled } from "@/lib/plan";
 import {
   activationFunnel,
   churnSummary,
@@ -634,15 +633,15 @@ export default async function AdminPage(props: PageProps<"/admin">) {
       </Section>
 
       {/* -------------------------------------------------- Trials */}
-      {trialPenaltyEnabled() ? (
+      {paidTrialEnabled() ? (
         <Section
-          title="Free weeks"
-          sub={`Trial With Penalty (Track H). ${trials.running.length} running · ${trials.converted} converted · ${trials.cancelled} cancelled. Held in setup fees: ${money(trials.feesHeldMinor)}.`}
+          title="Paid weeks"
+          sub={`${trials.running.length} running · ${trials.converted} converted · ${trials.cancelled} cancelled.`}
         >
           <Card className="mb-4">
             {trials.running.length === 0 ? (
               <p className="text-[0.8125rem] text-stone">
-                No free weeks running.
+                No paid weeks running.
               </p>
             ) : (
               <ul className="divide-y divide-ash">
@@ -678,60 +677,6 @@ export default async function AdminPage(props: PageProps<"/admin">) {
             )}
           </Card>
 
-          <Card>
-            <CardTitle>Setup fees</CardTitle>
-            {/* Shown so they get waived. The mechanism is designed for a fee
-                that never fires, and a fee nobody looks at is a fee nobody
-                gives back. */}
-            {trials.fees.length === 0 ? (
-              <p className="text-[0.8125rem] text-stone">
-                None charged. That is the target, not a gap.
-              </p>
-            ) : (
-              <ul className="divide-y divide-ash">
-                {trials.fees.map((fee) => (
-                  <li
-                    key={fee.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                  >
-                    <span className="text-[0.875rem]">
-                      <span className="font-medium text-ink">
-                        {fee.gymName}
-                      </span>{" "}
-                      <span className="text-stone">{fee.step}</span>{" "}
-                      <span className="literal">
-                        {formatMoney(fee.amountMinor, fee.currency)}
-                      </span>
-                      {fee.refundedAt ? (
-                        <span className="ml-2 text-[0.75rem] text-stone">
-                          refunded (
-                          {fee.refundReason === "waived"
-                            ? "waived"
-                            : "made good"}
-                          )
-                        </span>
-                      ) : fee.failureReason ? (
-                        <span className="ml-2 text-[0.75rem] text-stone">
-                          card declined, not chased
-                        </span>
-                      ) : null}
-                    </span>
-                    {!fee.refundedAt ? (
-                      <form action={waiveTrialPenaltyAction}>
-                        <input type="hidden" name="feeId" value={fee.id} />
-                        <button
-                          type="submit"
-                          className="text-[0.8125rem] text-teal underline underline-offset-2 hover:no-underline"
-                        >
-                          {fee.chargedAt ? "Refund and waive" : "Waive"}
-                        </button>
-                      </form>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
         </Section>
       ) : null}
 

@@ -1,27 +1,31 @@
 import "server-only";
 
 import { emailProvider, siteUrl } from "../messaging";
-import { SETUP_FEE_MINOR } from "../trial";
+import { conversionAmountMinor } from "../trial";
 import { currencyFor } from "../countries";
 import { formatMoney } from "../money";
 
 /**
- * The trial nudges, on days 2, 5 and 6.
+ * The emails during the paid first week, on days 2, 5 and 6.
  *
- * These are not a marketing drip and they are load-bearing. $100M Money
- * Models pg 128 is explicit that the fee only works alongside them: "Reach out
- * to people multiple times before you get to this point. Offer to waive the
- * fee if they do." A gym that gets billed on day 7 having heard nothing since
- * signup has a fair complaint, and the fee was never worth a bad review.
+ * These now carry the whole weight of activation. Under the old design a setup
+ * fee at day 7 did that job and these were its warning shots; the fee is gone
+ * (see the note at the top of ../trial.ts), so nothing else stands between a
+ * gym signing up and a gym drifting. That changes what they have to say. Days 2
+ * and 5 are not administrative reminders, they lead with what the gym is not
+ * seeing yet, because the money sitting in a lapsed list is the only argument
+ * casdey has before it has produced a result.
+ *
+ * Day 6 is different in kind and is the most important message casdey sends:
+ * it is the only warning before a card is charged a few hundred euro. It names
+ * the exact amount, the exact date, and how to stop it, and it goes out whether
+ * or not the gym finished its setup. A charge nobody saw coming is the one
+ * outcome worth avoiding, and it is also how a conversion becomes a chargeback.
  *
  * They go from casdey to the gym owner, so unlike a win-back message they use
  * casdey's own identity rather than the gym's. This shares the Resend quota
  * with the cold outreach (see the Resend note in CLAUDE.md); at three emails
- * per trialing gym that is noise, not a problem.
- *
- * Escalating, and honest at every step. Day 6 names the fee in plain numbers
- * because a charge nobody saw coming is the one outcome worth avoiding, and
- * it always offers both ways out: finish the setup, or cancel and owe nothing.
+ * per gym that is noise, not a problem.
  */
 
 type NudgeGym = {
@@ -29,6 +33,7 @@ type NudgeGym = {
   name: string;
   country: string;
   contact_email: string;
+  early_adopter: boolean;
 };
 
 export async function sendTrialNudge({
@@ -42,12 +47,7 @@ export async function sendTrialNudge({
   outstanding: string[];
 }): Promise<void> {
   const currency = currencyFor(gym.country);
-  const perStep = formatMoney(SETUP_FEE_MINOR[currency], currency);
-  const total = formatMoney(
-    SETUP_FEE_MINOR[currency] * outstanding.length,
-    currency,
-  );
-
+  const amount = conversionAmountMinor(currency, gym.early_adopter);
   const steps = outstanding.map((label) => `  - ${label}`).join("\n");
   const app = `${siteUrl()}/app`;
 
@@ -56,8 +56,10 @@ export async function sendTrialNudge({
     firstName: gym.name,
     steps,
     count: outstanding.length,
-    perStep,
-    total,
+    // A missing price would be a misconfigured environment, not a free ride.
+    // Saying "your plan price" is vague but true; inventing a number is not.
+    charge: amount == null ? "your Pro plan price" : formatMoney(amount, currency),
+    discounted: gym.early_adopter,
     app,
   });
 
@@ -75,16 +77,16 @@ function compose({
   firstName,
   steps,
   count,
-  perStep,
-  total,
+  charge,
+  discounted,
   app,
 }: {
   day: number;
   firstName: string;
   steps: string;
   count: number;
-  perStep: string;
-  total: string;
+  charge: string;
+  discounted: boolean;
   app: string;
 }): { subject: string; body: string } {
   const thing = count === 1 ? "one thing" : `${count} things`;
@@ -94,15 +96,13 @@ function compose({
       subject: "your casdey week has started",
       body: `Hi ${firstName},
 
-Your free week is running. To see what casdey can actually recover for you it needs ${thing} from you:
+Your week of Pro is running. The fastest way to see whether casdey is worth keeping is to import your member list, which takes a few minutes and needs nothing from you but an export.
 
-${steps}
+The moment it lands you will see how many members have gone quiet and roughly what that is worth a month, before you write a single message. That number is the whole point, and right now casdey cannot show it to you.
 
-The first one is the interesting bit. Import your list and you will see how many members have gone quiet and roughly what that is worth a month, before you write a single message.
+${count > 0 ? `Still to do:\n\n${steps}\n\n` : ""}${app}
 
-${app}
-
-If you would rather I set it up with you, reply and we will do it on a call.
+If your export is awkward, reply and send it to me and I will do the import for you.
 
 Davide @casdey`,
     };
@@ -113,37 +113,29 @@ Davide @casdey`,
       subject: "two days left on your casdey week",
       body: `Hi ${firstName},
 
-You have two days left on your free week, and ${thing} still to do:
+You have two days left on your week of Pro, and ${thing} still to do:
 
 ${steps}
 
-It takes about ten minutes. If any of it is awkward, a CSV that will not export cleanly or prices you are not sure how to enter, reply and I will do it for you.
+It is about ten minutes of work. If any of it is awkward, a CSV that will not export cleanly or prices you are not sure how to enter, reply and I will do it for you rather than let the week go to waste.
 
 ${app}
-
-One thing so nothing is a surprise: when you signed up you agreed to a ${perStep} setup fee per step left unfinished at the end of the week. Finish these and there is nothing to pay. Cancel from your billing page and there is also nothing to pay.
 
 Davide @casdey`,
     };
   }
 
   return {
-    subject: "last day of your casdey week",
+    subject: "your casdey week ends tomorrow",
     body: `Hi ${firstName},
 
-Your free week ends tomorrow. ${thing === "one thing" ? "One thing is" : `${thing} are`} still outstanding:
+Your week of Pro ends tomorrow, so this is the one email that matters.
 
-${steps}
+Unless you cancel before then, your subscription starts and your card is charged ${charge} a month${discounted ? ", which includes your 20% early adopter discount for as long as you stay" : ""}. That is what you signed up for, and I would rather you saw it coming than found it on a statement.
 
-What happens tomorrow, plainly:
+${count > 0 ? `${thing.charAt(0).toUpperCase()}${thing.slice(1)} from setup ${count === 1 ? "is" : "are"} still outstanding:\n\n${steps}\n\nIf that is because the week got away from you, reply today and I will set it up with you before it renews.\n\n` : "Everything is set up, so it will simply carry on.\n\n"}To cancel, open your billing page and click cancel. It takes a second and you will not be charged.
 
-  - Finish these and your account moves onto Pro and starts billing monthly.
-  - Do nothing and you will be charged ${total} (${perStep} per unfinished step) and your account drops to the free plan.
-  - Cancel before then and you pay nothing at all.
-
-${app}
-
-If you want the fee waived because this week got away from you, reply and say so. I would rather set your account up properly than charge you for not having done it.
+${app}/settings/billing
 
 Davide @casdey`,
   };

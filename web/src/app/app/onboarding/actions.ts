@@ -12,7 +12,7 @@ import {
   TRIAL_DAYS,
   earlyAdopterProgramActive,
   trialEnabledForNewSignups,
-  trialPenaltyEnabled,
+  paidTrialEnabled,
 } from "@/lib/plan";
 
 export type OnboardingState = { error: string | null };
@@ -96,7 +96,7 @@ export async function createGymAction(
     // which still imports and still shows who has gone quiet, so nothing it
     // was promised is withheld.
     const trialEnabled = trialEnabledForNewSignups();
-    const cardFirst = trialPenaltyEnabled();
+    const cardFirst = paidTrialEnabled();
     const trialEndsAt =
       trialEnabled && !cardFirst
         ? new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString()
@@ -128,5 +128,5 @@ export async function createGymAction(
   // Under Trial With Penalty the week has not started yet: step 2 takes the
   // €1 and the commitment. Otherwise straight into the product, where the
   // free week is already running.
-  redirect(trialPenaltyEnabled() ? "/app/onboarding/trial" : "/app?welcome=1");
+  redirect(paidTrialEnabled() ? "/app/onboarding/trial" : "/app?welcome=1");
 }
