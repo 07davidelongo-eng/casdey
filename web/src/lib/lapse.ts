@@ -32,6 +32,45 @@ export type LapseRule = {
 };
 
 /**
+ * What casdey assumes until the gym says otherwise.
+ *
+ * 90 days, not the 12 months this column defaulted to from 0002_saas.sql
+ * until 0037. Twelve months is a dental recall cycle and it survived the pivot
+ * untouched, which meant a new gym's first screen flagged only the members
+ * gone a full year: a near-empty list at the exact moment casdey has to show
+ * the owner money it can recover. See 0037_gym_native_lapse_window.sql.
+ */
+export const DEFAULT_LAPSE_DAYS = 90;
+
+/**
+ * Windows worth showing a gym side by side, shortest first.
+ *
+ * Not a picker, a set of comparisons: the gym types whatever number it likes.
+ * These exist so the choice is made against its own counts rather than in the
+ * abstract, which is the whole reason the default went unquestioned for so
+ * long. A gym that sees "30 days: 84 members, a year: 6" understands the
+ * setting in one glance.
+ */
+export const LAPSE_PRESETS: readonly LapseRule["window"][] = [
+  { value: 30, unit: "days" },
+  { value: 60, unit: "days" },
+  { value: 90, unit: "days" },
+  { value: 180, unit: "days" },
+  { value: 12, unit: "months" },
+];
+
+/**
+ * Has this gym ever actually decided what lapsed means?
+ *
+ * Distinct from "does the gym have a window", because it always has one. The
+ * first-run checklist used to infer this from having imported members, which
+ * is how a gym could sit on a dental default with the step showing as done.
+ */
+export function hasChosenLapseRule(gym: Pick<Gym, "lapse_rule_set_at">): boolean {
+  return gym.lapse_rule_set_at != null;
+}
+
+/**
  * gyms.lapsed_after_days overrides gyms.lapsed_after_months when it is set.
  * Two columns for one window is not elegant, and it is deliberate: local
  * development and production share one database, so the days column had to

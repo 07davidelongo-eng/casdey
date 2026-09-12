@@ -132,6 +132,12 @@ export async function saveSettingsAction(
       reply_to_email: value.replyToEmail.toLowerCase(),
       lapsed_after_months: months,
       lapsed_after_days: days,
+      // Saving this form is the gym deciding, which is the only thing that
+      // clears the lapse step on the first-run checklist. Stamped even when
+      // the numbers are unchanged: pressing Save on the window casdey
+      // suggested is a decision to keep it, and the checklist should stop
+      // asking. See hasChosenLapseRule() in src/lib/lapse.ts.
+      lapse_rule_set_at: new Date().toISOString(),
       max_visits: value.capVisits ? value.maxVisits : null,
       at_risk_after_days: value.atRiskAfterDays,
       daily_send_cap: value.dailySendCap,

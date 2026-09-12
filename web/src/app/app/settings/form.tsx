@@ -2,18 +2,41 @@
 
 import { useActionState, useId, useState } from "react";
 
-import { Button, Card, CardTitle } from "@/components/app/ui";
+import { Button, Card, CardTitle, Notice } from "@/components/app/ui";
+import type { LapsePreviewRow } from "@/lib/lapse-preview";
 import type { Gym } from "@/lib/types";
 import { saveSettingsAction, type SettingsState } from "./actions";
 
 const INITIAL: SettingsState = { error: null, saved: false };
 
+/**
+ * The gym's persisted window as a phrase, e.g. "90 days" or "12 months".
+ *
+ * Deliberately the saved values and not the form's live state: this sentence
+ * describes what casdey is counting with right now, which is what makes it
+ * worth reading. describeRule() in src/lib/lapse.ts is the fuller sentence and
+ * includes the visit ceiling; this one is only the window, because the
+ * ceiling is a separate control sitting beside it.
+ */
+function describeWindow(gym: Gym): string {
+  const value = gym.lapsed_after_days ?? gym.lapsed_after_months;
+  const unit = gym.lapsed_after_days != null ? "days" : "months";
+  return `${value} ${value === 1 ? unit.slice(0, -1) : unit}`;
+}
+
 export function SettingsForm({
   gym,
   readOnly,
+  ruleChosen,
+  preview,
 }: {
   gym: Gym;
   readOnly: boolean;
+  /** The gym has deliberately saved its lapse rule at least once. */
+  ruleChosen: boolean;
+  /** What each candidate window catches, or null when there is nothing to
+   *  count yet. */
+  preview: LapsePreviewRow[] | null;
 }) {
   const id = useId();
   const [state, action, pending] = useActionState(saveSettingsAction, INITIAL);
@@ -30,46 +53,52 @@ export function SettingsForm({
   const [capVisits, setCapVisits] = useState(gym.max_visits != null);
 
   /**
-   * React resets a form once its action has run, and a reset restores the DOM
-   * to the values the markup mounted with, not to the values React state is
-   * holding. That is what made a ticked-off ceiling tick itself back on: the
-   * box was drawn from state, the reset put the browser's own default back,
-   * and the two stopped agreeing. Worse quietly: the number field next to it
-   * is disabled while the box is off, a disabled field is never submitted, so
-   * the following save saw capVisits on with no number and reported a ceiling
-   * out of range that the gym had never typed.
+   * When a save lands, the derived state above is describing the old row.
    *
-   * Re-deriving from the gym on reset is the whole fix. It runs on the same
-   * event that does the damage, and it restores exactly what the DOM is being
-   * restored to, so state and markup cannot drift apart.
+   * Adjusting state during render is React's own answer to a prop change that
+   * invalidates derived state: it runs before anything paints, so there is no
+   * flash of the stale value. Re-mounting the whole form would also fix it
+   * and would take the action's result with it, which is exactly what once
+   * hid the "Saved." message.
    */
-  function syncToGym() {
+  const persisted = `${gym.lapsed_after_months}:${gym.lapsed_after_days}:${gym.max_visits}`;
+  const [lastPersisted, setLastPersisted] = useState(persisted);
+  if (persisted !== lastPersisted) {
+    setLastPersisted(persisted);
     setUnit(gym.lapsed_after_days != null ? "days" : "months");
     setWindowValue(String(gym.lapsed_after_days ?? gym.lapsed_after_months));
     setCapVisits(gym.max_visits != null);
   }
 
   /**
-   * And the same sync when a save lands, without re-mounting.
+   * Why this form refuses the reset React fires after an action.
    *
-   * A successful save sends new values down as props, and this state was
-   * derived from the old ones. Re-mounting the whole form would fix that and
-   * take the action's result with it, which is exactly what hid the "Saved."
-   * message. Adjusting state during render is React's own answer to a prop
-   * change that invalidates derived state: it runs before anything paints, so
-   * there is no flash of the stale value.
+   * That reset moves the DOM somewhere React cannot see. Three controls here
+   * are drawn from state, and a controlled `<select>` carries its choice as a
+   * property rather than a `selected` attribute, so a reset drops it back to
+   * the first option, which is "months". State still says "days", so no
+   * setter changes anything, React re-renders nothing, and the select keeps
+   * showing a unit the gym did not pick: saving "90 days" left the form
+   * reading "90 months", one Save away from submitting a window nobody chose.
+   * The visit-ceiling checkbox has the same shape, and used to tick itself
+   * back on for the same reason. Since the number field beside it is disabled
+   * while the box is off, and a disabled field is never submitted, the next
+   * save then reported a ceiling out of range that the gym had never typed.
+   *
+   * Re-syncing state on the reset event cannot fix any of this, and that is
+   * measured rather than assumed: by the time the reset fires, the new row
+   * has already arrived and state already matches it, so every setter is a
+   * no-op and the DOM keeps what the reset put there.
+   *
+   * Refusing the reset is the fix, and the event is cancelable. Nothing is
+   * lost by refusing: after a successful save the fields already hold exactly
+   * what was saved, and after a failed one the gym keeps what it typed
+   * instead of having it wiped.
    */
-  const persisted = `${gym.lapsed_after_months}:${gym.lapsed_after_days}:${gym.max_visits}`;
-  const [lastPersisted, setLastPersisted] = useState(persisted);
-  if (persisted !== lastPersisted) {
-    setLastPersisted(persisted);
-    syncToGym();
-  }
-
   return (
     <form
       action={action}
-      onReset={syncToGym}
+      onReset={(event) => event.preventDefault()}
       data-unsaved-guard
       className="space-y-6"
     >
@@ -141,6 +170,22 @@ export function SettingsForm({
           what that means at your gym. Changing it changes every count in the
           app straight away.
         </p>
+
+        {/* The gym's own window, not the shipped default. A gym that predates
+            0037 still carries whatever it inherited, and telling it casdey is
+            using 90 days when the counts on its dashboard come from 12 months
+            would be worse than saying nothing. */}
+        {!ruleChosen && !readOnly ? (
+          <div className="mb-5">
+            <Notice tone="warn">
+              You have not set this yet, so casdey is using its own guess:{" "}
+              <span className="literal">
+                {describeWindow(gym)}
+              </span>
+              . Pick the window that matches how your gym works and save it.
+            </Notice>
+          </div>
+        ) : null}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -217,6 +262,67 @@ export function SettingsForm({
             </p>
           </div>
         </div>
+
+        {/* What the window actually costs, in their own members.
+            The number above is impossible to judge on its own: its
+            consequence, how many people casdey writes to, lives on another
+            page. That is most of how a 12-month dental default went a month
+            without anyone questioning it. See src/lib/lapse-preview.ts. */}
+        {preview ? (
+          <div className="mt-6">
+            <p className="label mb-2 text-stone">Your members, by window</p>
+            <div className="overflow-x-auto rounded-[var(--radius-sm)] border border-ash">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>No visit for</th>
+                    <th>Lapsed</th>
+                    <th>Can email</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((row) => (
+                    <tr key={`${row.window.value}-${row.window.unit}`}>
+                      <td
+                        className={
+                          row.current
+                            ? "literal font-medium text-ink"
+                            : "literal"
+                        }
+                      >
+                        {row.label}
+                      </td>
+                      <td className="literal">{row.lapsed}</td>
+                      <td className="literal">{row.reachable}</td>
+                      <td className="text-right">
+                        {row.current ? (
+                          <span className="label text-stone">In use</span>
+                        ) : disabled ? null : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUnit(row.window.unit);
+                              setWindowValue(String(row.window.value));
+                            }}
+                            className="text-[0.8125rem] text-teal underline-offset-2 hover:underline"
+                          >
+                            Use this
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="field-hint">
+              Counted against your list right now, with your visit limit as it
+              is set above. Choosing a window here fills in the field, and
+              nothing changes until you save.
+            </p>
+          </div>
+        ) : null}
 
         {/* The control stays narrow, the sentence does not. Capping the whole
             block at 16rem stacked five lines of explanation into a column

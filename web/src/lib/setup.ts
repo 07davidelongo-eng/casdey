@@ -55,6 +55,9 @@ export type SetupInput = {
    *  Passed in rather than rebuilt here, so the setup list, the dashboard and
    *  the members page cannot end up describing three different rules. */
   ruleDescription: string;
+  /** The gym has deliberately saved its lapse rule, rather than inheriting
+   *  casdey's default. From hasChosenLapseRule() in src/lib/lapse.ts. */
+  lapseRuleChosen: boolean;
   /** The gym has chosen a win-back offer. */
   offerChosen: boolean;
   /** The server can manage sending domains at all (a Resend key that is
@@ -84,14 +87,22 @@ export function buildSetupState(input: SetupInput): SetupState {
     },
     {
       key: "lapse",
-      title: "Check how you define lapsed",
-      body: `Currently: ${input.ruleDescription}. Change it in settings if your gym works differently.`,
+      title: input.lapseRuleChosen
+        ? "Check how you define lapsed"
+        : "Say what counts as lapsed",
+      body: input.lapseRuleChosen
+        ? `Currently: ${input.ruleDescription}. Change it in settings if your gym works differently.`
+        : `casdey is starting from ${input.ruleDescription}, which is a guess about your gym. Settings shows how many of your members each window catches, so you can pick the one that matches how yours actually works.`,
       href: "/app/settings",
-      cta: "Review the window",
-      // A sensible default is already in effect the moment a list exists, so
-      // this is confirmed once there are members. It stays on the list so the
-      // owner sees the rule and can correct it, not because it blocks them.
-      done: hasMembers,
+      cta: input.lapseRuleChosen ? "Review the window" : "Set the window",
+      // Done means the gym actually decided, not that it has a window: it
+      // always has one. This used to be `hasMembers`, on the reasoning that a
+      // sensible default was already in effect, and that reasoning was the
+      // problem. The default was 12 months, a dental recall cycle nobody had
+      // revisited since the pivot, so the step ticked itself off while the
+      // gym's first screen showed a near-empty lapsed list. See
+      // 0037_gym_native_lapse_window.sql.
+      done: input.lapseRuleChosen,
       optional: false,
       unavailable: false,
     },

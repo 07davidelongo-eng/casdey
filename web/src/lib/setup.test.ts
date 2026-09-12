@@ -6,6 +6,7 @@ const base: SetupInput = {
   memberCount: 0,
   servicesPriced: false,
   ruleDescription: "no visit for 6 months, and at most 2 visits on record",
+  lapseRuleChosen: false,
   offerChosen: false,
   sendingConfigured: true,
   sendingVerified: false,
@@ -22,19 +23,48 @@ describe("buildSetupState", () => {
     expect(state.steps.find((s) => s.key === "import")?.done).toBe(false);
   });
 
-  it("ticks import and lapse together once a list exists", () => {
+  it("ticks import once a list exists, but not the lapse rule", () => {
     const state = buildSetupState({ ...base, memberCount: 12 });
     expect(state.steps.find((s) => s.key === "import")?.done).toBe(true);
-    // The lapse window has a working default the moment there are members.
-    expect(state.steps.find((s) => s.key === "lapse")?.done).toBe(true);
-    expect(state.doneCount).toBe(2);
+    // Importing is not choosing. This step used to tick itself off here, on
+    // the reasoning that a sensible default was already in effect, which is
+    // how a gym could sit on the old 12-month dental window with the
+    // checklist reporting it reviewed. See 0037.
+    expect(state.steps.find((s) => s.key === "lapse")?.done).toBe(false);
+    expect(state.doneCount).toBe(1);
     expect(state.complete).toBe(false);
+  });
+
+  it("ticks the lapse step only when the gym has actually chosen", () => {
+    const inherited = buildSetupState({ ...base, memberCount: 12 });
+    const chosen = buildSetupState({
+      ...base,
+      memberCount: 12,
+      lapseRuleChosen: true,
+    });
+    expect(inherited.steps.find((s) => s.key === "lapse")?.done).toBe(false);
+    expect(chosen.steps.find((s) => s.key === "lapse")?.done).toBe(true);
+    expect(chosen.doneCount).toBe(inherited.doneCount + 1);
+  });
+
+  it("asks for a decision before it has one, and confirms it after", () => {
+    const ask = buildSetupState(base).steps.find((s) => s.key === "lapse");
+    const confirm = buildSetupState({
+      ...base,
+      lapseRuleChosen: true,
+    }).steps.find((s) => s.key === "lapse");
+
+    expect(ask?.title).toBe("Say what counts as lapsed");
+    expect(ask?.body).toContain("a guess about your gym");
+    expect(confirm?.title).toBe("Check how you define lapsed");
+    expect(confirm?.body).toContain("Currently:");
   });
 
   it("is complete when every required step is done, even without a calendar", () => {
     const state = buildSetupState({
       ...base,
       memberCount: 12,
+      lapseRuleChosen: true,
       servicesPriced: true,
       offerChosen: true,
       hasApprovedCampaign: true,
@@ -96,6 +126,7 @@ describe("buildSetupState", () => {
     const state = buildSetupState({
       ...base,
       memberCount: 12,
+      lapseRuleChosen: true,
       calendarConnected: true,
     });
     // import + lapse + calendar
@@ -105,6 +136,7 @@ describe("buildSetupState", () => {
   it("reflects the gym's own lapse rule in the copy", () => {
     const state = buildSetupState({
       ...base,
+      lapseRuleChosen: true,
       ruleDescription: "no visit for 3 months, and at most 1 visit on record",
     });
     const lapse = state.steps.find((s) => s.key === "lapse");

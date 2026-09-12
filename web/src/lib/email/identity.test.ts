@@ -27,6 +27,7 @@ function gym(overrides: Partial<Gym> = {}): Gym {
     lapsed_after_days: null,
     max_visits: 2,
     at_risk_after_days: 45,
+    lapse_rule_set_at: null,
     daily_send_cap: 50,
     stripe_customer_id: null,
     stripe_subscription_id: null,

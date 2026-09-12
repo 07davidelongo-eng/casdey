@@ -7,6 +7,7 @@ import { lapsedOpportunity } from "@/lib/opportunity";
 import {
   atRiskRuleFor,
   describeRule,
+  hasChosenLapseRule,
   monthsSince,
   ruleFor,
 } from "@/lib/lapse";
@@ -119,6 +120,7 @@ export default async function DashboardPage(props: PageProps<"/app">) {
     memberCount: stats.members,
     servicesPriced: priced,
     ruleDescription: describeRule(ruleFor(gym)),
+    lapseRuleChosen: hasChosenLapseRule(gym),
     offerChosen: Boolean(gym.offer_text),
     sendingConfigured: isSendingConfigured(),
     // Only verified counts. A domain sitting pending sends nothing from the

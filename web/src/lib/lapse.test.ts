@@ -5,7 +5,10 @@ import {
   applyLapseFilter,
   atRiskCutoff,
   describeRule,
+  hasChosenLapseRule,
   lapseCutoff,
+  DEFAULT_LAPSE_DAYS,
+  LAPSE_PRESETS,
   isAtRisk,
   isContactable,
   isLapsed,
@@ -50,6 +53,45 @@ function member(overrides: Partial<Member> = {}): Member {
     ...overrides,
   };
 }
+
+describe("the default window", () => {
+  it("is a gym's cycle, not a dental recall cycle", () => {
+    // 12 months was the default from 0002_saas.sql until 0037, and it meant a
+    // new gym's first screen flagged only members gone a full year. The exact
+    // number matters less than it staying inside the window reactivation is
+    // actually measured over (30-180 days), so this guards the range.
+    expect(DEFAULT_LAPSE_DAYS).toBeGreaterThanOrEqual(30);
+    expect(DEFAULT_LAPSE_DAYS).toBeLessThanOrEqual(180);
+  });
+
+  it("leaves room for the check-in window under the DB constraint", () => {
+    // gyms_at_risk_before_lapse requires at_risk_after_days to be strictly
+    // shorter than the lapse window, and at_risk_after_days defaults to 45.
+    // A default lapse window at or below that would make every new gym
+    // unsaveable.
+    expect(DEFAULT_LAPSE_DAYS).toBeGreaterThan(45);
+  });
+
+  it("is one of the windows a gym is offered", () => {
+    expect(
+      LAPSE_PRESETS.some(
+        (w) => w.unit === "days" && w.value === DEFAULT_LAPSE_DAYS,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("hasChosenLapseRule", () => {
+  it("is false for a gym that only inherited the default", () => {
+    expect(hasChosenLapseRule({ lapse_rule_set_at: null })).toBe(false);
+  });
+
+  it("is true once the gym has saved the rule itself", () => {
+    expect(
+      hasChosenLapseRule({ lapse_rule_set_at: "2026-09-12T09:00:00Z" }),
+    ).toBe(true);
+  });
+});
 
 describe("lapseCutoff", () => {
   it("goes back the configured number of months", () => {

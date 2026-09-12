@@ -112,6 +112,10 @@ export type Gym = {
   /** Days of no visit before a still-active member counts as at-risk.
    *  Always shorter than the lapse window. See src/lib/lapse.ts. */
   at_risk_after_days: number;
+  /** When the gym last deliberately saved its lapse rule. Null means it has
+   *  never chosen and is still on casdey's default. See hasChosenLapseRule()
+   *  in src/lib/lapse.ts. */
+  lapse_rule_set_at: string | null;
   daily_send_cap: number;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
