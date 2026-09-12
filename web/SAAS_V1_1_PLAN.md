@@ -175,6 +175,76 @@ Davide rather than code.
    across the EU, and a fee for an omission rather than for a service.
 4. ~~`?started=1` claims nothing is charged.~~ **Done**, commit `6734bb1`.
 
+
+### Where the build departed from this spec
+
+Recorded because both were decisions taken while building, not things this plan
+asked for.
+
+- **The flag.** `CASDEY_TRIAL_PENALTY`, default off, is not in this plan. The
+  plan assumed Track H ships and runs. It was added because the mechanism takes
+  money off a real card at signup and the live Stripe path had never been
+  exercised. Consequence: Track H is deployed and inert, and switching it on is
+  one Vercel variable plus a redeploy.
+- **The week now starts when the card is saved, not at signup.** This plan's
+  table says "Signup: €1 charged now" and does not say when the seven days
+  begin. `recordTrialCard()` starts them, on the reasoning that the card is the
+  commitment so the week it buys cannot precede it. The cost is that a gym which
+  abandons the card step gets no free week at all and lands on Free, which still
+  imports and still shows who has gone quiet. Reversible if that trade is wrong.
+- **Nudges require a card on file.** This plan says days 2, 5 and 6 without
+  qualification. `nudgeDue()` now also requires `trial_card_setup_at`, because
+  the nudges name the setup fee and a gym with no card can never be charged one.
+  Added after the incident recorded below.
+
+### The 3-D Secure bug, found 2026-09-12, FIXED the same day
+
+**What it was.** A day-7 conversion whose off-session charge needs 3-D Secure
+leaves the Stripe subscription `incomplete`. `stripe.subscriptions.create()`
+defaults to allowing that, `mapStatus()` maps it to `incomplete`, and
+`effectivePlan()` treated only `active` and `past_due` as paid, so the gym
+resolved to **Free**. Meanwhile `convert()` stamped `trial_converted_at`, closed
+the trial and reported success.
+
+Net effect: a gym that finished all three steps ended up on the Free plan with
+an unpaid subscription, casdey's own records saying it converted, and nothing
+telling it to authenticate. Stripe's test cards never trigger 3-D Secure, which
+is why test-mode verification could not surface this and why only a real
+European card would have.
+
+**The fix** (commit `dfd4049`), in four parts:
+
+- `conversionResultFor()` in `src/lib/trial.ts` is the one place that decides
+  what a created subscription means: `converted`, `needs_authentication`, or
+  `failed`. Pure and tested, because the status check is the whole bug.
+- `convert()` stamps `trial_converted_at` only on a real conversion, so casdey's
+  records can no longer claim a payment that did not happen. It still closes the
+  trial either way, because the trial genuinely ended and leaving it open would
+  have the next daily run create a **second** subscription for the same gym.
+- `effectivePlan()` keeps an `incomplete` subscription on its paid tier instead
+  of dropping it to Free. Sending stays blocked throughout, since
+  `capabilities()` clears that gate only for `active`, and the exposure is
+  bounded by Stripe expiring an unconfirmed subscription within about a day.
+- The gym is told. A new `sendTrialAuthNeeded()` emails the hosted invoice link,
+  and the banner and billing page say the bank needs approval rather than
+  telling a gym with a perfectly good card to go and update it. The job reports
+  `pendingAuth` and `conversionFailed` separately from `converted`.
+
+**Still true, and it is why item 2 of "what is still owed" above matters:** none of
+this has met a real 3-D Secure prompt. The logic is unit-tested and the copy
+builds, but the actual bank round trip has never run. That is what a live
+conversion on a real European card would prove.
+
+**Known and deliberately left:** `/admin` still buckets an `incomplete` gym
+under "free" in its status counts. It understates rather than overstates
+revenue, which is the safe direction, so it was not worth widening the fix.
+
+**A separate incident, already fixed, worth not repeating:** the first run of
+this job emailed casdey's only real customer about a setup fee it had never
+agreed to. It had no card on file and so could never be charged, but the nudge
+did not check. See the third deviation above, plus the regression test in
+`src/lib/trial.test.ts` that names it.
+
 Also worth knowing: a fee charged to an `is_internal` gym is invisible
 everywhere, because `/admin` excludes internal gyms from every number
 including this one. Correct for business figures, mildly confusing while

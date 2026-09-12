@@ -200,3 +200,30 @@ Ranked roughly by leverage.
   to make B's give *bigger*, not to keep A around. Caveat against over-reading
   any of this: n=11 is nothing, and Hormozi says his own first four months of
   cold outreach "felt like torture".
+
+## 2026-09-12 — Trial With Penalty built, and three places the build had to decide for itself
+Framework: $100M Money Models / Trial With Penalty (pg 121-130), same entry as above
+Decision: Track H is built, deployed and **switched off** behind
+`CASDEY_TRIAL_PENALTY`. Three judgement calls the 2026-09-10 decision did not
+cover, all made while building:
+
+1. **The flag itself is not Hormozi's, and not Davide's.** The agreed plan
+   assumed the mechanism ships and runs. It was gated because it charges a real
+   card at signup and the live Stripe path had never been exercised. Hormozi
+   would say ship it; the counter-argument is that a broken live checkout on the
+   first signup in weeks costs more than a fortnight of delay, at roughly one
+   signup a month. Davide's to reverse, and he has queried it.
+2. **The week starts when the card is saved, not at signup.** Keeps the
+   commitment and the thing it buys in the right order. Cost: a gym that
+   abandons the card step gets no week at all.
+3. **Nudges only go to gyms with a card on file.** Not in the book and not in
+   the plan. Forced by an incident: the first run of the job emailed casdey's
+   only real customer about a setup fee it had never agreed to, having signed up
+   before any of this existed. This is pg 128 ("a small fee isn't worth a 1-star
+   review") applied one layer earlier, to the *warning* rather than the fee.
+Follows or diverges: **Follows on the mechanism, diverges on tempo.** The
+mechanism is built as specified. What diverges is that it is not live, which is
+a deliberate softening of Hormozi's "ship the offer" instinct in favour of not
+testing a payment path on a real customer. Worth revisiting the moment the live
+Stripe run is done, because the longer it sits off the more the diagnosis it came
+from goes unanswered.

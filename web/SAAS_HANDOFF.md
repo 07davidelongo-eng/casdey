@@ -105,6 +105,13 @@ included), which needed `server-only` aliased to `test/server-only-stub.ts` in
 
 - **Free week (trial):** 7 days of the **full Pro feature set**, **no card**.
   Set at onboarding (`trial_ends_at`), casdey-managed, not a Stripe trial.
+  **V1.1 Track H replaces this, but is switched off:** with
+  `CASDEY_TRIAL_PENALTY=true` the week instead takes a card and €1 at signup,
+  starts when that card is saved, and at day 7 either converts to Pro or
+  charges €20 per unfinished setup step (€60 cap). Built, deployed and
+  dormant; the flag is not set in Vercel, so the no-card line above is what
+  production does. See `SAAS_V1_1_PLAN.md` Track H, and note gyms who signed
+  up under the no-card terms keep them.
 - **Free plan** (after the week): import + see the lapsed **count**, **cannot
   send**; only the first `FREE_MEMBER_LIST_LIMIT` (5) members shown by name;
   `MEMBER_IMPORT_LIMIT.free` = **50** total (net-new cap at import).
@@ -119,8 +126,10 @@ included), which needed `server-only` aliased to `test/server-only-stub.ts` in
   single currency-agnostic `STRIPE_COUPON_PERCENT` (replaces the old
   per-currency £50/€59 fixed coupons; `couponIdFor()` still falls back to them).
 - **Existing "Premium" accounts → Pro** (backfilled by `0016`).
-- **Two env levers, not code:** `CASDEY_TRIAL_ENABLED` and
-  `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` for V2).
+- **Three env levers, not code:** `CASDEY_TRIAL_ENABLED` and
+  `CASDEY_EARLY_ADOPTER_DISCOUNT` (both default on for V1; set `"false"` for V2),
+  plus `CASDEY_TRIAL_PENALTY` (default **off**, the odd one out, because it
+  changes what a real card is charged at signup).
   `early_adopter` is persisted per-gym so eligibility survives into V2.
 - **Live as of 2026-09-04 (F2):** the products, prices and coupon exist in
   Stripe live mode and their 9 env vars are in Vercel. Built by
@@ -200,7 +209,10 @@ In `web/.env.local` (local) or Vercel (production):
   "not set up" and booking runs on casdey's own records only. The requested
   scope is `calendar.app.created` + `calendar.freebusy` (narrowed 2026-09-03).
 - **Offer flags:** `CASDEY_TRIAL_ENABLED` / `CASDEY_EARLY_ADOPTER_DISCOUNT` —
-  unset for V1, `"false"` for V2.
+  unset for V1, `"false"` for V2. `CASDEY_TRIAL_PENALTY` — unset (off) is the
+  current production state; `"true"` switches on the V1.1 card-and-fee trial,
+  and needs a redeploy, not just the variable, because `/terms/refunds` reads
+  it at build time.
 
 ## Local testing
 
