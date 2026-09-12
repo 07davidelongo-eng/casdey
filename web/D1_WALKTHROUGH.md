@@ -1057,7 +1057,11 @@ in-product approve button (`8e0e89c`). See `SAAS_V1_1_PLAN.md` Track H.
 
 ### 71. "the email for the confirmation from casdey doesn't have a logo"
 
-**Open, and not a code change.** The signup confirmation is sent by Supabase
+**Fixed 2026-09-13.** `public/email/casdey-mark.png` (the v4 mark rasterised at
+144px) is served from casdey.com, and the Confirm sign up template in the
+Supabase dashboard was replaced with a branded one that uses it, plus a line
+saying to open the link on the device you will use (#72). The original note
+follows. **Open, and not a code change.** The signup confirmation is sent by Supabase
 Auth, whose template lives in the Supabase dashboard rather than in this repo,
 so nothing here controls it. Two things it needs before it can carry a mark:
 casdey's logo is drawn in code as SVG (`src/components/wordmark.tsx`) and many

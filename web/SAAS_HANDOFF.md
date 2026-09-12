@@ -198,7 +198,9 @@ In `web/.env.local` (local) or Vercel (production):
   The webhook endpoint sits on `www.casdey.com`, never the apex. It must include
   **`invoice.paid`** (feeds `premium_started_at` + `subscription_payments`,
   which the guarantee needs) and, since 2026-09-12,
-  **`invoice.payment_action_required`** (the paid week's authentication email).
+  **`invoice.payment_action_required`** (the paid week's authentication email)
+  and **`charge.refunded`** (so a refund made in the Stripe dashboard updates
+  `subscription_payments.refunded_minor`).
   The handler fetches invoices with `expand: ["payments"]`.
 - **`RESEND_API_KEY`** + **`CASDEY_SENDING_ADDRESS`**: campaign + auth email via
   Resend (`mail.casdey.com`). Without the key, campaign email falls back to Zoho,

@@ -11,6 +11,12 @@ Read `SAAS_V1_PLAN.md` for the V1 board and the tier/price basis (§F0). Read th
 ledger before changing anything here, because most of these decisions are
 Hormozi calls with a recorded reason.
 
+**Status: the V1.1 software is COMPLETE, declared 2026-09-12.** Tracks H, I and
+J are built and live, and every step of the paid week has been proven with real
+money, including a 3-D Secure renewal approved from the billing page. Track K is
+still open, but on Davide's scoping call it is operational work that depends on
+a gym, not software, so it does not hold V1.1 open.
+
 ---
 
 ## Why V1.1 exists, in numbers
@@ -226,6 +232,30 @@ on both architectures, the original and this one. Total taken across the tests:
 €2, from two €1 signups. The test subscription was cancelled and its invoice
 voided (`amount_paid: 0`), and every gym from the run is `is_internal`.
 
+**Second live run, the same night: the recovery path, proven.** Test Gym was reset
+(no new email account needed, the reset steps are in the Track H bullet of
+`CLAUDE.md`) and bought the week again for €1. Its Stripe trial was ended early
+through the API after a preview confirmed exactly €231.20. The bank challenged
+it, the subscription went `past_due`, `invoice.payment_action_required` reached
+casdey, and the billing page showed "Approve €231.20 payment". Davide approved it;
+Stripe marked the invoice paid, the subscription went `active`,
+`trial_converted_at` was stamped and sending turned back on. The €231.20 was then
+refunded in full and the subscription cancelled. Cost: about €5.60 in Stripe
+fees, which Stripe keeps on a refund.
+
+**A real guarantee bug came out of it, fixed and deployed (commit `13bf195`).**
+The webhook decided an invoice's tier from its first line, which on the €1
+invoice is the one-off euro, so it fell back to the gym's recorded Pro tier and
+started the one lifetime guarantee clock on €1. A gym that launched a campaign
+during its week and then cancelled would have spent its guarantee on the Free
+plan. Fixing only that would have broken the checklist instead, since the window
+opens with a campaign after the payment. So: `paidTierOnInvoice()` only lets a
+subscription line that charged something start the clock, and
+`qualifyingCampaignsFrom()` still counts a campaign from the paid week that
+converted (with a 30-day grace for a renewal the bank held), with the 30 days
+starting the day Pro is paid. Verified against the two real invoices from the
+run.
+
 ---
 
 ## Track H, redesigned earlier the same day: the setup fee is gone
@@ -295,7 +325,8 @@ next time activation is the binding constraint.
 ## Track H, what is still owed
 
 **Updated 2026-09-12, late.** Items 0, 1, 2 and 4 are closed, and item 3 is parked.
-What is left is two deferred live tests under item 2, plus the P.IVA.
+What is left is one deferred live test under item 2 (the €0-plus-€1 hybrid),
+plus the P.IVA.
 
 **The build itself is complete and was audited against the spec table above on
 2026-09-12**, row by row, after the 3-D Secure fix: signup deposit, commitment,
@@ -318,10 +349,8 @@ approval), first-write-wins. **There is no code left to write for Track H.**
    reuses the build cache and keeps serving the stale page.
 2. ~~Nothing has been through the LIVE Stripe path.~~ **Done 2026-09-12**, see
    "Live run" above: two real €1 signups, and the real card was challenged for
-   3-D Secure at conversion on both architectures. **Still unproven, deferred on
-   cost:** the recovery path, where the gym authenticates, the subscription goes
-   `active` and sending turns back on. Proving it live costs a real €231.20, and
-   Stripe documents the transition. **Also deferred:** a hybrid that might avoid
+   3-D Secure at conversion on both architectures. ~~Still unproven: the recovery path.~~ **Proven live the same night**, see
+   "Second live run" above. **Still deferred:** a hybrid that might avoid
    the renewal challenge, a €0 SetupIntent for the mandate plus a separate €1
    under the sub-€30 low-value exemption. Unproven, and it needs another live
    test.
@@ -399,9 +428,12 @@ this has met a real 3-D Secure prompt. The logic is unit-tested and the copy
 builds, but the actual bank round trip has never run. That is what a live
 conversion on a real European card would prove.
 
-**Known and deliberately left:** `/admin` still buckets an `incomplete` gym
-under "free" in its status counts. It understates rather than overstates
-revenue, which is the safe direction, so it was not worth widening the fix.
+**Overtaken:** the live runs later that night did meet a real 3-D Secure prompt,
+twice, and the approval round trip worked (see "Second live run" above).
+
+~~Known and deliberately left: `/admin` buckets an `incomplete` gym under
+"free".~~ **Fixed 2026-09-12** (commit `f1ee179`): it now sits with `past_due`
+under "Awaiting payment".
 
 **A separate incident, already fixed, worth not repeating:** the first run of
 this job emailed casdey's only real customer about a setup fee it had never
