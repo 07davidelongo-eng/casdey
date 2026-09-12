@@ -158,24 +158,22 @@ this track.
 
 ## Track H, what is still owed
 
-Four things, and the first two gate turning the flag on.
+**Updated 2026-09-12.** Two of the four are closed; the two left both need
+Davide rather than code.
 
-1. **The terms pages do not mention the fee.** It is disclosed at signup, in
-   numbers, behind a required checkbox, which is the disclosure that matters
-   most. But `/terms/*` says nothing about a setup fee or about a trial that
-   auto-converts, and those pages are what a gym would be pointed at in a
-   dispute. Write it there before the flag goes on.
-2. **Nothing has been through the LIVE Stripe path.** Everything is verified in
-   test mode. The live catalogue and coupon exist (F2) and the live webhook is
-   registered on `www`, but no live €1 has ever been taken and no live
-   conversion has run. Do a real one on a real card first, the way C1 was done.
-3. **Legal shape of the fee is unexamined.** casdey has no legal entity, sells
-   B2B across the EU, and would be charging a fee for an omission rather than
-   for a service. Worth a look before it bills a stranger; it is not a blocker
-   for a test-mode build.
-4. **`?started=1` on the Overview** still says "Nothing is charged for seven
-   days", which the €1 makes false. Nothing links to it any more, so it is
-   unreachable rather than wrong on screen. Delete it or fix it.
+1. ~~The terms pages do not mention the fee.~~ **Done**, commit `6734bb1`.
+   `/terms/refunds` now reads `CASDEY_TRIAL_PENALTY` and `src/lib/trial.ts`
+   directly, so it states the €1, the €20-a-step fee, the €60 cap, the waiver
+   and the make-good refund, and says plainly that accounts opened before the
+   change keep the no-card terms. With the flag off it renders exactly what it
+   said before. The page is statically prerendered, so flipping the flag needs
+   a redeploy for the page to change as well as the behaviour.
+2. **Nothing has been through the LIVE Stripe path.** Still open, and it is the
+   real gate. Everything is verified in test mode. Do one real €1 and one real
+   conversion on a real card, the way C1 was done.
+3. **Legal shape of the fee is unexamined.** Still open. No legal entity, B2B
+   across the EU, and a fee for an omission rather than for a service.
+4. ~~`?started=1` claims nothing is charged.~~ **Done**, commit `6734bb1`.
 
 Also worth knowing: a fee charged to an `is_internal` gym is invisible
 everywhere, because `/admin` excludes internal gyms from every number
@@ -221,6 +219,14 @@ seeing.
 ---
 
 ## Track J, the guarantee on the reply side
+
+**DONE 2026-09-12, commit `0694b35` on branch `gym-outreach-automation`.**
+The section needed more than a port: nearly every figure in it was stale
+("once the software ships", £250/€290, the £50/€59 discount, "Premium"), and
+it described a guarantee casdey never built ("100% refund plus free software
+until the condition is met"). Rewritten against what the product actually
+does, with the Standard-versus-Pro framing below as the reply-side script.
+Not pushed.
 
 **Decided 2026-09-10.** Where risk reversal belongs, per the books.
 
