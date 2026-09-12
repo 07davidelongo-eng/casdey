@@ -63,17 +63,10 @@ async function run(request: NextRequest): Promise<Response> {
   }
 
   try {
-    // Nudges, conversions and releases. Returns an empty
+    // Nudges and week closeouts. Charges nothing. Returns an empty
     // report and touches nothing while CASDEY_PAID_TRIAL is off.
     const trials = await runTrialJob();
-    if (
-      trials.converted +
-        trials.nudged +
-        trials.released +
-        trials.pendingAuth +
-        trials.conversionFailed >
-      0
-    ) {
+    if (trials.nudged + trials.handedOver + trials.released > 0) {
       console.log("[cron] trials", JSON.stringify(trials));
     }
     result.trials = trials;

@@ -2,10 +2,13 @@ import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 
 import { armsGuaranteeClock } from "@/lib/guarantee";
-import { planTierForPriceId, stripeClient } from "@/lib/stripe";
+import { couponIdFor, planTierForPriceId, stripeClient } from "@/lib/stripe";
+import { earlyAdopterProgramActive } from "@/lib/plan";
+import { currencyFor } from "@/lib/countries";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import { captureServerEvent } from "@/lib/posthog-server";
 import { recordTrialCard } from "@/lib/trial-start";
+import { sendTrialAuthNeeded } from "@/lib/email/trial-auth";
 import type { PlanTier, SubscriptionStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -35,6 +38,7 @@ const RELEVANT = new Set([
   "customer.subscription.updated",
   "customer.subscription.deleted",
   "invoice.payment_failed",
+  "invoice.payment_action_required",
   "invoice.paid",
 ]);
 
@@ -102,40 +106,68 @@ async function handle(event: Stripe.Event): Promise<void> {
     case "checkout.session.completed": {
       const session = event.data.object;
 
-      // The €1 that starts a free week and saves the card (Track H). It is a
-      // payment session, not a subscription one, so it would otherwise fall
-      // out at the `!subscriptionId` guard below and the week would never
-      // start. This is the authoritative writer: the browser coming back from
-      // Stripe does the same thing, for local dev where no webhook can reach
-      // us, and recordTrialCard() is idempotent so the two cannot conflict.
-      if (session.metadata?.kind === "trial_deposit") {
+      // The euro that buys the first week, which now also creates the Pro
+      // subscription on a Stripe trial. This is the authoritative writer: the
+      // browser coming back from Stripe does the same thing, for local dev
+      // where no webhook can reach us, and recordTrialCard() is idempotent so
+      // the two cannot conflict.
+      if (session.metadata?.kind === "paid_trial") {
         const gymId = session.metadata?.gym_id ?? session.client_reference_id;
-        if (!gymId || session.payment_status !== "paid") return;
+        if (!gymId) return;
 
-        const intentId =
-          typeof session.payment_intent === "string"
-            ? session.payment_intent
-            : session.payment_intent?.id;
+        const trialSubId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : session.subscription?.id;
+        if (!trialSubId) return;
 
-        // Re-fetched rather than read off the session, same reasoning as the
-        // subscription below: the payment_method is what the day-7 charge and
-        // the conversion both depend on, and it is not reliably expanded on
+        // Re-fetched rather than read off the session: the payment method and
+        // the trial end are both needed and neither is reliably expanded on
         // the webhook payload.
-        let paymentMethod: string | null = null;
-        if (intentId) {
-          const intent = await stripe.paymentIntents.retrieve(intentId);
-          paymentMethod =
-            typeof intent.payment_method === "string"
-              ? intent.payment_method
-              : (intent.payment_method?.id ?? null);
+        const trialSub = await stripe.subscriptions.retrieve(trialSubId);
+
+        // The early-adopter coupon goes on HERE rather than on the Checkout
+        // session, because a session-level discount applies to every line and
+        // would have turned the euro into 80 cents. There is a week before the
+        // first real invoice, so attaching it now is comfortably in time.
+        // A failure must not lose the signup, so it is logged and left: the
+        // gym is on Pro either way, and the discount can be applied by hand.
+        const { data: gymRow } = await supabaseAdmin()
+          .from("gyms")
+          .select("early_adopter, country")
+          .eq("id", gymId)
+          .maybeSingle();
+
+        if (gymRow?.early_adopter && earlyAdopterProgramActive()) {
+          const coupon = couponIdFor(currencyFor(gymRow.country as string));
+          if (coupon) {
+            try {
+              await stripe.subscriptions.update(trialSubId, {
+                discounts: [{ coupon }],
+              });
+            } catch (err) {
+              console.error(
+                `[trial] could not attach the launch coupon for gym ${gymId}`,
+                err instanceof Error ? err.message : String(err),
+              );
+            }
+          }
         }
 
+        const defaultPm = trialSub.default_payment_method;
         await recordTrialCard({
           gymId,
-          paymentMethodId: paymentMethod,
+          paymentMethodId:
+            typeof defaultPm === "string" ? defaultPm : (defaultPm?.id ?? null),
           customerId:
             typeof session.customer === "string" ? session.customer : null,
+          subscriptionId: trialSubId,
+          trialEnd: toIso(trialSub.trial_end),
         });
+
+        // Still sync it, so subscription_status and plan_tier land from the
+        // same source of truth every other path uses.
+        await syncSubscription(trialSub, gymId);
         return;
       }
 
@@ -186,6 +218,44 @@ async function handle(event: Stripe.Event): Promise<void> {
         .update({ subscription_status: "past_due" })
         .eq("stripe_customer_id", customerId)
         .in("subscription_status", ["active", "trialing"]);
+      return;
+    }
+
+    case "invoice.payment_action_required": {
+      // The bank wants the owner to approve the charge. This is the safety net
+      // for the case the whole signup redesign exists to make rare: an
+      // off-session renewal that the issuer challenges anyway. Stripe is
+      // explicit that exemptions are never guaranteed, so "rare" is not
+      // "never", and a gym that is never told simply stops being able to send.
+      //
+      // Before 2026-09-12 this email was fired from the day 7 job, which no
+      // longer creates the subscription. Losing it in the move would have
+      // recreated the exact bug that redesign came out of.
+      const invoice = event.data.object;
+      const customerId =
+        typeof invoice.customer === "string"
+          ? invoice.customer
+          : invoice.customer?.id;
+      if (!customerId) return;
+
+      const { data: gym } = await supabaseAdmin()
+        .from("gyms")
+        .select("id, name, contact_email")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle();
+      if (!gym) return;
+
+      try {
+        await sendTrialAuthNeeded({
+          gym: gym as { id: string; name: string; contact_email: string },
+          authUrl: invoice.hosted_invoice_url ?? null,
+        });
+      } catch (err) {
+        console.error(
+          `[stripe] could not send the authentication email for gym ${gym.id}`,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
       return;
     }
 
@@ -393,5 +463,26 @@ async function syncSubscription(
 
   if (error) {
     throw new Error(`gym update failed: ${error.code} ${error.message}`);
+  }
+
+  // When a week that was sold becomes a subscription that is actually paying.
+  // Stamped here rather than by the day 7 job, because only this proves the
+  // money moved: that job sees a subscription exist and cannot tell a paid one
+  // from one waiting on the gym's bank.
+  //
+  // A separate, guarded write rather than a field on the update above, because
+  // subscription.updated fires many times over a subscription's life and every
+  // one of them would otherwise re-date the conversion. `.is(..., null)` makes
+  // it first-write-wins, the same shape as premium_started_at.
+  if (mapStatus(subscription.status) === "active") {
+    const stamp = supabaseAdmin()
+      .from("gyms")
+      .update({ trial_converted_at: new Date().toISOString() })
+      .is("trial_converted_at", null)
+      .not("trial_ends_at", "is", null);
+
+    await (gymId
+      ? stamp.eq("id", gymId)
+      : stamp.eq("stripe_customer_id", customerId));
   }
 }

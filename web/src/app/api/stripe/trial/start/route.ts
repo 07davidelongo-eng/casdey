@@ -4,26 +4,42 @@ import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { currencyFor } from "@/lib/countries";
-import { paidTrialEnabled } from "@/lib/plan";
-import { stripeClient } from "@/lib/stripe";
+import { TRIAL_DAYS, paidTrialEnabled } from "@/lib/plan";
+import { findPricePlan, priceIdFor, stripeClient } from "@/lib/stripe";
 import { TRIAL_PRICE_MINOR } from "@/lib/trial";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Starts the free week by taking €1 and saving the card.
+ * Starts the paid first week: 1 euro now, and the Pro subscription created at
+ * the same moment with a 7-day Stripe trial on it.
  *
- * One PaymentIntent does both jobs (`setup_future_usage: "off_session"`),
- * which is simpler than a SetupIntent plus a separate charge and, unlike a €0
- * authorisation, actually proves the card works. €1 rather than nothing is
- * Hormozi's own hedge (MM pg 129) against the obvious objection, that asking
- * for a card on a free trial costs signups: it is small enough to read as a
- * formality and real enough to be a commitment.
+ * **One Checkout session does both**, which is the point of the design.
+ * `mode: "subscription"` with `trial_period_days` plus a one-off line item
+ * charges the euro immediately and leaves a real subscription sitting in
+ * `trialing`. Stripe then bills it at day 7 by itself.
+ *
+ * Why it is shaped this way, because the obvious alternative is what casdey
+ * did first and it broke. Taking the euro as a standalone payment and creating
+ * the subscription a week later means the day 7 charge reaches the issuer as a
+ * fresh merchant-initiated transaction, for 231 times the amount it approved,
+ * a week later, with nobody present. The first real card tried was challenged
+ * for 3-D Secure. Creating the subscription up front means the card is
+ * authenticated on-session, while the owner is there to answer the bank, and
+ * the later charge runs against a mandate that belongs to that subscription.
+ * Stripe documents this as the normal way to run a paid trial and its own
+ * worked example is "a 7-day trial for 1 USD".
+ *
+ * **The coupon is deliberately NOT set on the session.** A session-level
+ * discount applies to every line, so a 20% early-adopter coupon would quietly
+ * turn the 1 euro into 80 cents. `subscription_data[discounts]` does not exist
+ * on the pinned API version (checked, it is rejected as an unknown parameter),
+ * so the webhook attaches the coupon to the subscription after checkout. There
+ * is a week before the first real invoice, so there is plenty of slack.
  *
  * Hosted Checkout rather than Stripe Elements, matching the upgrade path
- * already in this codebase: no card details ever reach casdey's own server,
- * which is the whole reason to prefer it.
+ * already in this codebase: no card details ever reach casdey's own server.
  *
  * The commitment answer is recorded BEFORE the redirect, because it is the
  * part with no second chance: once the gym is on Stripe's page casdey cannot
@@ -83,32 +99,42 @@ export async function POST(request: NextRequest): Promise<Response> {
         .is("trial_commitment_at", null);
     }
 
+    const plan = findPricePlan("pro", currency, "month");
+    if (!plan) throw new Error(`no Pro month price for ${currency}`);
+
     const checkout = await stripe.checkout.sessions.create({
-      mode: "payment",
+      mode: "subscription",
       customer: customerId,
       line_items: [
+        // The subscription itself, which Stripe holds in `trialing` and bills
+        // on its own at day 7.
+        { price: priceIdFor(plan), quantity: 1 },
+        // The euro, charged now. A one-off line in a subscription session is
+        // invoiced immediately even though the trial has not ended, which is
+        // what lets one Checkout do both jobs.
         {
           price_data: {
             currency,
             unit_amount: TRIAL_PRICE_MINOR,
             product_data: {
-              name: "casdey free week",
+              name: "casdey first week",
               description:
-                "Confirms your card so your free week can start. Nothing else is charged today.",
+                "Your first week of Pro. The subscription starts when the week ends, and you can cancel before then.",
             },
           },
           quantity: 1,
         },
       ],
-      payment_intent_data: {
-        // What makes this one step rather than two: the same charge that
-        // proves the card works also saves it for the day-7 conversion.
-        setup_future_usage: "off_session",
-        metadata: { gym_id: gym.id, kind: "trial_deposit" },
+      subscription_data: {
+        trial_period_days: TRIAL_DAYS,
+        // The webhook resolves the tier from the price id first and falls back
+        // to this, so a missing STRIPE_PRICE_* var cannot leave plan_tier null,
+        // which effectivePlan() would read as Pro.
+        metadata: { gym_id: gym.id, plan_tier: "pro", source: "paid_trial" },
       },
-      // Read by the webhook, which is the authoritative writer. See
-      // recordTrialCard() in src/lib/trial-start.ts.
-      metadata: { gym_id: gym.id, kind: "trial_deposit" },
+      // No `discounts` here on purpose: a session-level coupon discounts every
+      // line, including the euro. The webhook puts it on the subscription.
+      metadata: { gym_id: gym.id, kind: "paid_trial" },
       client_reference_id: gym.id,
       success_url: `${origin}/app/onboarding/trial/complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/app/onboarding/trial?error=cancelled`,

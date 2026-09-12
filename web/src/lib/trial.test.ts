@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   ACTIVATION_STEPS,
   activationFor,
-  conversionResultFor,
   nudgeDue,
   trialDayNumber,
   trialOutcome,
@@ -25,6 +24,7 @@ function gym(overrides: Partial<Gym> = {}): TrialFields {
     trial_ends_at: ENDED,
     trial_card_setup_at: "2026-09-05T09:00:00Z",
     trial_commitment_at: "2026-09-05T09:00:00Z",
+    stripe_subscription_id: "sub_live",
     trial_cancelled_at: null,
     trial_converted_at: null,
     trial_closed_at: null,
@@ -96,8 +96,8 @@ describe("trialOutcome", () => {
     expect(trialOutcome(gym({ trial_ends_at: null }), NOW).kind).toBe("wait");
   });
 
-  it("converts at day 7 when there is a card and no cancellation", () => {
-    expect(trialOutcome(gym(), NOW)).toEqual({ kind: "convert" });
+  it("hands the week to Stripe when a subscription is behind it", () => {
+    expect(trialOutcome(gym(), NOW)).toEqual({ kind: "stripe_owns" });
   });
 
   /**
@@ -108,8 +108,8 @@ describe("trialOutcome", () => {
    * continues. Activation still drives the nudges, it just no longer touches
    * anyone's money.
    */
-  it("converts a gym that did nothing all week, same as one that did everything", () => {
-    expect(trialOutcome(gym(), NOW)).toEqual({ kind: "convert" });
+  it("treats a gym that did nothing the same as one that did everything", () => {
+    expect(trialOutcome(gym(), NOW)).toEqual({ kind: "stripe_owns" });
     expect(
       trialOutcome(
         gym({
@@ -119,7 +119,18 @@ describe("trialOutcome", () => {
         }),
         NOW,
       ),
-    ).toEqual({ kind: "convert" });
+    ).toEqual({ kind: "stripe_owns" });
+  });
+
+  /**
+   * The guard that makes this safe to deploy over existing accounts. A gym
+   * from before the paid week has a trial_ends_at but no subscription, so
+   * there is nothing for Stripe to bill and the week simply ends.
+   */
+  it("releases a gym with a card but no subscription", () => {
+    expect(
+      trialOutcome(gym({ stripe_subscription_id: null }), NOW).kind,
+    ).toBe("release");
   });
 
   it("charges nothing to a gym that cancelled", () => {
@@ -136,7 +147,7 @@ describe("trialOutcome", () => {
    * theirs has to end without a charge. This is the guard that makes the whole
    * change safe to deploy to an existing account.
    */
-  it("releases, never converts, when there is no card on file", () => {
+  it("releases, never bills, when there is no card on file", () => {
     expect(
       trialOutcome(gym({ trial_card_setup_at: null }), NOW).kind,
     ).toBe("release");
@@ -235,37 +246,5 @@ describe("nudgeDue", () => {
         new Date("2026-09-11T10:00:00Z"),
       ),
     ).toBeNull();
-  });
-});
-
-describe("conversionResultFor", () => {
-  it("treats an active subscription as a real conversion", () => {
-    expect(conversionResultFor("active")).toBe("converted");
-    expect(conversionResultFor("trialing")).toBe("converted");
-  });
-
-  /**
-   * The bug this exists to stop, found 2026-09-12 and fixed the same day.
-   *
-   * Stripe returns `incomplete` when the first payment needs 3-D Secure, which
-   * European cards ask for routinely. The job used to read any created
-   * subscription as a conversion: it stamped trial_converted_at and reported
-   * success, while effectivePlan() read `incomplete` as Free. So a gym that
-   * finished every activation step landed on the Free plan holding an unpaid
-   * subscription, with casdey's records saying it had converted and nothing
-   * anywhere telling it to authenticate.
-   *
-   * Stripe's test cards never trigger 3-D Secure, which is why test-mode
-   * verification could not surface it.
-   */
-  it("does not call an unauthenticated payment a conversion", () => {
-    expect(conversionResultFor("incomplete")).toBe("needs_authentication");
-  });
-
-  it("separates a refusal from something recoverable", () => {
-    expect(conversionResultFor("incomplete_expired")).toBe("failed");
-    expect(conversionResultFor("canceled")).toBe("failed");
-    expect(conversionResultFor("unpaid")).toBe("failed");
-    expect(conversionResultFor("past_due")).toBe("failed");
   });
 });

@@ -123,6 +123,7 @@ type TrialGym = Pick<
   Gym,
   | "trial_ends_at"
   | "trial_card_setup_at"
+  | "stripe_subscription_id"
   | "trial_commitment_at"
   | "trial_cancelled_at"
   | "trial_converted_at"
@@ -171,20 +172,37 @@ export function unfinishedSteps(states: StepState[]): ActivationStep[] {
  * Deliberately exhaustive and deliberately boring, because every branch either
  * starts billing a card or decides not to.
  *
- *   wait     Not day 7 yet, or already closed.
- *   convert  Not cancelled, card on file. The Pro subscription begins.
- *   release  The week ends and nothing is charged. Every "we are not sure"
- *            answer lands here.
+ *   wait         Not day 7 yet, or already closed.
+ *   stripe_owns  A subscription exists on a Stripe trial. Stripe bills it
+ *                itself; there is nothing to charge here.
+ *   release      The week ends and nothing is charged. Every "we are not
+ *                sure" answer lands here.
  *
- * Note what is NOT a branch any more: how much of the setup got done. Under the
- * old design that decided whether a fee fired. Now it decides nothing, because
- * a gym bought a week of Pro and what it did with the week is its own business.
- * Activation is still tracked and still chased by the nudges, it just no longer
- * touches anyone's money.
+ * **casdey no longer creates the day 7 subscription** (2026-09-12, second
+ * change of the day). It used to save a card at signup and then, a week later,
+ * create a subscription and charge it. To an issuer that second charge is a
+ * fresh merchant-initiated transaction for 231 times the amount it approved,
+ * arriving a week later with nobody present, which is close to the textbook
+ * profile for a 3-D Secure challenge. It got one on the first real card tried.
+ *
+ * The subscription is now created AT SIGNUP with a Stripe trial, so the card is
+ * authenticated on-session while the owner is sitting there, and Stripe bills
+ * day 7 against a mandate that belongs to that subscription. Exemptions are
+ * never guaranteed, so the authentication path still has to work; it is just no
+ * longer the common case.
+ *
+ * Note what is NOT a branch here: how much of the setup got done. Under the
+ * original Trial With Penalty design that decided whether a fee fired. Now it
+ * decides nothing, because a gym bought a week of Pro and what it did with the
+ * week is its own business. Activation is still tracked and still chased by the
+ * nudges, it just no longer touches anyone's money.
  */
 export type TrialOutcome =
   | { kind: "wait"; reason: string }
-  | { kind: "convert" }
+  /** A Stripe subscription exists and is on its own trial, so Stripe bills it
+   *  at day 7 without casdey doing anything. Nothing to charge here, only a
+   *  record to close. */
+  | { kind: "stripe_owns" }
   | { kind: "release"; reason: string };
 
 export function trialOutcome(
@@ -207,47 +225,14 @@ export function trialOutcome(
     return { kind: "release", reason: "cancelled during the week" };
   }
 
-  // Converting needs a card. Gyms that signed up before the paid week existed
-  // have none, and were promised a free week on the old terms, so theirs simply
-  // ends. This is the branch BodyActive takes.
-  if (!gym.trial_card_setup_at) {
-    return { kind: "release", reason: "no card on file" };
+  // Gyms that signed up before the paid week existed have no card and no
+  // subscription, and were promised a free week on the old terms, so theirs
+  // simply ends. This is the branch BodyActive takes.
+  if (!gym.trial_card_setup_at || !gym.stripe_subscription_id) {
+    return { kind: "release", reason: "no subscription to hand over to" };
   }
 
-  return { kind: "convert" };
-}
-
-/**
- * What creating the conversion subscription actually achieved.
- *
- * Stripe returning a subscription object is not the same as the gym having
- * paid. When the first payment needs 3-D Secure, which European banks ask for
- * routinely, `subscriptions.create` succeeds and hands back a subscription
- * sitting at `incomplete` with the charge unconfirmed. Treating that as a
- * conversion is how a gym that did everything right ends up on the Free plan
- * holding an unpaid subscription, with casdey's own records claiming it
- * converted and nothing anywhere telling it to go and authenticate.
- *
- * Stripe's test cards never trigger 3-D Secure, so this cannot be caught by
- * driving the test-mode path; it is only reachable with a real card at a real
- * European bank. Hence a named function with its own test rather than an
- * inline status check.
- *
- *   converted             Paid. The gym is on Pro.
- *   needs_authentication  The bank wants the owner to approve the charge.
- *                         Recoverable, and the gym has to be told.
- *   failed                Declined or unusable. Nothing to authenticate.
- */
-export type ConversionResult = "converted" | "needs_authentication" | "failed";
-
-export function conversionResultFor(
-  subscriptionStatus: string,
-): ConversionResult {
-  if (subscriptionStatus === "active" || subscriptionStatus === "trialing") {
-    return "converted";
-  }
-  if (subscriptionStatus === "incomplete") return "needs_authentication";
-  return "failed";
+  return { kind: "stripe_owns" };
 }
 
 /**

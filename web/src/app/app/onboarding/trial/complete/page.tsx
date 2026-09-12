@@ -8,7 +8,7 @@ export const metadata = { title: "Starting your week" };
 export const dynamic = "force-dynamic";
 
 /**
- * Where Stripe sends the gym back after the €1.
+ * Where Stripe sends the gym back after the euro.
  *
  * This starts the week too, and that is not a duplicate of the webhook: it is
  * the path that works when a webhook cannot reach casdey at all, which is
@@ -18,7 +18,13 @@ export const dynamic = "force-dynamic";
  *
  * It reads the session rather than trusting the URL. A gym could put any
  * session id here, so the id is only ever used to ask Stripe what actually
- * happened, and the answer has to be a paid session belonging to THIS gym.
+ * happened, and the answer has to be a session belonging to THIS gym that
+ * produced a subscription.
+ *
+ * **Only the webhook attaches the launch coupon.** Doing it here as well would
+ * mean two writers racing to discount the same subscription, and Stripe would
+ * happily stack them. The webhook is the authoritative path; this one exists
+ * so local development works at all.
  */
 export default async function TrialCompletePage(
   props: PageProps<"/app/onboarding/trial/complete">,
@@ -32,30 +38,34 @@ export default async function TrialCompletePage(
 
   try {
     const session = await stripeClient().checkout.sessions.retrieve(sessionId, {
-      expand: ["payment_intent"],
+      expand: ["subscription"],
     });
 
-    // Belongs to this gym, and actually paid. Either check failing means the
-    // week does not start, which is the safe direction: a gym with no card on
-    // file is never charged anything at day 7.
+    // Belongs to this gym, and actually produced a subscription. Either check
+    // failing means the week does not start, which is the safe direction: a
+    // gym with no subscription is never billed anything at day 7.
     const ownsIt =
       session.client_reference_id === gym.id ||
       session.metadata?.gym_id === gym.id;
 
-    if (ownsIt && session.payment_status === "paid") {
-      const intent = session.payment_intent;
-      const paymentMethod =
-        intent && typeof intent !== "string"
-          ? typeof intent.payment_method === "string"
-            ? intent.payment_method
-            : (intent.payment_method?.id ?? null)
-          : null;
+    const subscription =
+      session.subscription && typeof session.subscription !== "string"
+        ? session.subscription
+        : null;
+
+    if (ownsIt && subscription) {
+      const defaultPm = subscription.default_payment_method;
 
       await recordTrialCard({
         gymId: gym.id,
-        paymentMethodId: paymentMethod,
+        paymentMethodId:
+          typeof defaultPm === "string" ? defaultPm : (defaultPm?.id ?? null),
         customerId:
           typeof session.customer === "string" ? session.customer : null,
+        subscriptionId: subscription.id,
+        trialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null,
       });
     }
   } catch (error) {

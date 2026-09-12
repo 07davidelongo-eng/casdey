@@ -156,7 +156,52 @@ this track.
 
 ---
 
-## Track H, REDESIGNED 2026-09-12: the setup fee is gone
+## Track H, REDESIGNED TWICE on 2026-09-12. Read this second part first.
+
+**Stripe now owns the day 7 charge.** The subscription is created **at signup**,
+in the same Checkout session that takes the euro, with a 7-day Stripe trial on
+it. Stripe bills it itself at the end of the week. casdey's day 7 job no longer
+creates or charges anything.
+
+**Why, and it came out of the live run.** The first design took the euro as a
+standalone payment, saved the card, and created the subscription a week later.
+To an issuer that second charge is a fresh merchant-initiated transaction, for
+231 times the amount it approved, a week later, with nobody present. The first
+real European card tried was challenged for 3-D Secure and the conversion
+landed `incomplete`. Davide's question was why casdey doesn't work the way other
+software does, and the answer was that other software creates the subscription
+up front so the card is authenticated on-session. Stripe documents this as the
+normal way to run a paid trial; its own worked example is "a 7-day trial for
+1 USD", which is casdey's model exactly.
+
+**What was verified rather than assumed**, all in test mode:
+- `mode: subscription` + `trial_period_days` + a one-off euro line is accepted
+  and charges exactly 1 euro at checkout.
+- The resulting subscription is `trialing` with a trial end 7 days out.
+- The launch coupon **cannot** go on the Checkout session, because a
+  session-level discount hits every line and turns the euro into 80 cents.
+  `subscription_data[discounts]` does not exist on the pinned API version. It is
+  attached to the subscription by the webhook instead, which was confirmed to
+  work post-creation and to leave the status untouched.
+- The real webhook path end to end against a scratch gym: `trial_card_setup_at`
+  set, `trial_ends_at` taken from Stripe, `stripe_subscription_id` recorded,
+  status `trialing`, tier `pro`, coupon on, and `trial_converted_at` still null.
+
+**Two things that had to move with it.** `cancelTrial()` now cancels the Stripe
+subscription before writing its own flag, in that order: Stripe holds the charge
+now, so a cancellation that only wrote a local row would let a few hundred euro
+go through after the gym was told plainly it would not. And the authentication
+email moved from the old `convert()` to the `invoice.payment_action_required`
+webhook, which was added to the live endpoint's event list. Losing it in the
+move would have recreated the exact bug the redesign came out of.
+
+`trial_converted_at` is stamped by the webhook when the subscription goes
+`active`, not by the job when it hands over, because only the webhook knows the
+money moved.
+
+---
+
+## Track H, redesigned earlier the same day: the setup fee is gone
 
 **Read this before the rest of Track H, which still describes the fee.** Davide
 dropped the setup fee on 2026-09-12. What ships is a **paid first week**: 1 euro

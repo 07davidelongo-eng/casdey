@@ -147,6 +147,27 @@ describe("effectivePlan", () => {
     expect(effectivePlan(p, NOW)).toBe("pro");
   });
 
+  /**
+   * The normal state of a paid first week since 2026-09-12: Stripe holds the
+   * subscription in `trialing` for seven days and bills it itself. The gym has
+   * a live subscription and has paid a euro, but not the recurring price yet,
+   * so it must read as the trial (full Pro, sending on) rather than as a paid
+   * tier. Verified against a real test-mode subscription, not just asserted.
+   */
+  it("reads a Stripe trial as the free week, not as a paid tier", () => {
+    const c = capabilities(
+      gym({
+        subscription_status: "trialing",
+        plan_tier: "pro",
+        trial_ends_at: "2026-08-18T00:00:00Z",
+      }),
+      NOW,
+    );
+    expect(c.plan).toBe("trial");
+    expect(c.canSendCampaigns).toBe(true);
+    expect(c.canUseWhatsApp).toBe(true);
+  });
+
   it("returns to free after a subscription is cancelled", () => {
     const p = gym({
       subscription_status: "canceled",
