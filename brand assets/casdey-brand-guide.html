@@ -168,30 +168,31 @@
     <p class="dont">Never assume a token still means what its name says. --white is no longer literally white, it is the raised surface, see globals.css.</p>
   </div>
 
-  <h3 class="display" style="font-size:1.375rem;margin-top:3.5rem">Dark mode: a true-black product ground.</h3>
+  <h3 class="display" style="font-size:1.375rem;margin-top:3.5rem">Dark mode: YouTube's near-black product ground.</h3>
   <p class="lede" style="margin-top:1rem">
     The marketing site is light only, on purpose. The app is not: a gym owner has it open at six
-    in the morning and again late at night. Its dark theme uses a real #000 ground, an "off pixel"
-    black, applied by <code>data-theme="dark"</code> on the app shell so the marketing site cannot
+    in the morning and again late at night. Its dark theme uses #09090A, the ground YouTube's own
+    dark theme paints (measured September 2026), after a true #000 looked harsh on a real screen. It is
+    applied by <code>data-theme="dark"</code> on the app shell so the marketing site cannot
     inherit it. The same token names carry over, only the values move, so no component changes.
     Every neutral has the warmth taken out, so gold stays the one warm thing; depth is built by
-    each raised plane sitting a shade lighter than the page, since a shadow does nothing on black.
+    each raised plane sitting a shade lighter than the page, since a shadow does nothing this dark.
   </p>
   <div class="grid swatches">
-    <div class="sw"><div class="chip" style="background:#000000"></div><div class="meta"><b>Paper (dark)</b><code>#000000</code><p>Page ground. True black</p></div></div>
-    <div class="sw"><div class="chip" style="background:#0B0B0B"></div><div class="meta"><b>Deep (dark)</b><code>#0B0B0B</code><p>The sidebar, lifting just off black</p></div></div>
+    <div class="sw"><div class="chip" style="background:#09090A"></div><div class="meta"><b>Paper (dark)</b><code>#09090A</code><p>Page ground. YouTube's dark ground</p></div></div>
+    <div class="sw"><div class="chip" style="background:#0F0F0F"></div><div class="meta"><b>Deep (dark)</b><code>#0F0F0F</code><p>The sidebar, lifting just off the ground</p></div></div>
     <div class="sw"><div class="chip" style="background:#141414"></div><div class="meta"><b>White (dark)</b><code>#141414</code><p>Raised cards</p></div></div>
     <div class="sw"><div class="chip" style="background:#1E1E1E"></div><div class="meta"><b>Mist (dark)</b><code>#1E1E1E</code><p>Quiet fills, hover</p></div></div>
     <div class="sw"><div class="chip" style="background:#313131"></div><div class="meta"><b>Ash (dark)</b><code>#313131</code><p>Hairlines, dividers</p></div></div>
-    <div class="sw"><div class="chip" style="background:#8C8C88"></div><div class="meta"><b>Stone (dark)</b><code>#8C8C88</code><p>Tertiary text, 6.2:1 on black</p></div></div>
-    <div class="sw"><div class="chip" style="background:#C8C8C4"></div><div class="meta"><b>Graphite (dark)</b><code>#C8C8C4</code><p>Body text, 12:1</p></div></div>
-    <div class="sw"><div class="chip" style="background:#F4F4F1"></div><div class="meta"><b>Ink (dark)</b><code>#F4F4F1</code><p>Headlines, 19:1</p></div></div>
-    <div class="sw"><div class="chip" style="background:#D4AF37"></div><div class="meta"><b>Leaf (unchanged)</b><code>#D4AF37</code><p>Primary on black, clears 10:1</p></div></div>
+    <div class="sw"><div class="chip" style="background:#8C8C88"></div><div class="meta"><b>Stone (dark)</b><code>#8C8C88</code><p>Tertiary text, 5.9:1 on the ground</p></div></div>
+    <div class="sw"><div class="chip" style="background:#C8C8C4"></div><div class="meta"><b>Graphite (dark)</b><code>#C8C8C4</code><p>Body text, 11.9:1</p></div></div>
+    <div class="sw"><div class="chip" style="background:#F4F4F1"></div><div class="meta"><b>Ink (dark)</b><code>#F4F4F1</code><p>Headlines, 18:1</p></div></div>
+    <div class="sw"><div class="chip" style="background:#D4AF37"></div><div class="meta"><b>Leaf (unchanged)</b><code>#D4AF37</code><p>Primary on the dark ground, 9.5:1</p></div></div>
   </div>
   <div class="rule">
-    <p class="do">On black, the primary is Leaf, the same swap <code>.on-deep</code> already makes. Struck Gold goes muddy here, so never use it as text on the dark ground.</p>
-    <p class="do">Cards read against black by being lighter (#141414) and by their Ash hairline, not by a shadow. Keep that ladder intact if you add a plane.</p>
-    <p class="dont">Never reach for the old warm near-black (#16160F). It read as brown on a real screen, which is why the ground is #000 now.</p>
+    <p class="do">On the dark ground, the primary is Leaf, the same swap <code>.on-deep</code> already makes. Struck Gold goes muddy here, so never use it as text on the dark ground.</p>
+    <p class="do">Cards read against the ground by being lighter (#141414) and by their Ash hairline, not by a shadow. Keep that ladder intact if you add a plane.</p>
+    <p class="dont">Never reach for the old warm near-black (#16160F), which read as brown, or pure #000, which read as harsh. The ground is #09090A.</p>
   </div>
 </section>
 

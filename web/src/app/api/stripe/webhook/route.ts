@@ -38,6 +38,7 @@ const RELEVANT = new Set([
   "invoice.payment_failed",
   "invoice.payment_action_required",
   "invoice.paid",
+  "charge.refunded",
 ]);
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -253,6 +254,60 @@ async function handle(event: Stripe.Event): Promise<void> {
       });
       await recordInvoicePayment(invoice);
       return;
+    }
+
+    case "charge.refunded": {
+      // A refund issued from anywhere, the Stripe dashboard included. Before
+      // this only casdey's own guarantee claim wrote refunded_minor, so a
+      // refund made by hand left the row saying nothing had come back: /admin
+      // overstated cash collected, and a later guarantee claim tried to refund
+      // the same payment again (Stripe refuses, and the claim was marked
+      // failed).
+      const charge = event.data.object;
+      const paymentIntentId =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : (charge.payment_intent?.id ?? null);
+      await recordRefund(charge.id, paymentIntentId, charge.amount_refunded);
+      return;
+    }
+  }
+}
+
+/**
+ * Writes Stripe's own running refund total onto the payment it belongs to.
+ *
+ * Set, never incremented: `amount_refunded` is cumulative on the charge, so a
+ * redelivery, a second partial refund, or this event landing after the
+ * guarantee claim already wrote the same figure all converge on the right
+ * number. Matched on either id, because a payment is recorded against
+ * whichever one Stripe settled its invoice with (usually the payment intent).
+ */
+async function recordRefund(
+  chargeId: string,
+  paymentIntentId: string | null,
+  amountRefundedMinor: number,
+): Promise<void> {
+  const match = paymentIntentId
+    ? `stripe_payment_intent_id.eq.${paymentIntentId},stripe_charge_id.eq.${chargeId}`
+    : `stripe_charge_id.eq.${chargeId}`;
+
+  const { data: rows, error } = await supabaseAdmin()
+    .from("subscription_payments")
+    .select("id, amount_minor")
+    .or(match);
+
+  if (error) throw new Error(`refund lookup failed: ${error.message}`);
+
+  for (const row of rows ?? []) {
+    const { error: updateError } = await supabaseAdmin()
+      .from("subscription_payments")
+      .update({
+        refunded_minor: Math.min(amountRefundedMinor, row.amount_minor as number),
+      })
+      .eq("id", row.id);
+    if (updateError) {
+      throw new Error(`refund write failed: ${updateError.message}`);
     }
   }
 }

@@ -499,7 +499,7 @@ export default async function AdminPage(props: PageProps<"/admin">) {
                 parts={[
                   { label: "Paying", value: health.statusCounts.active, tone: "teal" },
                   { label: "Free week", value: health.statusCounts.trial, tone: "returned" },
-                  { label: "Past due", value: health.statusCounts.pastDue, tone: "amber" },
+                  { label: "Awaiting payment", value: health.statusCounts.pastDue, tone: "amber" },
                   { label: "Free", value: health.statusCounts.free, tone: "quiet" },
                   { label: "Cancelled", value: health.statusCounts.canceled, tone: "quiet" },
                 ]}
@@ -528,9 +528,9 @@ export default async function AdminPage(props: PageProps<"/admin">) {
               tone={health.scheduledCancellations > 0 ? "returned" : "default"}
             />
             <Stat
-              label="Past due"
+              label="Awaiting payment"
               value={health.statusCounts.pastDue}
-              hint="Payment failing"
+              hint="Failing, or waiting on the bank"
               tone={health.statusCounts.pastDue > 0 ? "returned" : "default"}
             />
           </div>

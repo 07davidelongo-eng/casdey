@@ -126,32 +126,35 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* A true-black ground: an OLED "off pixel" #000, asked for directly. The
-     dark palette was a warm near-black (#16160f) carried over from v3 Iron &
-     Brass, and on a real screen that read as brown rather than as black. The
-     neutrals below are pulled to a clean grey with the warmth taken out, so
-     the only warm thing left on the page is still the gold. Depth is built the
-     way it always was here, by each raised surface being LIGHTER than the page
-     rather than by a shadow, which on pure black means a short ladder of greys. */
-  --paper: #000000;
+  /* YouTube's own dark ground, #09090a, measured off youtube.com on 2026-09-12
+     as the colour its app layer actually paints (the root underneath is
+     #0f0f0f, but nothing shows it). Davide's call: the true black (#000) that
+     came before it looked harsh on a real screen, and before that a warm
+     near-black (#16160f) carried over from v3 Iron & Brass read as brown. The
+     neutrals stay a clean grey with the warmth taken out, so the only warm
+     thing on the page is still the gold. Depth is built the way it always was
+     here, by each raised surface being LIGHTER than the page rather than by a
+     shadow, which on a near-black ground means a short ladder of greys. */
+  --paper: #09090a;
   --white: #141414; /* raised card */
   --mist: #1e1e1e; /* quiet fill, hover */
   --ash: #313131; /* hairline, divider */
-  --stone: #8c8c88; /* tertiary text, 6.2:1 on black */
-  --graphite: #c8c8c4; /* body text, 12:1 */
-  --ink: #f4f4f1; /* headlines, 19:1 */
+  --stone: #8c8c88; /* tertiary text, 5.9:1 on the ground */
+  --graphite: #c8c8c4; /* body text, 11.9:1 */
+  --ink: #f4f4f1; /* headlines, 18:1 */
   --sea: #c8c8c4; /* body text on the sidebar, was a warm parchment from light */
 
-  /* The inverted band (the sidebar) lifts OFF pure black: just above #000,
-     a shade below card level, so the three planes still read apart. */
-  --deep: #0b0b0b;
+  /* The inverted band (the sidebar) lifts just off the ground, a shade below
+     card level, so the three planes still read apart. #0f0f0f is YouTube's
+     root dark value, which keeps the step as quiet as theirs. */
+  --deep: #0f0f0f;
   --deep-raised: #171717;
   --deep-line: #313131;
 
-  --teal: #d4af37; /* Leaf reads at 10:1 on black, better than it did on #16160f */
+  --teal: #d4af37; /* Leaf reads at 9.5:1 on the ground, better than it did on #16160f */
   --teal-hover: #f0cd7d;
   --teal-bright: #d4af37;
-  --shallow: color-mix(in srgb, var(--teal-bright) 14%, #000000); /* faint gold badge tint */
+  --shallow: color-mix(in srgb, var(--teal-bright) 14%, #09090a); /* faint gold badge tint */
 
   --amber: #e0a34a;
   --danger: #e2836f;
@@ -276,7 +279,7 @@
     color: var(--sea);
   }
 
-  /* On the true-black product ground, the sidebar's own neutrals should match
+  /* On the near-black product ground, the sidebar's own neutrals should match
      the rest of the dark app, not the warm values .on-deep hardcodes for the
      marketing page's one inverted band (which still renders on light Chalk and
      is left alone). Scoped to the themed shell so the marketing site is

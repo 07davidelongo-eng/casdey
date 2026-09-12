@@ -447,11 +447,18 @@ export async function subscriptionHealth(
       row as Pick<Gym, "subscription_status" | "trial_ends_at" | "plan_tier">,
       now,
     );
-    const paying = status === "active" || status === "past_due";
+    // `incomplete` is a subscription whose payment is waiting on the gym's bank
+    // (3-D Secure). It used to fall through to "free" here, which understated
+    // what was coming in and hid exactly the gyms worth a nudge. It counts as
+    // subscribed, and sits with past_due as "awaiting payment": both are a
+    // subscription that has not collected yet.
+    const paying =
+      status === "active" || status === "past_due" || status === "incomplete";
 
     if (plan === "trial") result.statusCounts.trial += 1;
     else if (status === "active") result.statusCounts.active += 1;
-    else if (status === "past_due") result.statusCounts.pastDue += 1;
+    else if (status === "past_due" || status === "incomplete")
+      result.statusCounts.pastDue += 1;
     else if (status === "canceled") result.statusCounts.canceled += 1;
     else result.statusCounts.free += 1;
 
@@ -607,7 +614,8 @@ export async function activationFunnel(
         offer: Boolean(gym.offer_text),
         paying:
           gym.subscription_status === "active" ||
-          gym.subscription_status === "past_due",
+          gym.subscription_status === "past_due" ||
+          gym.subscription_status === "incomplete",
       };
     }),
   );
