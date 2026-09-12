@@ -6,7 +6,7 @@ import { Guarantee } from "@/components/sections/guarantee";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Container } from "@/components/ui";
-import { TRIAL_DAYS, paidTrialEnabled } from "@/lib/plan";
+import { TRIAL_DAYS, earlyAdopterProgramActive, paidTrialEnabled } from "@/lib/plan";
 import { trialPriceDisplay } from "@/lib/offer-copy";
 
 export const metadata: Metadata = {
@@ -68,7 +68,11 @@ export default function PricingPage() {
 
   return (
     <>
-      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
+      <SiteHeader
+        sections={false}
+        paidTrial={paidTrialEnabled()}
+        discountActive={earlyAdopterProgramActive()}
+      />
       <main>
         <section className="relative overflow-hidden pt-14 sm:pt-20">
           <div

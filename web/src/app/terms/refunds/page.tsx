@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Container } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
-import { paidTrialEnabled } from "@/lib/plan";
+import { earlyAdopterProgramActive, paidTrialEnabled } from "@/lib/plan";
 import { TRIAL_PRICE_MINOR } from "@/lib/trial";
 
 /*
@@ -66,7 +66,11 @@ function List({ items }: { items: React.ReactNode[] }) {
 export default function RefundPolicyPage() {
   return (
     <>
-      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
+      <SiteHeader
+        sections={false}
+        paidTrial={paidTrialEnabled()}
+        discountActive={earlyAdopterProgramActive()}
+      />
       <main className="py-20 sm:py-24">
         <Container>
           <div className="max-w-2xl">

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { ButtonLink, Container } from "./ui";
 import { startCtaShort } from "@/lib/offer-copy";
+import { AnnouncementBar } from "./announcement-bar";
 import { Logo } from "./wordmark";
 
 /**
@@ -43,12 +44,16 @@ const PAGE_LINKS = [
 export function SiteHeader({
   sections = true,
   paidTrial,
+  discountActive,
 }: {
   sections?: boolean;
   /** From the server page: a client component cannot read the flag itself.
    *  Required rather than defaulted, so a new page cannot silently ship the
    *  wrong price claim in its header. */
   paidTrial: boolean;
+  /** Whether the launch-window discount is still being handed out. Same
+   *  reasoning: read on the server, passed in, required. */
+  discountActive: boolean;
 }) {
   const [lifted, setLifted] = useState(false);
 
@@ -61,7 +66,13 @@ export function SiteHeader({
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 pt-3 sm:pt-4">
+      {/* The bar lives inside the fixed header rather than above it in normal
+          flow, because the header is fixed and would otherwise sit on top of
+          it. One consequence, accepted: the bar stays on screen while the page
+          scrolls, same as the nav. The spacer below accounts for both. */}
+      <header className="fixed inset-x-0 top-0 z-50">
+        {discountActive ? <AnnouncementBar /> : null}
+        <div className="pt-3 sm:pt-4">
         <Container>
           <div
             className={
@@ -106,9 +117,13 @@ export function SiteHeader({
             </div>
           </div>
         </Container>
+        </div>
       </header>
 
-      <div aria-hidden="true" className="h-[70px] sm:h-[74px]" />
+      <div
+        aria-hidden="true"
+        className={discountActive ? "h-[105px] sm:h-[109px]" : "h-[70px] sm:h-[74px]"}
+      />
     </>
   );
 }

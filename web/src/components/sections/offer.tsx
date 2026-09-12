@@ -21,10 +21,13 @@ import { formatMoney } from "@/lib/money";
 export function Offer() {
   const paidTrial = paidTrialEnabled();
   const price = trialPriceDisplay();
-  // Everyone signing up now is an early adopter, so the discounted figure is
-  // the one they will actually be charged. Showing the undiscounted 289 here
-  // and 231 at the till would be the wrong way round.
-  const proMonthlyMinor = conversionAmountMinor("eur", true);
+  // The LIST price, deliberately. An earlier pass showed the discounted figure
+  // here on the reasoning that every signup today holds the launch discount.
+  // Davide's call, and it is the right one: the list price is what the plan
+  // costs, and a site that quietly quotes the discounted number has nothing
+  // left to say when it wants to point out that there is a discount. The
+  // announcement bar carries that, once, where it applies to every plan.
+  const proMonthlyMinor = conversionAmountMinor("eur", false);
   const proMonthly =
     proMonthlyMinor == null ? null : formatMoney(proMonthlyMinor, "eur");
 
@@ -68,7 +71,7 @@ export function Offer() {
                 </p>
                 <p className="mt-4 max-w-sm text-[0.9375rem] leading-relaxed text-graphite">
                   {paidTrial
-                    ? "Pro continues monthly, at the lifetime early-adopter rate you lock in by starting now. Cancel during the week and it never starts."
+                    ? "Pro continues monthly, less any launch discount you are holding. Cancel during the week and it never starts."
                     : "Your account drops to the Free plan, not a bill. Upgrade whenever it earns it, and starting now locks a lifetime discount for when you do."}
                 </p>
               </div>

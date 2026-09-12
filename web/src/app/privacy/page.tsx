@@ -1,4 +1,4 @@
-import { paidTrialEnabled } from "@/lib/plan";
+import { earlyAdopterProgramActive, paidTrialEnabled } from "@/lib/plan";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
@@ -53,7 +53,11 @@ function P({ children }: { children: React.ReactNode }) {
 export default function PrivacyPage() {
   return (
     <>
-      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
+      <SiteHeader
+        sections={false}
+        paidTrial={paidTrialEnabled()}
+        discountActive={earlyAdopterProgramActive()}
+      />
       <main className="py-20 sm:py-24">
         <Container>
           <div className="max-w-2xl">

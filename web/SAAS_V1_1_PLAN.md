@@ -188,6 +188,25 @@ that render a header. And the pricing page's static `metadata.description` no
 longer mentions the first week at all, because a claim baked into a search
 result cannot branch.
 
+**The launch discount has its own announcement bar** (`src/components/announcement-bar.tsx`),
+added 2026-09-12 on Davide's call. The offer panel shows the **list** price,
+not the discounted one: an earlier pass quoted 231.20 on the reasoning that
+every signup today holds the discount, and the correction is that a site which
+quietly quotes the discounted number has nothing left to say when it wants to
+point out there is a discount. So the list price stands and the bar carries the
+offer, once, where it applies to every plan. It is gated on
+`earlyAdopterProgramActive()`, so it disappears on its own when the window
+closes. It says nothing about scarcity, because there is no deadline and no
+seat count, only a flag.
+
+**One trap if that bar is ever edited.** It lives inside the FIXED header, whose
+height is reserved by a spacer of a hardcoded size, so a bar that wraps to two
+lines pushes the header over the page content. Measured before it was fixed:
+three lines at 375px and 36px of overlap, enough to clip the first heading on
+the terms and privacy pages. Hence a short form below `sm` rather than one
+string left to reflow. Verified at 375, 768 and 1278 with the header and spacer
+heights read off the live DOM.
+
 Verified in both states by running the site with the flag on and off and
 diffing what each surface says. With it off, nothing changed. `/terms/refunds`
 is statically prerendered, so the flag still needs a redeploy, not just the

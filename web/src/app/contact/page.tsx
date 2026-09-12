@@ -1,4 +1,4 @@
-import { paidTrialEnabled } from "@/lib/plan";
+import { earlyAdopterProgramActive, paidTrialEnabled } from "@/lib/plan";
 import type { Metadata } from "next";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -46,7 +46,11 @@ const CHANNELS = [
 export default function ContactPage() {
   return (
     <>
-      <SiteHeader sections={false} paidTrial={paidTrialEnabled()} />
+      <SiteHeader
+        sections={false}
+        paidTrial={paidTrialEnabled()}
+        discountActive={earlyAdopterProgramActive()}
+      />
       <main>
         <section className="relative overflow-hidden py-14 sm:py-20">
           <div
