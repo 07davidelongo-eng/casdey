@@ -13,6 +13,8 @@ import {
 } from "@/lib/lapse";
 import { formatMoney, gymCurrency } from "@/lib/money";
 import { buildSetupState } from "@/lib/setup";
+import { trialPenaltyEnabled } from "@/lib/plan";
+import { activationFor } from "@/lib/trial";
 import { activityWithComparison, change } from "@/lib/dashboard";
 import { Funnel, LineChart, MetricChart, Split } from "@/components/app/chart";
 import { calendarConnectionView } from "@/lib/calendar/provider";
@@ -21,6 +23,7 @@ import { isCalendarKeyConfigured } from "@/lib/calendar/tokens";
 import { isSendingConfigured } from "@/lib/email/domains";
 import { MemberTimeline } from "@/components/app/member-timeline";
 import { SetupChecklist } from "@/components/app/setup-checklist";
+import { TrialPanel } from "@/components/app/trial-panel";
 import {
   ButtonLink,
   Card,
@@ -147,6 +150,17 @@ export default async function DashboardPage(props: PageProps<"/app">) {
 
   const currency = gymCurrency(gym);
 
+  // Trial With Penalty (Track H). The evidence is exactly what the setup
+  // checklist above already read, so this costs no extra queries.
+  const trialSteps = activationFor(gym, {
+    hasMembers: stats.members > 0,
+    hasPricedServices: priced,
+    hasApprovedCampaign: (approvedCampaigns ?? 0) > 0,
+  });
+  const trialPanel = trialPenaltyEnabled() ? (
+    <TrialPanel gym={gym} steps={trialSteps} />
+  ) : null;
+
   if (stats.members === 0) {
     return (
       <>
@@ -154,11 +168,13 @@ export default async function DashboardPage(props: PageProps<"/app">) {
         {params.welcome ? (
           <div className="mb-6">
             <Notice>
-              Your free week has started, everything unlocked and no card taken.
-              Work through the steps below to see it go.
+              {trialPenaltyEnabled()
+                ? "Your free week has started, everything unlocked. Work through the steps below to see it go, and there is nothing more to pay once they are done."
+                : "Your free week has started, everything unlocked and no card taken. Work through the steps below to see it go."}
             </Notice>
           </div>
         ) : null}
+        {trialPanel ? <div className="mb-6">{trialPanel}</div> : null}
         <SetupChecklist state={setup} />
       </>
     );
@@ -579,6 +595,11 @@ export default async function DashboardPage(props: PageProps<"/app">) {
           <SetupChecklist state={setup} />
         </div>
       ) : null}
+
+      {/* After the checklist, because it is the consequence of it. Unlike the
+          checklist this does not disappear when setup is complete: a gym mid
+          free week still needs to know what day 7 does and how to opt out. */}
+      {trialPanel ? <div className="mt-6">{trialPanel}</div> : null}
     </>
   );
 }

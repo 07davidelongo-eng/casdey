@@ -5,6 +5,7 @@ import { armsGuaranteeClock } from "@/lib/guarantee";
 import { planTierForPriceId, stripeClient } from "@/lib/stripe";
 import { supabaseAdmin, UNIQUE_VIOLATION } from "@/lib/supabase";
 import { captureServerEvent } from "@/lib/posthog-server";
+import { recordTrialCard } from "@/lib/trial-start";
 import type { PlanTier, SubscriptionStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -100,6 +101,44 @@ async function handle(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;
+
+      // The €1 that starts a free week and saves the card (Track H). It is a
+      // payment session, not a subscription one, so it would otherwise fall
+      // out at the `!subscriptionId` guard below and the week would never
+      // start. This is the authoritative writer: the browser coming back from
+      // Stripe does the same thing, for local dev where no webhook can reach
+      // us, and recordTrialCard() is idempotent so the two cannot conflict.
+      if (session.metadata?.kind === "trial_deposit") {
+        const gymId = session.metadata?.gym_id ?? session.client_reference_id;
+        if (!gymId || session.payment_status !== "paid") return;
+
+        const intentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id;
+
+        // Re-fetched rather than read off the session, same reasoning as the
+        // subscription below: the payment_method is what the day-7 charge and
+        // the conversion both depend on, and it is not reliably expanded on
+        // the webhook payload.
+        let paymentMethod: string | null = null;
+        if (intentId) {
+          const intent = await stripe.paymentIntents.retrieve(intentId);
+          paymentMethod =
+            typeof intent.payment_method === "string"
+              ? intent.payment_method
+              : (intent.payment_method?.id ?? null);
+        }
+
+        await recordTrialCard({
+          gymId,
+          paymentMethodId: paymentMethod,
+          customerId:
+            typeof session.customer === "string" ? session.customer : null,
+        });
+        return;
+      }
+
       const subscriptionId =
         typeof session.subscription === "string"
           ? session.subscription

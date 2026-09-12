@@ -984,3 +984,171 @@ export async function testAndDev(): Promise<TestAndDev> {
     bookings: bookings.count ?? 0,
   };
 }
+
+/* --- Trials (Track H) ------------------------------------------------------ */
+
+export type TrialRow = {
+  gymId: string;
+  gymName: string;
+  /** Whole days left, or null once the week is over. */
+  daysLeft: number | null;
+  outstanding: string[];
+  cancelled: boolean;
+  committed: boolean;
+};
+
+export type TrialFeeRow = {
+  id: string;
+  gymName: string;
+  step: string;
+  amountMinor: number;
+  currency: "eur" | "gbp";
+  chargedAt: string | null;
+  failureReason: string | null;
+  refundedAt: string | null;
+  refundReason: "waived" | "made_good" | null;
+};
+
+export type TrialSummary = {
+  /** Trials with a card on file that the day-7 job has not closed yet. */
+  running: TrialRow[];
+  converted: number;
+  /** Card taken, then cancelled during the week. */
+  cancelled: number;
+  fees: TrialFeeRow[];
+  /** Money actually held right now: charged, not refunded. */
+  feesHeldMinor: MoneyByCurrency;
+};
+
+/**
+ * The trial funnel and every setup fee, for the founder view.
+ *
+ * The fee list is here because it needs a human looking at it. The whole
+ * mechanism is designed so a fee mostly never fires (see src/lib/trial.ts),
+ * and $100M Money Models pg 128 is explicit that the waiver should be used
+ * freely: "A small fee isn't worth a 1-star review." A fee nobody ever sees
+ * is a fee nobody ever waives.
+ *
+ * Internal gyms are excluded like everything else on this page, so Davide's
+ * own test trials do not show up as customers owing money.
+ */
+export async function trialSummary(gymIds: string[]): Promise<TrialSummary> {
+  const empty: TrialSummary = {
+    running: [],
+    converted: 0,
+    cancelled: 0,
+    fees: [],
+    feesHeldMinor: { eur: 0, gbp: 0 },
+  };
+  if (gymIds.length === 0) return empty;
+
+  const supabase = supabaseAdmin();
+
+  const [{ data: gyms }, { data: fees }] = await Promise.all([
+    supabase
+      .from("gyms")
+      .select(
+        `id, name, country, trial_ends_at, trial_card_setup_at,
+         trial_commitment_at, trial_cancelled_at, trial_converted_at,
+         trial_closed_at, activated_import_at, activated_prices_at,
+         activated_campaign_at`,
+      )
+      .in("id", gymIds)
+      .not("trial_card_setup_at", "is", null),
+    supabase
+      .from("trial_penalties")
+      .select(
+        "id, step, amount_minor, currency, charged_at, failure_reason, refunded_at, refund_reason, gyms!inner(name)",
+      )
+      .in("gym_id", gymIds)
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  const rows = (gyms ?? []) as unknown as Array<
+    Pick<
+      Gym,
+      | "id"
+      | "name"
+      | "country"
+      | "trial_ends_at"
+      | "trial_card_setup_at"
+      | "trial_commitment_at"
+      | "trial_cancelled_at"
+      | "trial_converted_at"
+      | "trial_closed_at"
+      | "activated_import_at"
+      | "activated_prices_at"
+      | "activated_campaign_at"
+    >
+  >;
+
+  const running: TrialRow[] = [];
+  let converted = 0;
+  let cancelled = 0;
+
+  for (const gym of rows) {
+    if (gym.trial_converted_at) converted += 1;
+    if (gym.trial_cancelled_at) cancelled += 1;
+    if (gym.trial_closed_at) continue;
+
+    // The stamps only, not the live counts: this is a founder's read of who
+    // has done what, not the decision that charges a card. trialOutcome() in
+    // src/lib/trial.ts is the one that reads both, deliberately.
+    const outstanding: string[] = [];
+    if (!gym.activated_import_at) outstanding.push("import");
+    if (!gym.activated_prices_at) outstanding.push("prices");
+    if (!gym.activated_campaign_at) outstanding.push("campaign");
+
+    const daysLeft = gym.trial_ends_at
+      ? Math.max(
+          0,
+          Math.ceil(
+            (new Date(gym.trial_ends_at).getTime() - Date.now()) / 86_400_000,
+          ),
+        )
+      : null;
+
+    running.push({
+      gymId: gym.id,
+      gymName: gym.name,
+      daysLeft: daysLeft === 0 ? null : daysLeft,
+      outstanding,
+      cancelled: Boolean(gym.trial_cancelled_at),
+      committed: Boolean(gym.trial_commitment_at),
+    });
+  }
+
+  const feeRows = (fees ?? []) as unknown as Array<{
+    id: string;
+    step: string;
+    amount_minor: number;
+    currency: "eur" | "gbp";
+    charged_at: string | null;
+    failure_reason: string | null;
+    refunded_at: string | null;
+    refund_reason: "waived" | "made_good" | null;
+    gyms: { name: string } | { name: string }[] | null;
+  }>;
+
+  const feesHeldMinor: MoneyByCurrency = { eur: 0, gbp: 0 };
+  const mapped: TrialFeeRow[] = feeRows.map((fee) => {
+    if (fee.charged_at && !fee.refunded_at) {
+      feesHeldMinor[fee.currency] += fee.amount_minor;
+    }
+    const gym = Array.isArray(fee.gyms) ? fee.gyms[0] : fee.gyms;
+    return {
+      id: fee.id,
+      gymName: gym?.name ?? "Unknown gym",
+      step: fee.step,
+      amountMinor: fee.amount_minor,
+      currency: fee.currency,
+      chargedAt: fee.charged_at,
+      failureReason: fee.failure_reason,
+      refundedAt: fee.refunded_at,
+      refundReason: fee.refund_reason,
+    };
+  });
+
+  return { running, converted, cancelled, fees: mapped, feesHeldMinor };
+}

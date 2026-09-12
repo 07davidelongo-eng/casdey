@@ -77,6 +77,23 @@ export function trialEnabledForNewSignups(): boolean {
 }
 
 /**
+ * Trial With Penalty (Track H): the free week takes a card, asks for a
+ * commitment, and bills a setup fee for steps left unfinished at day 7.
+ *
+ * Defaults OFF, unlike the two flags around it, and that asymmetry is the
+ * point. This one changes what happens to a real card at signup, so it ships
+ * dark and Davide turns it on deliberately once the live Stripe path has been
+ * walked end to end. With it off, signup behaves exactly as it did before:
+ * free week, no card, drop to Free.
+ *
+ * See src/lib/trial.ts for the mechanism and web/SAAS_V1_1_PLAN.md Track H
+ * for why it exists.
+ */
+export function trialPenaltyEnabled(): boolean {
+  return process.env.CASDEY_TRIAL_PENALTY === "true";
+}
+
+/**
  * V1/waitlist window: signups are flagged as early adopters and keep a lifetime
  * 20% discount whenever they upgrade. Flip to "false" in Vercel once V2 starts;
  * gyms already flagged keep their discount, new ones do not get one.

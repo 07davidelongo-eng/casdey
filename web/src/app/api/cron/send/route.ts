@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { drainQueue } from "@/lib/sender";
+import { runTrialJob } from "@/lib/trial-close";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,7 +9,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Drains the campaign send queue. Runs on a schedule, not from the UI.
+ * The daily job. Drains the campaign send queue, then closes out trials
+ * (nudges, conversions, setup fees, make-good refunds). Runs on a schedule,
+ * not from the UI.
  *
  * Locally:
  *   curl -X POST localhost:3000/api/cron/send -H "authorization: Bearer $CRON_SECRET"
@@ -34,17 +37,50 @@ async function run(request: NextRequest): Promise<Response> {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // The two jobs are run and reported separately, and neither can take the
+  // other down. Sending member email and closing out trials have nothing to do
+  // with each other; they share this route only because Vercel's Hobby plan
+  // caps how many cron schedules casdey may have (confirmed 2026-09-03), and a
+  // Stripe outage must not stop a gym's campaign going out.
+  const result: {
+    ok: boolean;
+    send?: unknown;
+    trials?: unknown;
+    errors: string[];
+  } = { ok: true, errors: [] };
+
   try {
     const report = await drainQueue();
     if (report.sent > 0 || report.failed > 0) {
       console.log("[cron] send", JSON.stringify(report));
     }
-    return Response.json({ ok: true, ...report });
+    result.send = report;
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     console.error("[cron] send failed", detail);
-    return Response.json({ ok: false, error: detail }, { status: 500 });
+    result.ok = false;
+    result.errors.push(`send: ${detail}`);
   }
+
+  try {
+    // Nudges, conversions, setup fees and make-good refunds. Returns an empty
+    // report and touches nothing while CASDEY_TRIAL_PENALTY is off.
+    const trials = await runTrialJob();
+    if (
+      trials.converted + trials.charged + trials.nudged + trials.madeGood >
+      0
+    ) {
+      console.log("[cron] trials", JSON.stringify(trials));
+    }
+    result.trials = trials;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("[cron] trial job failed", detail);
+    result.ok = false;
+    result.errors.push(`trials: ${detail}`);
+  }
+
+  return Response.json(result, { status: result.ok ? 200 : 500 });
 }
 
 export const GET = run;

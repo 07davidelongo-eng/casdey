@@ -12,6 +12,7 @@ import {
   TRIAL_DAYS,
   earlyAdopterProgramActive,
   trialEnabledForNewSignups,
+  trialPenaltyEnabled,
 } from "@/lib/plan";
 
 export type OnboardingState = { error: string | null };
@@ -87,10 +88,19 @@ export async function createGymAction(
     // the V1 flags. No card is taken: the trial is casdey's to give, and the
     // account simply drops to Free when it ends. In V2 (trial flag off) a new
     // gym starts on Free straight away.
+    //
+    // Under Trial With Penalty (Track H) the week is NOT granted here. The
+    // card is the commitment, so the week it buys cannot start before the
+    // card exists: /app/onboarding/trial takes the €1 and recordTrialCard()
+    // sets trial_ends_at then. A gym that abandons that step lands on Free,
+    // which still imports and still shows who has gone quiet, so nothing it
+    // was promised is withheld.
     const trialEnabled = trialEnabledForNewSignups();
-    const trialEndsAt = trialEnabled
-      ? new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString()
-      : null;
+    const cardFirst = trialPenaltyEnabled();
+    const trialEndsAt =
+      trialEnabled && !cardFirst
+        ? new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString()
+        : null;
 
     await supabaseAdmin()
       .from("gyms")
@@ -105,7 +115,7 @@ export async function createGymAction(
       actorId: session.userId,
       actorEmail: session.email,
       action: "gym.created",
-      meta: { country, trial: trialEnabled },
+      meta: { country, trial: trialEnabled, card_first: cardFirst },
     });
 
     // gymId, not the signed-in email: everything a gym does from here on
@@ -115,7 +125,8 @@ export async function createGymAction(
     await captureServerEvent(gymId, "gym_signed_up", { country });
   }
 
-  // Straight into the product. The free week is already running; upgrading to
-  // Premium happens later, from billing, when they hit the Free plan's limits.
-  redirect("/app?welcome=1");
+  // Under Trial With Penalty the week has not started yet: step 2 takes the
+  // €1 and the commitment. Otherwise straight into the product, where the
+  // free week is already running.
+  redirect(trialPenaltyEnabled() ? "/app/onboarding/trial" : "/app?welcome=1");
 }

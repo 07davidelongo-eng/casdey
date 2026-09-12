@@ -6,6 +6,8 @@ import { z } from "zod";
 import { requireOwner } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
+import { hasPricedServices } from "@/lib/revenue";
+import { stampActivation } from "@/lib/trial-activation";
 import { BILLING_PERIODS } from "@/lib/services";
 
 export type ServicesState = { error: string | null; saved: boolean };
@@ -139,6 +141,15 @@ export async function saveServices(
     action: "gym.services_updated",
     meta: { count: submitted.length },
   });
+
+  // Second trial activation step (Track H). Gated on a service that is
+  // actually priced and active, which is what hasPricedServices() asks and
+  // what the revenue estimate needs: a row with a price of zero prices
+  // nothing, and stamping on it would let a gym skip the step by saving an
+  // empty form.
+  if (await hasPricedServices(client, gym.id)) {
+    await stampActivation(gym.id, "prices");
+  }
 
   revalidatePath("/app/settings/services");
   return { error: null, saved: true };

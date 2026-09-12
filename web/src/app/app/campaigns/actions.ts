@@ -8,6 +8,7 @@ import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
 import { captureServerEvent } from "@/lib/posthog-server";
+import { stampActivation } from "@/lib/trial-activation";
 import { atRiskRuleFor, ruleFor } from "@/lib/lapse";
 import { gymReasons } from "@/lib/reasons";
 import {
@@ -617,6 +618,10 @@ export async function approveCampaignAction(
     audience_size: audience.length,
   });
 
+  // The third trial activation step (Track H). Approving is the one that
+  // counts: a drafted campaign has not reached anybody.
+  await stampActivation(gym.id, "campaign");
+
   revalidatePath("/app", "layout");
   return { error: null };
 }
@@ -705,6 +710,10 @@ async function approveWhatsAppCampaign(
     sent: report.sent,
     failed: report.failed,
   });
+
+  // The third trial activation step (Track H). Approving is the one that
+  // counts: a drafted campaign has not reached anybody.
+  await stampActivation(gym.id, "campaign");
 
   revalidatePath("/app", "layout");
   return { error: null };

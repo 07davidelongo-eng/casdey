@@ -1,4 +1,6 @@
 import { requireAdmin } from "@/lib/admin";
+import { trialPenaltyEnabled } from "@/lib/plan";
+import { waiveTrialPenaltyAction } from "./actions";
 import {
   activationFunnel,
   churnSummary,
@@ -12,6 +14,7 @@ import {
   revenueCollected,
   subscriptionHealth,
   testAndDev,
+  trialSummary,
   type MoneyByCurrency,
 } from "@/lib/admin-stats";
 import {
@@ -109,6 +112,7 @@ export default async function AdminPage(props: PageProps<"/admin">) {
     referrers,
     countries,
     devices,
+    trials,
   ] = await Promise.all([
     planBreakdown(),
     mrr(),
@@ -127,6 +131,7 @@ export default async function AdminPage(props: PageProps<"/admin">) {
     topReferrers(days),
     topCountries(days),
     deviceMix(days),
+    trialSummary(gymIds),
   ]);
 
   const posthogOn = posthogConfigured();
@@ -627,6 +632,108 @@ export default async function AdminPage(props: PageProps<"/admin">) {
           )}
         </Card>
       </Section>
+
+      {/* -------------------------------------------------- Trials */}
+      {trialPenaltyEnabled() ? (
+        <Section
+          title="Free weeks"
+          sub={`Trial With Penalty (Track H). ${trials.running.length} running · ${trials.converted} converted · ${trials.cancelled} cancelled. Held in setup fees: ${money(trials.feesHeldMinor)}.`}
+        >
+          <Card className="mb-4">
+            {trials.running.length === 0 ? (
+              <p className="text-[0.8125rem] text-stone">
+                No free weeks running.
+              </p>
+            ) : (
+              <ul className="divide-y divide-ash">
+                {trials.running.map((trial) => (
+                  <li
+                    key={trial.gymId}
+                    className="flex flex-wrap items-baseline justify-between gap-2 py-3 first:pt-0 last:pb-0"
+                  >
+                    <span className="text-[0.9375rem] font-medium text-ink">
+                      {trial.gymName}
+                      {trial.committed ? (
+                        <span className="ml-2 text-[0.75rem] text-stone">
+                          committed
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-[0.8125rem] text-stone">
+                      {trial.cancelled
+                        ? "cancelled, owes nothing"
+                        : trial.outstanding.length === 0
+                          ? "set up, converts at day 7"
+                          : `outstanding: ${trial.outstanding.join(", ")}`}
+                      {" · "}
+                      <span className="literal">
+                        {trial.daysLeft == null
+                          ? "week over"
+                          : `${trial.daysLeft}d left`}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card>
+            <CardTitle>Setup fees</CardTitle>
+            {/* Shown so they get waived. The mechanism is designed for a fee
+                that never fires, and a fee nobody looks at is a fee nobody
+                gives back. */}
+            {trials.fees.length === 0 ? (
+              <p className="text-[0.8125rem] text-stone">
+                None charged. That is the target, not a gap.
+              </p>
+            ) : (
+              <ul className="divide-y divide-ash">
+                {trials.fees.map((fee) => (
+                  <li
+                    key={fee.id}
+                    className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                  >
+                    <span className="text-[0.875rem]">
+                      <span className="font-medium text-ink">
+                        {fee.gymName}
+                      </span>{" "}
+                      <span className="text-stone">{fee.step}</span>{" "}
+                      <span className="literal">
+                        {formatMoney(fee.amountMinor, fee.currency)}
+                      </span>
+                      {fee.refundedAt ? (
+                        <span className="ml-2 text-[0.75rem] text-stone">
+                          refunded (
+                          {fee.refundReason === "waived"
+                            ? "waived"
+                            : "made good"}
+                          )
+                        </span>
+                      ) : fee.failureReason ? (
+                        <span className="ml-2 text-[0.75rem] text-stone">
+                          card declined, not chased
+                        </span>
+                      ) : null}
+                    </span>
+                    {!fee.refundedAt ? (
+                      <form action={waiveTrialPenaltyAction}>
+                        <input type="hidden" name="feeId" value={fee.id} />
+                        <button
+                          type="submit"
+                          className="text-[0.8125rem] text-teal underline underline-offset-2 hover:no-underline"
+                        >
+                          {fee.chargedAt ? "Refund and waive" : "Waive"}
+                        </button>
+                      </form>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </Section>
+      ) : null}
 
       {/* -------------------------------------------------- Test & dev */}
       <Section

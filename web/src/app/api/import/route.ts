@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireActiveGym } from "@/lib/dal";
 import { supabaseAdmin } from "@/lib/supabase";
 import { recordAudit } from "@/lib/audit";
+import { stampActivation } from "@/lib/trial-activation";
 import { decodeCsv, headerOffset, normalizeRow } from "@/lib/ingestion/csv";
 import { applyImportCap } from "@/lib/ingestion/cap";
 import { recordImportEvents, upsertMembers } from "@/lib/ingestion/upsert";
@@ -325,6 +326,12 @@ export async function POST(request: NextRequest): Promise<Response> {
       returned,
     },
   });
+
+  // First trial activation step (Track H). Only when rows actually landed:
+  // an import that imported nothing has not activated anybody.
+  if (result.imported + result.updated > 0) {
+    await stampActivation(gym.id, "import");
+  }
 
   return Response.json({
     ok: true,

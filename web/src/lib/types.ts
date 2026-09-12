@@ -126,6 +126,26 @@ export type Gym = {
   plan_currency: "gbp" | "eur" | null;
   plan_interval: "month" | "year" | null;
   trial_ends_at: string | null;
+  /* Trial With Penalty (Track H, migration 0038). All null for a gym that
+   * signed up before it, and for every gym while CASDEY_TRIAL_PENALTY is off.
+   * The logic that reads these lives in src/lib/trial.ts. */
+  /** The €1 landed and a reusable card is saved. Null means nothing to charge. */
+  trial_card_setup_at: string | null;
+  trial_payment_method_id: string | null;
+  /** The gym said it would stay on if casdey works. */
+  trial_commitment_at: string | null;
+  /** Opted out during the week. Owes no setup fee, however little was set up. */
+  trial_cancelled_at: string | null;
+  trial_converted_at: string | null;
+  /** The day-7 job is done with this trial, whatever the outcome. The
+   *  idempotency guard: without it a re-run would bill the fees twice. */
+  trial_closed_at: string | null;
+  trial_last_nudge_day: number | null;
+  /** The three activation steps. Read alongside the live state, never instead
+   *  of it, so a missed stamp cannot cost a gym money. */
+  activated_import_at: string | null;
+  activated_prices_at: string | null;
+  activated_campaign_at: string | null;
   current_period_end: string | null;
   /** When a cancelled subscription ends. Null means it renews as normal. */
   cancels_at: string | null;
@@ -425,4 +445,27 @@ export type Booking = {
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+/**
+ * A setup fee for a trial step a gym never finished (Track H, migration 0038).
+ *
+ * Not revenue: see the header of src/lib/trial.ts. A row with charged_at null
+ * and failure_reason set is an attempted charge that Stripe declined, which is
+ * deliberately not chased.
+ */
+export type TrialPenalty = {
+  id: string;
+  gym_id: string;
+  step: "import" | "prices" | "campaign";
+  amount_minor: number;
+  currency: "eur" | "gbp";
+  stripe_payment_intent_id: string | null;
+  charged_at: string | null;
+  failure_reason: string | null;
+  refunded_at: string | null;
+  /** waived: a human decided not to charge it. made_good: the gym finished the
+   *  step within MAKE_GOOD_DAYS and it came back automatically. */
+  refund_reason: "waived" | "made_good" | null;
+  created_at: string;
 };
