@@ -47,13 +47,22 @@ the artifact this skill maintains for how that's wired.
 
 2. **Numbers** (product + revenue + traffic) — `web/scripts/check-up-numbers.mjs`
    (`npm run checkup:numbers`). Three sources in one script:
-   - **Supabase**, over `SUPABASE_DB_URL` via `pg`: gyms (real vs
-     `is_internal`, paying, trialing, new this week, tier split), product
+   - **Supabase**, over the REST API (`@supabase/supabase-js`,
+     `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — same as `supabaseAdmin()`
+     in `src/lib/supabase.ts`), **not** a direct `pg` connection: gyms (real
+     vs `is_internal`, paying, trialing, new this week, tier split), product
      usage (members, returned, approved campaigns, messages sent, bookings,
      revenue recovered), and the waitlist count. Always filter `is_internal`
      out of anything presented as a real business number — see
      `admin-stats.ts` for why that flag exists (2026-09-08, `0035`/`0036`:
      `/admin` was once counting internal test gyms as paying customers).
+     **Why REST and not `pg`:** the first version connected straight to the
+     Postgres pooler (`SUPABASE_DB_URL`) and worked locally, but the weekly
+     routine's cloud sandbox timed out on that raw TCP connection every
+     time (found 2026-09-12) — its network proxy only carries HTTPS-shaped
+     traffic, which is also why Stripe and PostHog (both plain HTTPS APIs)
+     worked from the same sandbox without issue. Switching to Supabase's own
+     REST API fixed it outright, no sandbox networking change needed.
    - **Stripe** (live key, `STRIPE_SECRET_KEY_LIVE`): active/trialing
      subscription counts and an approximate MRR (price unit amount,
      annual ÷ 12, coupon applied — approximate, not the accounting figure).
@@ -153,6 +162,15 @@ env var on whichever cloud environment the routine uses — a path
 never arrives, `RemoteTrigger action:"list_runs"` then `get_run_log` on it
 first — a missing env var on the routine's environment is the most likely
 failure, not a bug in the scripts.
+
+**Confirmed working end to end, 2026-09-12.** The `casdey-Outreach`
+environment (`env_016U3DW3QNJS1t7AyukzK5RN`) now carries all of
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY_LIVE`,
+`POSTHOG_PROJECT_ID`, `POSTHOG_PERSONAL_API_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`,
+on top of the `ZOHO_*`/`GOOGLE_SERVICE_ACCOUNT_JSON` it already had, plus a
+Setup script (`cd web && npm ci`) so `node_modules` exists before the skill's
+own steps run. A live routine run that morning confirmed all four sections
+populate with real data and the email sends cleanly.
 
 ## What this deliberately does not do
 

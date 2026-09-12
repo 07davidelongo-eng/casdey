@@ -10,10 +10,20 @@
  * (this script is standalone rather than importing them because those are
  * server-only Next.js modules wired for the request lifecycle, not a plain
  * node run).
+ *
+ * Supabase access is the REST API (via @supabase/supabase-js), not a direct
+ * `pg` connection to the Postgres pooler, even though a local run has both
+ * available. Found live, 2026-09-12: the weekly routine's cloud sandbox only
+ * lets HTTPS-shaped traffic out through its proxy, so a raw Postgres
+ * connection on port 5432 timed out every time, credentials or not, while
+ * Stripe and PostHog (both plain HTTPS APIs) worked from the same sandbox
+ * without issue. The REST API is the same casdey.com/app uses
+ * (src/lib/supabase.ts's supabaseAdmin()) and needs SUPABASE_URL +
+ * SUPABASE_SERVICE_ROLE_KEY, not SUPABASE_DB_URL.
  */
 
 import fs from "node:fs";
-import pg from "pg";
+import { createClient } from "@supabase/supabase-js";
 
 // process.env first (how a cloud routine gets its secrets — no .env.local
 // exists there), .env.local as the local-dev fallback.
@@ -27,51 +37,96 @@ function env(name) {
   return m ? m[1].trim() : undefined;
 }
 
-// ---------- Supabase ----------
+// ---------- Supabase (REST, not a direct pg connection — see header) ----------
 // Degrades to null (with a reason), same as stripeSnapshot/postHogSnapshot
-// below, rather than a bare crash — an unset SUPABASE_DB_URL used to surface
-// as a bare ECONNREFUSED on 127.0.0.1:5432 (pg's default when the
-// connection string is undefined), which said nothing about the real cause.
+// below, rather than a bare crash.
 async function supabaseSnapshot() {
-  const dbUrl = env("SUPABASE_DB_URL");
-  if (!dbUrl) return { error: "SUPABASE_DB_URL is not set" };
-
-  const db = new pg.Client({ connectionString: dbUrl });
-  try {
-    await db.connect();
-  } catch (e) {
-    return { error: `SUPABASE_DB_URL set but connect failed: ${e.message}` };
+  const url = env("SUPABASE_URL");
+  const key = env("SUPABASE_SERVICE_ROLE_KEY") ?? env("SUPABASE_SECRET_KEY");
+  if (!url || !key) {
+    return { error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set" };
   }
-  const q = async (sql) => (await db.query(sql)).rows;
+
+  const supabase = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   try {
-    const [gymTotals] = await q(`
-      select
-        count(*) filter (where not is_internal) as real_gyms,
-        count(*) filter (where is_internal) as internal_gyms,
-        count(*) filter (where not is_internal and subscription_status = 'active') as paying,
-        count(*) filter (where not is_internal and trial_ends_at > now() and subscription_status <> 'active') as trialing,
-        count(*) filter (where not is_internal and plan_tier = 'standard' and subscription_status = 'active') as standard_paying,
-        count(*) filter (where not is_internal and plan_tier = 'pro' and subscription_status = 'active') as pro_paying,
-        count(*) filter (where not is_internal and created_at > now() - interval '7 days') as new_this_week
-      from gyms
-    `);
+    const { data: gyms, error: gymsError } = await supabase
+      .from("gyms")
+      .select("id, is_internal, subscription_status, trial_ends_at, plan_tier, created_at");
+    if (gymsError) throw new Error(`gyms: ${gymsError.message}`);
 
-    const [productTotals] = await q(`
-      select
-        (select count(*) from members m join gyms g on g.id = m.gym_id where not g.is_internal and not m.is_test) as members,
-        (select count(*) from members m join gyms g on g.id = m.gym_id where not g.is_internal and not m.is_test and m.status = 'returned') as returned,
-        (select count(*) from campaigns c join gyms g on g.id = c.gym_id where not g.is_internal and c.approved_at is not null) as campaigns_approved,
-        (select count(*) from campaign_messages cm join gyms g on g.id = cm.gym_id where not g.is_internal and cm.status = 'sent') as messages_sent,
-        (select count(*) from bookings b join gyms g on g.id = b.gym_id where not g.is_internal and b.status <> 'cancelled') as bookings,
-        (select coalesce(sum(b.value_minor), 0) from bookings b join gyms g on g.id = b.gym_id where not g.is_internal and b.status in ('booked','completed')) as revenue_recovered_minor
-    `);
+    const now = Date.now();
+    const weekAgo = now - 7 * 86_400_000;
+    const real = gyms.filter((g) => !g.is_internal);
 
-    const [waitlist] = await q(`select count(*) as n from waitlist_signups`);
+    const gymTotals = {
+      real_gyms: real.length,
+      internal_gyms: gyms.length - real.length,
+      paying: real.filter((g) => g.subscription_status === "active").length,
+      trialing: real.filter(
+        (g) =>
+          g.subscription_status !== "active" &&
+          g.trial_ends_at &&
+          Date.parse(g.trial_ends_at) > now,
+      ).length,
+      standard_paying: real.filter(
+        (g) => g.plan_tier === "standard" && g.subscription_status === "active",
+      ).length,
+      pro_paying: real.filter(
+        (g) => g.plan_tier === "pro" && g.subscription_status === "active",
+      ).length,
+      new_this_week: real.filter((g) => Date.parse(g.created_at) > weekAgo).length,
+    };
 
-    return { gyms: gymTotals, product: productTotals, waitlist: waitlist.n };
-  } finally {
-    await db.end();
+    const gymIds = real.map((g) => g.id);
+    let productTotals = {
+      members: 0,
+      returned: 0,
+      campaigns_approved: 0,
+      messages_sent: 0,
+      bookings: 0,
+      revenue_recovered_minor: 0,
+    };
+
+    if (gymIds.length > 0) {
+      const [membersRes, campaignsRes, messagesRes, bookingsRes] = await Promise.all([
+        supabase.from("members").select("status, is_test").in("gym_id", gymIds),
+        supabase.from("campaigns").select("approved_at").in("gym_id", gymIds),
+        supabase.from("campaign_messages").select("status").in("gym_id", gymIds),
+        supabase.from("bookings").select("status, value_minor").in("gym_id", gymIds),
+      ]);
+      for (const [label, res] of [
+        ["members", membersRes],
+        ["campaigns", campaignsRes],
+        ["messages", messagesRes],
+        ["bookings", bookingsRes],
+      ]) {
+        if (res.error) throw new Error(`${label}: ${res.error.message}`);
+      }
+
+      const realMembers = (membersRes.data ?? []).filter((m) => !m.is_test);
+      productTotals = {
+        members: realMembers.length,
+        returned: realMembers.filter((m) => m.status === "returned").length,
+        campaigns_approved: (campaignsRes.data ?? []).filter((c) => c.approved_at).length,
+        messages_sent: (messagesRes.data ?? []).filter((m) => m.status === "sent").length,
+        bookings: (bookingsRes.data ?? []).filter((b) => b.status !== "cancelled").length,
+        revenue_recovered_minor: (bookingsRes.data ?? [])
+          .filter((b) => b.status === "booked" || b.status === "completed")
+          .reduce((sum, b) => sum + (b.value_minor ?? 0), 0),
+      };
+    }
+
+    const { count: waitlistCount, error: waitlistError } = await supabase
+      .from("waitlist_signups")
+      .select("id", { count: "exact", head: true });
+    if (waitlistError) throw new Error(`waitlist: ${waitlistError.message}`);
+
+    return { gyms: gymTotals, product: productTotals, waitlist: waitlistCount ?? 0 };
+  } catch (e) {
+    return { error: `Supabase REST query failed: ${e.message}` };
   }
 }
 
