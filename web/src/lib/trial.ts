@@ -319,3 +319,34 @@ export function trialDayNumber(
   const day = Math.floor(elapsed / 86_400_000) + 1;
   return day > TRIAL_DAYS ? null : day;
 }
+
+/**
+ * What the gym will be charged when the week converts, and what that figure is
+ * before any discount.
+ *
+ * Both numbers, deliberately. The in-app screens used to show only the charged
+ * amount, which for an early adopter is a number like 231.20 that appears from
+ * nowhere: it is neither the advertised price nor a round figure, so it reads
+ * as arbitrary. Worse, it silently throws away the good news. A gym holding a
+ * permanent 20% discount should be told it is holding one, at the two moments
+ * it is looking at the price.
+ *
+ * Found by Davide walking the live signup on 2026-09-12: "it mentions the
+ * 231.20 without saying that it is actually because they're taking advantage
+ * of the early user discount".
+ */
+export function conversionPricing(
+  currency: Currency,
+  earlyAdopter: boolean,
+): { listMinor: number; chargedMinor: number; discounted: boolean } | null {
+  const plan = findPricePlan("pro", currency, "month");
+  if (!plan) return null;
+  const charged = earlyAdopter
+    ? Math.round((plan.amountMinor * (100 - EARLY_ADOPTER_DISCOUNT_PERCENT)) / 100)
+    : plan.amountMinor;
+  return {
+    listMinor: plan.amountMinor,
+    chargedMinor: charged,
+    discounted: earlyAdopter && charged !== plan.amountMinor,
+  };
+}

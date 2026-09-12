@@ -200,9 +200,16 @@ export function AuthForm({
             </>
           ) : (
             <>
+              {/* "Open it and you are in" left out the part that matters:
+                  which device. The link carries a one-time code that is
+                  exchanged for a session in whichever browser opens it, so
+                  confirming on a phone signs you in on the phone and leaves
+                  this tab sitting there. Found by Davide on the live signup,
+                  2026-09-12. */}
               We sent a link to{" "}
-              <span className="literal text-ink">{message}</span>. Open it and
-              you are in.
+              <span className="literal text-ink">{message}</span>. Open it on
+              this device and you are in. Opening it on your phone signs you in
+              there instead.
             </>
           )}{" "}
           It can take a minute, and it sometimes lands in spam.

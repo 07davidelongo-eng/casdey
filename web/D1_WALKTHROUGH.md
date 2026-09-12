@@ -1035,3 +1035,60 @@ then redeploy, because env vars are read at build time.
 changing it in some places and not others leaves the assistant answering
 nobody, silently, exactly as personalisation has been failing silently until
 now.
+
+---
+
+## Live paid-week run, 2026-09-12
+
+The first walk of the real signup with `CASDEY_PAID_TRIAL` on in production and
+a real card. Three findings, recorded verbatim as always.
+
+**The run itself passed.** Live Stripe: 1 euro EUR, `succeeded`,
+`setup_future_usage: off_session`, customer attached, 18:04:07Z. Database: card
+saved, payment method stored, commitment recorded, `trial_ends_at` 2026-09-19.
+Note the bank did **not** prompt for 3-D Secure, so the fix for the
+`incomplete`-subscription hole is still unexercised; the conversion charge is
+the next chance to hit it.
+
+### 71. "the email for the confirmation from casdey doesn't have a logo"
+
+**Open, and not a code change.** The signup confirmation is sent by Supabase
+Auth, whose template lives in the Supabase dashboard rather than in this repo,
+so nothing here controls it. Two things it needs before it can carry a mark:
+casdey's logo is drawn in code as SVG (`src/components/wordmark.tsx`) and many
+mail clients refuse SVG, so it needs a PNG at a stable URL; and the template
+itself has to be replaced by hand in Auth, Email Templates.
+
+Worth flagging against a rule that looks like it conflicts but does not: cold
+outreach is deliberately plain text with no logo, for spam reasons. That rule is
+about unsolicited mail to strangers. A confirmation the recipient just asked for
+is a different thing and can look like the brand.
+
+### 72. "when I click to confirm the email, the account signs in into my phone where I clicked the confirmation instead of the browser I was using"
+
+**Expected behaviour, badly set up.** The link carries a one-time code that
+`/auth/callback` exchanges for a session in whichever browser opens it. There is
+no mechanism by which opening it on a phone could sign in a desktop tab. The
+fault was the copy: "Open it and you are in" never said which device.
+
+**Fixed** in `src/components/app/auth-form.tsx`: the screen now says to open it
+on this device and states plainly that opening it on a phone signs you in there
+instead.
+
+The deeper version, not built and a design decision rather than a bug fix: the
+original tab could poll for confirmation and advance once the address is
+confirmed anywhere. That needs an endpoint answering "is this address confirmed
+yet", which is an account-enumeration surface unless it is gated by a token
+minted at signup. Worth doing only if this trips real gyms.
+
+### 73. "it mentions the 231.20... without saying that it is actually because they're taking advantage of the early user discount... same thing also after paying"
+
+**Fixed, and it was introduced the same afternoon.** When the offer panel moved
+to the list price, the in-app screens kept showing the charged figure alone. For
+an early adopter that is a number like 231.20 which is neither the advertised
+price nor a round one, so it reads as arbitrary, and it silently throws away the
+good news: a gym holding a permanent discount was never told it held one.
+
+`conversionPricing()` in `src/lib/trial.ts` now returns the list price and the
+charged price, and all three surfaces name both: the signup page, the terms
+checkbox that is actually being agreed to, and the in-app week panel.

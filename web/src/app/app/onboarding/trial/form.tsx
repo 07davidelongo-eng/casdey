@@ -22,10 +22,15 @@ import { Button } from "@/components/app/ui";
 export function TrialStartForm({
   price,
   monthly,
+  list,
   error,
 }: {
   price: string;
   monthly: string | null;
+  /** The undiscounted monthly price, or null when the gym is paying it. The
+   *  terms have to name the rate being agreed to AND where it came from, or
+   *  the figure looks arbitrary and the discount goes unnoticed. */
+  list: string | null;
   error: string | null;
 }) {
   const id = useId();
@@ -78,6 +83,14 @@ export function TrialStartForm({
             <>
               {" "}
               at <span className="literal">{monthly}</span> a month
+              {list ? (
+                <>
+                  {" "}
+                  (the launch rate, down from{" "}
+                  <span className="literal">{list}</span>, for as long as I
+                  stay)
+                </>
+              ) : null}
             </>
           ) : null}{" "}
           until I cancel. If I cancel during the week I pay nothing beyond

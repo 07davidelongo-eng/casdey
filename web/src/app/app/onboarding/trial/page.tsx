@@ -8,7 +8,7 @@ import {
   ACTIVATION_LABELS,
   ACTIVATION_STEPS,
   TRIAL_PRICE_MINOR,
-  conversionAmountMinor,
+  conversionPricing,
 } from "@/lib/trial";
 import { TrialStartForm } from "./form";
 
@@ -41,8 +41,12 @@ export default async function TrialStartPage(
 
   const currency = currencyFor(gym.country);
   const price = formatMoney(TRIAL_PRICE_MINOR, currency);
-  const after = conversionAmountMinor(currency, gym.early_adopter);
-  const monthly = after == null ? null : formatMoney(after, currency);
+  const pricing = conversionPricing(currency, gym.early_adopter);
+  const monthly =
+    pricing == null ? null : formatMoney(pricing.chargedMinor, currency);
+  const list =
+    pricing == null ? null : formatMoney(pricing.listMinor, currency);
+  const discounted = pricing?.discounted ?? false;
 
   const error = typeof params.error === "string" ? params.error : null;
 
@@ -56,6 +60,16 @@ export default async function TrialStartPage(
         subscription{monthly ? ` at ${monthly} a month` : ""}, and you can
         cancel any time during the week without paying it.
       </p>
+      {discounted ? (
+        /* Without this the charged figure reads as arbitrary: it is neither
+           the advertised price nor a round number. Saying where it comes from
+           also stops casdey quietly giving away a discount nobody notices. */
+        <p className="-mt-6 mb-8 text-[0.875rem] text-stone">
+          Pro is <span className="literal">{list}</span> a month. Yours is{" "}
+          <span className="literal">{monthly}</span> because you joined during
+          the launch window, and it stays that way for as long as you do.
+        </p>
+      ) : null}
 
       <div className="card mb-6 p-6">
         <h2 className="mb-1 text-[1.0625rem] font-semibold">
@@ -78,7 +92,12 @@ export default async function TrialStartPage(
         </ol>
       </div>
 
-      <TrialStartForm price={price} monthly={monthly} error={error} />
+      <TrialStartForm
+        price={price}
+        monthly={monthly}
+        list={discounted ? list : null}
+        error={error}
+      />
 
       <p className="mt-5 text-[0.8125rem] text-stone">
         Card details go straight to Stripe. casdey never sees them.

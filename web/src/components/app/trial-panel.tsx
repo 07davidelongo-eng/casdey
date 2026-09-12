@@ -8,7 +8,7 @@ import { TRIAL_DAYS, trialDaysLeft } from "@/lib/plan";
 import {
   ACTIVATION_LABELS,
   TRIAL_PRICE_MINOR,
-  conversionAmountMinor,
+  conversionPricing,
   type StepState,
 } from "@/lib/trial";
 import type { Gym } from "@/lib/types";
@@ -39,8 +39,11 @@ export function TrialPanel({ gym, steps }: { gym: Gym; steps: StepState[] }) {
   const currency = currencyFor(gym.country);
   const outstanding = steps.filter((s) => !s.done);
   const price = formatMoney(TRIAL_PRICE_MINOR, currency);
-  const after = conversionAmountMinor(currency, gym.early_adopter);
-  const monthly = after == null ? null : formatMoney(after, currency);
+  const pricing = conversionPricing(currency, gym.early_adopter);
+  const monthly =
+    pricing == null ? null : formatMoney(pricing.chargedMinor, currency);
+  const list =
+    pricing == null ? null : formatMoney(pricing.listMinor, currency);
 
   // Not started: the card was never taken, so no week is running.
   if (!gym.trial_card_setup_at) {
@@ -97,6 +100,16 @@ export function TrialPanel({ gym, steps }: { gym: Gym; steps: StepState[] }) {
         ) : null}
         . Cancel any time before then and nothing else comes off your card.
       </p>
+
+      {/* The charged figure on its own reads as arbitrary, and it hides the
+          fact that the gym is holding a permanent discount. Both are worth a
+          line. */}
+      {pricing?.discounted ? (
+        <p className="mb-4 text-[0.875rem] text-stone">
+          Pro is <span className="literal">{list}</span>. You are on the launch
+          rate for as long as you stay subscribed.
+        </p>
+      ) : null}
 
       {outstanding.length > 0 ? (
         <>
