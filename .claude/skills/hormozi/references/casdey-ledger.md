@@ -227,3 +227,37 @@ a deliberate softening of Hormozi's "ship the offer" instinct in favour of not
 testing a payment path on a real customer. Worth revisiting the moment the live
 Stripe run is done, because the longer it sits off the more the diagnosis it came
 from goes unanswered.
+
+## 2026-09-12 — Track H is an activation fix, not monetisation friction. Do not reopen it on "add friction" grounds
+Framework: $100M Offers / "Create flow. Monetize flow. Then add friction."
+(sales-to-fulfilment continuum); $100M Money Models / Trial With Penalty
+Decision: recorded because a session reopened this and was wrong, and the same
+misreading is easy to repeat. While reporting Track H as built, Claude argued
+the flag should wait for lead volume, on the grounds that Hormozi puts friction
+after flow and casdey has one signup. Davide challenged it. Re-checked against
+the source, the objection does not survive:
+
+- **The maxim is about something else.** It sits in *$100M Offers* under the
+  sales-to-fulfilment continuum, in the trimming and stacking discussion. The
+  friction it defers is doing less per customer and tightening marketing once
+  demand already flows. Its own worked example argues the opposite of caution:
+  do MORE for each customer while cash is coming in. The V1.1 plan already
+  applies it correctly, to the "Deliberately not in V1.1" list (scarcity,
+  urgency, re-pricing, referrals, paid ads, a second channel). Track H is not
+  in that list and does not belong in it.
+- **The diagnosis had already placed Track H.** The 2026-09-10 entry puts the
+  binding constraint in leads, in two parts, and names the fatal drop as reply →
+  activation. Track H is move #2 on that list, the reply → activation path. It
+  was never classified as monetisation.
+- **The plan already contains the steelman and answers it.** Open questions:
+  "Does the €1 charge hurt signup rate?" The €1 *is* the mitigation (MM pg 129),
+  chosen precisely because a card ask on a free trial gets weird reactions. The
+  instinct that a card ask is too much friction at low volume is the exact
+  instinct that chapter exists to argue against.
+- **There is no trade-off with Track K.** Track H cannot touch BodyActive, who
+  signed up before it existed with no card on file. Turning it on costs the case
+  study nothing.
+Follows or diverges: **Follows.** The correction restores the 2026-09-10
+position; it does not change it. What remains gating the flag is a live Stripe
+run and the legal question, both real and neither about sequencing.
+Reason: source checked at `Alex Hormozi/100M-Offers.txt` rather than recalled.
